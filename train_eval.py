@@ -218,10 +218,7 @@ if __name__ == '__main__':
     now_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     tfboardwriter = SummaryWriter(log_dir=str(Path(cfg.OUTPUT_PATH) / 'tensorboard' / 'training_{}'.format(now_time)))
 
-    with DupStdoutFileManager(
-            str(Path(cfg.OUTPUT_PATH) / ('train_log_' + now_time + '.log')),
-            summary_writer=tfboardwriter
-    ) as _:
+    with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('train_log_' + now_time + '.log'))) as _:
         model = train_eval_model(model, criterion, optimizer, dataloader, tfboardwriter,
                                  num_epochs=cfg.TRAIN.NUM_EPOCHS,
                                  resume=cfg.TRAIN.START_EPOCH != 0,
