@@ -2,12 +2,11 @@ import sys
 
 
 class DupStdoutFileWriter(object):
-    def __init__(self, stdout, path, mode, summary_writer):
+    def __init__(self, stdout, path, mode):
         self.path = path
         self._content = ''
         self._stdout = stdout
         self._file = open(path, mode)
-        self._summary_writer = summary_writer
 
     def write(self, msg):
         while '\n' in msg:
@@ -24,8 +23,6 @@ class DupStdoutFileWriter(object):
         self._stdout.flush()
         self._file.write(self._content)
         self._file.flush()
-        if self._summary_writer is not None:
-            self._summary_writer.add_text('cmd', self._content)
         self._content = ''
 
     def __del__(self):
@@ -33,14 +30,13 @@ class DupStdoutFileWriter(object):
 
 
 class DupStdoutFileManager(object):
-    def __init__(self, path, mode='w+', summary_writer=None):
+    def __init__(self, path, mode='w+'):
         self.path = path
         self.mode = mode
-        self.summary_writer = summary_writer
 
     def __enter__(self):
         self._stdout = sys.stdout
-        self._file = DupStdoutFileWriter(self._stdout, self.path, self.mode, self.summary_writer)
+        self._file = DupStdoutFileWriter(self._stdout, self.path, self.mode)
         sys.stdout = self._file
 
     def __exit__(self, exc_type, exc_value, traceback):
