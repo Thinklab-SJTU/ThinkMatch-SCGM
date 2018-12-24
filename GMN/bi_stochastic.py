@@ -4,11 +4,10 @@ import torch.nn as nn
 
 class BiStochastic(nn.Module):
     """
-    BiStochastic Layer firstly reshape the input into matrix, and then turns the matrix into a bi-stochastic matrix.
+    BiStochastic Layer turns the input matrix into a bi-stochastic matrix.
     Parameter: maximum iterations max_iter
                a small number for numerical stability epsilon
-    Input: input vector v0
-           desired matrix shape shape
+    Input: input matrix s
     Output: bi-stochastic matrix s
     """
     def __init__(self, max_iter=10, epsilon=1e-4):
@@ -16,9 +15,8 @@ class BiStochastic(nn.Module):
         self.max_iter = max_iter
         self.epsilon = epsilon
 
-    def forward(self, v0, shape):
-        batch_size = v0.shape[0]
-        s = v0.view(batch_size, *shape[::-1]).transpose(1, 2)
+    def forward(self, s):
+        batch_size = s.shape[0]
         nonzero_mask = (s != 0).to(s.dtype)
 
         for i in range(self.max_iter):
