@@ -15,8 +15,6 @@ ori_anno_path = cfg.VOC2011.ROOT_DIR + 'Annotations'
 set_path = cfg.VOC2011.SET_SPLIT
 cache_path = cfg.CACHE_PATH
 
-#random.seed(0)
-
 
 class PascalVOC:
     def __init__(self, sets, obj_resize):
@@ -89,7 +87,6 @@ class PascalVOC:
     def get_pair(self, cls=None):
         """
         Randomly get a pair of objects from VOC-Berkeley keypoints dataset
-        :param idx: index, used for random seed
         :param cls: None for random class, or specify for a certain set
         :return: (pair of data, groundtruth permutation matrix)
         """

@@ -31,10 +31,8 @@ class Affinity(nn.Module):
         stdv = 1. / math.sqrt(self.lambda1.size(1) * 2)
         self.lambda1.data.uniform_(-stdv, stdv)
         self.lambda2.data.uniform_(-stdv, stdv)
-        self.lambda1.data += torch.eye(self.d) * 0.2
-        self.lambda2.data += torch.eye(self.d) * 0.2
-        #self.lambda1.data = torch.zeros(self.d, self.d)
-        #self.lambda2.data = torch.zeros(self.d, self.d)
+        self.lambda1.data += torch.eye(self.d)
+        self.lambda2.data += torch.eye(self.d)
 
     def forward(self, X, Y, Ux, Uy):
         assert X.shape[1] == Y.shape[1] == 2 * self.d

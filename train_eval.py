@@ -55,8 +55,6 @@ def train_eval_model(model,
                                           step_size=cfg.TRAIN.LR_STEP,
                                           gamma=cfg.TRAIN.LR_DECAY,
                                           last_epoch=cfg.TRAIN.START_EPOCH - 1)
-    #from utils.timer import Timer
-    #timer = Timer()
 
     for epoch in range(start_epoch, num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
@@ -72,11 +70,8 @@ def train_eval_model(model,
         running_since = time.time()
         iter_num = 0
 
-        #timer.tick()
-
         # Iterate over data.
         for inputs in dataloader['train']:
-            #print('-' * 10)
             img1, img2 = inputs['images']
             P1_gt, P2_gt, P1, P2 = inputs['Ps']
             n1_gt, n2_gt, n1, n2 = inputs['ns']
@@ -85,31 +80,15 @@ def train_eval_model(model,
             H1_gt, H2_gt, H1, H2 = inputs['Hs']
             KG, KH = inputs['Ks']
             perm_mat = inputs['gt_perm_mat']
-            #print('load data', timer.toc(True))
 
-            #print('ns =', n1_gt)
-            #print('cls=', cls[0])
-
-            #KG = recover_ssp(KG)
-            #KH = recover_ssp(KH)
-            #KG = CSRMatrix3d(KG, device=device)
-            #KH = CSRMatrix3d(KH, device=device)
-            #KH = KH.transpose()
-
-            #img1 = img1.cuda()
-            #img2 = img2.cuda()
             P1_gt = P1_gt.cuda()
             P2 = P2.cuda()
             n1_gt = n1_gt.cuda()
-            #n2 = n2.cuda()
             perm_mat = perm_mat.cuda()
             P2_gt = P2_gt.cuda()
-            #G1_gt, G2, H1_gt, H2 = G1_gt.cuda(), G2.cuda(), H1_gt.cuda(), H2.cuda()
             KG, KH = KG.cuda(), KH.cuda()
 
             iter_num = iter_num + img1.size(0)
-
-            #print('to device', timer.toc(True))
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -118,8 +97,6 @@ def train_eval_model(model,
                 # forward
                 s_pred, d_pred = model(img1, img2, P1_gt, P2, G1_gt, G2, H1_gt, H2, n1_gt, n2, KG, KH, tfboard_writer)
 
-                #print('forward', timer.toc(True))
-
                 d_gt, grad_mask = displacement(perm_mat, P1_gt, P2_gt, n1_gt)
                 loss = criterion(d_pred, d_gt, grad_mask)
 
@@ -127,13 +104,10 @@ def train_eval_model(model,
                 loss.backward()
                 optimizer.step()
 
-                #print('backward', timer.toc(True))
-
                 # training pck statistic
                 thres = torch.empty(img1.size(0), len(alphas)).cuda()
                 for b in range(img1.size(0)):
                     thres[b] = alphas * cfg.EVAL.PCK_L
-                #pck, _, __ = eval_pck(P2, P2_gt[:, 0:torch.max(n1_gt), :], s_pred, thres, n1_gt)
                 pck, _, __ = eval_pck(P2, P2_gt, s_pred, thres, n1_gt)
 
                 # tfboard writer
@@ -148,12 +122,15 @@ def train_eval_model(model,
                 running_loss += loss.item() * img1.size(0)
                 epoch_loss += loss.item() * img1.size(0)
 
-                #print('statics', timer.toc(True))
-
                 if iter_num % cfg.STATISTIC_STEP == 0:
                     running_speed = cfg.STATISTIC_STEP / (time.time() - running_since)
                     print('Epoch {:<4} Iteration {:<4} {:>4.2f}sample/s Loss={:<8.4f}'
                           .format(epoch, iter_num, running_speed, running_loss / cfg.STATISTIC_STEP))
+                    tfboard_writer.add_scalars(
+                        'speed',
+                        {'speed': running_speed},
+                        epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
+                    )
                     running_loss = 0.0
                     running_since = time.time()
 

@@ -40,9 +40,6 @@ class GMDataset(Dataset):
 
         n1_gt, n2_gt = len(P1_gt), len(P2_gt)
 
-        #for P in (P1_gt, P2_gt):
-        #    while len(P) < self.pad:
-        #        P.append((0, 0))
         P1_gt = np.array(P1_gt)
         P2_gt = np.array(P2_gt)
 
@@ -51,7 +48,6 @@ class GMDataset(Dataset):
                 transforms.Normalize(cfg.NORM_MEANS, cfg.NORM_STD)
                 ])
         imgs = [trans(img) for img in imgs]
-        #perm_mat = np.pad(perm_mat, ((0, self.pad - perm_mat.shape[0]),), 'constant', constant_values=0)
 
         # compute CPU-intensive matrix K1, K2 here to leverage multi-processing nature of dataloader
         P1 = P2 = make_grids((0, 0), cfg.PAIR.RESCALE, cfg.PAIR.CANDIDATE_SHAPE)
@@ -60,11 +56,6 @@ class GMDataset(Dataset):
         G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg='tri')#, n_pad=self.pad, edge_pad=self.epad)
         G1,    H1   , e1    = build_graphs(P1,    n1,    stg='fc')
         G2,    H2   , e2    = build_graphs(P2,    n2,    stg='fc')
-        #K1G = kronecker_sparse(G2, G1_gt)  # 1 as source graph, 2 as target graph
-        #K1H = kronecker_sparse(H2, H1_gt)
-
-        def pad_edge(inarr: np.ndarray, pad_len):
-            return np.pad(inarr, (0, pad_len - len(inarr)), 'constant', constant_values=0)
 
         return {'images': imgs,
                 'Ps': [torch.Tensor(x) for x in [P1_gt, P2_gt, P1, P2]],
@@ -73,10 +64,6 @@ class GMDataset(Dataset):
                 'gt_perm_mat': perm_mat,
                 'Gs': [torch.Tensor(x) for x in [G1_gt, G2_gt, G1, G2]],
                 'Hs': [torch.Tensor(x) for x in [H1_gt, H2_gt, H1, H2]]}
-                #'Ks': [{'col': x.col, #pad_edge(x.col, x.shape[1]),
-                #        'row': x.row, #pad_edge(x.row, x.shape[1]),
-                #        'data': x.data, #pad_edge(x.data, x.shape[1]),
-                #        'shape': torch.Tensor(x.shape)} for x in [K1G, K1H]]}
 
 
 def collate_fn(data: list):
@@ -149,7 +136,8 @@ def worker_init_fn(worker_id):
     """
     Init random seed for dataloader workers.
     """
-    random.seed(torch.initial_seed())
+    #random.seed(torch.initial_seed())
+    random.seed(cfg.RANDOM_SEED + worker_id)
 
 
 def get_dataloader(dataset):

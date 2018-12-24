@@ -51,11 +51,6 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
             H1_gt, H2_gt, H1, H2 = inputs['Hs']
 
             KG, KH = inputs['Ks']
-            #KG = recover_ssp(KG)
-            #KH = recover_ssp(KH)
-            #KG = CSRMatrix3d(KG, device=device)
-            #KH = CSRMatrix3d(KH, device=device)
-            #KH = KH.transpose()
 
             perm_mat = inputs['gt_perm_mat']
 
@@ -76,9 +71,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
             thres = torch.empty(batch_num, len(alphas), device=device)
             for b in range(batch_num):
-                # P_tgt[b] = P_tgt[b] * bound_tgt[b, 2:4] / 256 + bound_tgt[b, 0:2]
-                # P_tgt_gt[b] = P_tgt_gt[b] * bound_tgt[b, 2:4] / 256 + bound_tgt[b, 0:2]
-                thres[b] = alphas * cfg.EVAL.PCK_L  # torch.max(size_tgt[b])  # torch.sqrt(torch.sum(torch.pow(size_tgt[b], 2)))
+                thres[b] = alphas * cfg.EVAL.PCK_L
 
             with torch.set_grad_enabled(False):
                 s_pred, _ = model(img1, img2, P1_gt, P2, G1_gt, G2, H1_gt, H2, n1_gt, n2, KG, KH)
