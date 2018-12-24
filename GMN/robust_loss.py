@@ -30,7 +30,7 @@ class RobustLoss(nn.Module):
 
         xtx = torch.sum(x * x * mask, dim=-1)
         phi = torch.sqrt(xtx + self.epsilon)
-        loss = torch.sum(phi)# / d1.shape[0]
+        loss = torch.sum(phi) / d1.shape[0]
 
         return loss
 
