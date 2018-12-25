@@ -176,7 +176,7 @@ if __name__ == '__main__':
                      pad=cfg.PAIR.PADDING,
                      obj_resize=cfg.PAIR.RESCALE)
         for x in ('train', 'test')}
-    dataloader = {x: get_dataloader(image_dataset[x])
+    dataloader = {x: get_dataloader(image_dataset[x], fix_seed=(x == 'test'))
         for x in ('train', 'test')}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

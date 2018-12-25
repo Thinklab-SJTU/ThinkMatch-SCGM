@@ -132,17 +132,26 @@ def collate_fn(data: list):
     return ret
 
 
-def worker_init_fn(worker_id):
+def worker_init_fix(worker_id):
     """
-    Init random seed for dataloader workers.
+    Init dataloader workers with fixed seed.
     """
-    #random.seed(torch.initial_seed())
     random.seed(cfg.RANDOM_SEED + worker_id)
 
 
-def get_dataloader(dataset):
-    return torch.utils.data.DataLoader(dataset, batch_size=cfg.BATCH_SIZE, shuffle=False, num_workers=cfg.BATCH_SIZE,
-                                       collate_fn=collate_fn, worker_init_fn=worker_init_fn)
+def worker_init_rand(worker_id):
+    """
+    Init dataloader workers with torch.initial_seed().
+    torch.initial_seed() returns different seeds when called in different times.
+    """
+    random.seed(torch.initial_seed())
+
+
+def get_dataloader(dataset, fix_seed=True):
+    return torch.utils.data.DataLoader(
+        dataset, batch_size=cfg.BATCH_SIZE, shuffle=False, num_workers=cfg.BATCH_SIZE, collate_fn=collate_fn,
+        worker_init_fn=worker_init_fix if fix_seed else worker_init_rand
+    )
 
 
 if __name__ == '__main__':
