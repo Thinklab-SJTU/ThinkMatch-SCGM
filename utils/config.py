@@ -134,6 +134,9 @@ __C.CACHE_PATH = 'data/cache'
 __C.MODEL_NAME = ''
 __C.DATASET_NAME = ''
 
+# Module path of module
+__C.MODULE = ''
+
 # Output path (for checkpoints, running logs and visualization results)
 __C.OUTPUT_PATH = ''
 

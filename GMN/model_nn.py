@@ -2,12 +2,14 @@ import torch
 import torch.nn as nn
 from utils.feature_align import feature_align
 from utils.config import cfg
-from GMN.model import Net
+from GMN.model import Net as GMN_NET
 
 
-class NN_Net(Net):
+class Net(GMN_NET):
     def __init__(self):
-        super(NN_Net, self).__init__()
+        super(Net, self).__init__()
+        self.affinity_layer = None
+        self.power_iteration = None
 
     def forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, ns_src, ns_tgt, K_G, K_H,
                 summary_writer=None):
@@ -38,6 +40,8 @@ class NN_Net(Net):
         Y = torch.cat((U_tgt, F_tgt), dim=1)
 
         s = torch.matmul(X.transpose(1, 2), Y)
+        s = self.bi_stochastic(s)
+        s = self.voting_layer(s, ns_src)
 
-        d = self.displacement_layer(s, P_src, P_tgt)
+        d, _ = self.displacement_layer(s, P_src, P_tgt)
         return s, d

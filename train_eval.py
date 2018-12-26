@@ -7,7 +7,6 @@ from tensorboardX import SummaryWriter
 import scipy.sparse as ssp
 
 from data.data_loader import GMDataset, get_dataloader
-from GMN.model import Net
 from GMN.displacement_layer import Displacement
 from GMN.robust_loss import RobustLoss
 from utils.evaluation_metric import pck as eval_pck
@@ -165,6 +164,10 @@ if __name__ == '__main__':
     from utils.parse_args import parse_args
 
     args = parse_args('Deep learning of graph matching training & evaluation code.')
+
+    import importlib
+    mod = importlib.import_module(cfg.MODULE)
+    Net = mod.Net
 
     torch.manual_seed(cfg.RANDOM_SEED)
 

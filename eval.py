@@ -4,7 +4,6 @@ from datetime import datetime
 from pathlib import Path
 
 from data.data_loader import GMDataset, get_dataloader
-from GMN.model import Net
 from utils.evaluation_metric import pck
 from parallel import DataParallel
 from utils.model_sl import load_model
@@ -112,6 +111,10 @@ if __name__ == '__main__':
     from utils.parse_args import parse_args
 
     args = parse_args('Deep learning of graph matching evaluation code.')
+
+    import importlib
+    mod = importlib.import_module(cfg.MODULE)
+    Net = mod.Net
 
     torch.manual_seed(cfg.RANDOM_SEED)
 
