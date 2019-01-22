@@ -36,7 +36,6 @@ class Affinity(nn.Module):
 
     def forward(self, X, Y, Ux, Uy):
         assert X.shape[1] == Y.shape[1] == 2 * self.d
-        assert Ux.shape[1] == Uy.shape[1] == self.d
         lambda1 = self.relu(self.lambda1)
         lambda2 = self.relu(self.lambda2)
         weight = torch.cat((torch.cat((lambda1, lambda2)),
