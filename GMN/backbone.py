@@ -17,8 +17,8 @@ class VGG16(nn.Module):
         Get pretrained VGG16 models for feature extraction.
         :return: feature sequence
         """
-        #model = models.vgg16_bn(pretrained=True)
-        model = models.vgg16(pretrained=True)
+        model = models.vgg16_bn(pretrained=True)
+        #model = models.vgg16(pretrained=True)
 
         conv_layers = nn.Sequential(*list(model.features.children()))
 

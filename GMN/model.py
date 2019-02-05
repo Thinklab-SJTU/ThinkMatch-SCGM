@@ -45,12 +45,14 @@ class Net(VGG16):
         U_src = feature_align(src_node, P_src, ns_src, cfg.PAIR.RESCALE)
         F_src = feature_align(src_edge, P_src, ns_src, cfg.PAIR.RESCALE)
         # feature pooling for target. Since they are arranged in grids, this can be done more efficiently
-        ap = nn.AvgPool2d(kernel_size=2, stride=2)
-        U_tgt = ap(tgt_node)
-        U_tgt = U_tgt.view(-1,  # batch size
-                           cfg.GMN.FEATURE_CHANNEL, cfg.PAIR.CANDIDATE_LENGTH)
-        F_tgt = tgt_edge.view(-1,  # batch size
-                              cfg.GMN.FEATURE_CHANNEL, cfg.PAIR.CANDIDATE_LENGTH)
+        #ap = nn.AvgPool2d(kernel_size=2, stride=2)
+        #U_tgt = ap(tgt_node)
+        #U_tgt = U_tgt.view(-1,  # batch size
+        #                   cfg.GMN.FEATURE_CHANNEL, cfg.PAIR.CANDIDATE_LENGTH)
+        #F_tgt = tgt_edge.view(-1,  # batch size
+        #                      cfg.GMN.FEATURE_CHANNEL, cfg.PAIR.CANDIDATE_LENGTH)
+        U_tgt = feature_align(tgt_node, P_tgt, ns_tgt, cfg.PAIR.RESCALE)
+        F_tgt = feature_align(tgt_edge, P_tgt, ns_tgt, cfg.PAIR.RESCALE)
 
         X = reshape_edge_feature(F_src, G_src, H_src)
         Y = reshape_edge_feature(F_tgt, G_tgt, H_tgt)
@@ -61,10 +63,10 @@ class Net(VGG16):
         M = construct_m(Me, Mp, K_G, K_H)
 
         v = self.power_iteration(M)
-        s = v.view(v.shape[0], cfg.PAIR.CANDIDATE_LENGTH, -1).transpose(1, 2)
+        s = v.view(v.shape[0], P_tgt.shape[1], -1).transpose(1, 2)
 
-        s = self.bi_stochastic(s)
+        s = self.voting_layer(s, ns_src, ns_tgt)
+        s = self.bi_stochastic(s, ns_src, ns_tgt)
 
-        s = self.voting_layer(s, ns_src)
         d, _ = self.displacement_layer(s, P_src, P_tgt)
         return s, d

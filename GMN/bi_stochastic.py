@@ -15,21 +15,41 @@ class BiStochastic(nn.Module):
         self.max_iter = max_iter
         self.epsilon = epsilon
 
-    def forward(self, s):
+    def forward(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20):
         batch_size = s.shape[0]
-        nonzero_mask = (s != 0).to(s.dtype)
+        # nonzero_mask = (s != 0).to(s.dtype)
+
+        row_ones = torch.zeros(batch_size, s.shape[2], s.shape[2], device=s.device)
+        col_ones = torch.zeros(batch_size, s.shape[1], s.shape[1], device=s.device)
+        for b in range(batch_size):
+            row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
+            col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
+            row_ones[b, row_slice, row_slice] = 1
+            col_ones[b, col_slice, col_slice] = 1
+
+        s += self.epsilon
 
         for i in range(self.max_iter):
+            if exp:
+                s = torch.exp(exp_alpha * s)
             if i % 2 == 0:
                 # column norm
-                ones = torch.ones(batch_size, s.shape[1], s.shape[1], device=s.device)
-                tmp = 1 / torch.bmm(ones, s)
-                s = s * tmp * nonzero_mask
+                #ones = torch.ones(batch_size, s.shape[1], s.shape[1], device=s.device)
+                col_sum = torch.bmm(col_ones, s)
+                tmp = torch.zeros_like(s)
+                for b in range(batch_size):
+                    col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
+                    tmp[b, col_slice, col_slice] = 1 / col_sum[b, col_slice, col_slice]
+                s = s * tmp
             else:
                 # row norm
-                ones = torch.ones(batch_size, s.shape[2], s.shape[2], device=s.device)
-                tmp = 1 / (torch.bmm(s, ones) + self.epsilon)
-                s = tmp * s * nonzero_mask
+                #ones = torch.ones(batch_size, s.shape[2], s.shape[2], device=s.device)
+                row_sum = torch.bmm(s, row_ones)
+                tmp = torch.zeros_like(s)
+                for b in range(batch_size):
+                    row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
+                    tmp[b, row_slice, row_slice] = 1 / row_sum[b, row_slice, row_slice]
+                s = s * tmp
 
         return s
 

@@ -31,3 +31,27 @@ def pck(x, x_gt, perm_mat, dist_threshs, ns):
             total_num[idx] += ns[b].to(total_num.dtype)
 
     return match_num / total_num, match_num, total_num
+
+
+def matching_accuracy(pmat_pred, pmat_gt, ns):
+    """
+    Matching Accuracy between predicted permutation matrix and ground truth permutation matrix.
+    :param pmat_pred: predicted permutation matrix
+    :param pmat_gt: ground truth permutation matrix
+    :param ns: number of exact pairs
+    :return: matching accuracy, matched num of pairs, total num of pairs
+    """
+    device = pmat_pred.device
+    batch_num = pmat_pred.shape[0]
+
+    indices_pred = torch.argmax(pmat_pred, dim=-1)
+    indices_gt = torch.argmax(pmat_gt, dim=-1)
+
+    matched = (indices_gt == indices_pred).type(pmat_pred.dtype)
+    match_num = 0
+    total_num = 0
+    for b in range(batch_num):
+        match_num += torch.sum(matched[b, :ns[b]])
+        total_num += ns[b].item()
+
+    return match_num / total_num, match_num, total_num

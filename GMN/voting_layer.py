@@ -17,17 +17,19 @@ class Voting(nn.Module):
     def __init__(self, alpha=200, pixel_thresh=None):
         super(Voting, self).__init__()
         self.alpha = alpha
-        self.softmax = nn.Softmax(dim=2)  # Voting among columns
+        self.softmax = nn.Softmax(dim=-1)  # Voting among columns
         self.pixel_thresh = pixel_thresh
 
-    def forward(self, s, ns_gt):
+    def forward(self, s, nrow_gt, ncol_gt=None):
         # TODO discard dummy nodes & far away nodes
-        discard_mask = torch.zeros_like(s)
+        ret_s = torch.zeros_like(s)
         # filter dummy nodes
-        for b, n in enumerate(ns_gt):
-            discard_mask[b, 0:n, :] = 1
+        for b, n in enumerate(nrow_gt):
+            if ncol_gt is None:
+                ret_s[b, 0:n, :] = \
+                    self.softmax(self.alpha * s[b, 0:n, :])
+            else:
+                ret_s[b, 0:n, 0:ncol_gt[b]] =\
+                    self.softmax(self.alpha * s[b, 0:n, 0:ncol_gt[b]])
 
-        s = s * discard_mask
-        s = self.softmax(self.alpha * s)
-
-        return s
+        return ret_s

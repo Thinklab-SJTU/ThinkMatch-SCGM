@@ -17,8 +17,7 @@ class GMDataset(Dataset):
         self.name = name
         self.ds = eval(self.name)(**args)
         self.length = length  # NOTE images pairs are sampled randomly, so there is no exact definition of dataset size
-        self.pad = pad  # Matrix size varies from different pairs. They should be padded to equal size.
-        self.epad = 6 * self.pad  # pad edges. *6 as we apply delaunay triangulation to nodes.
+                              # length here represents the iterations between two checkpoints
         self.obj_size = self.ds.obj_resize
         self.classes = self.ds.classes
         self.cls = cls
@@ -49,11 +48,15 @@ class GMDataset(Dataset):
                 ])
         imgs = [trans(img) for img in imgs]
 
-        # compute CPU-intensive matrix K1, K2 here to leverage multi-processing nature of dataloader
         P1 = P2 = make_grids((0, 0), cfg.PAIR.RESCALE, cfg.PAIR.CANDIDATE_SHAPE)
         n1 = n2 = P1.shape[0]
-        G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg='tri')#, n_pad=self.pad, edge_pad=self.epad)
-        G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg='tri')#, n_pad=self.pad, edge_pad=self.epad)
+        G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg='tri') # todo remove redundant items
+        #G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg='fc')
+        G2_gt = np.dot(perm_mat.transpose(), G1_gt)
+        H2_gt = np.dot(perm_mat.transpose(), H1_gt)
+        e2_gt = e1_gt
+        #G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg='fc')
+        #G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg='fc')
         G1,    H1   , e1    = build_graphs(P1,    n1,    stg='fc')
         G2,    H2   , e2    = build_graphs(P2,    n2,    stg='fc')
 
@@ -64,6 +67,45 @@ class GMDataset(Dataset):
                 'gt_perm_mat': perm_mat,
                 'Gs': [torch.Tensor(x) for x in [G1_gt, G2_gt, G1, G2]],
                 'Hs': [torch.Tensor(x) for x in [H1_gt, H2_gt, H1, H2]]}
+
+
+class SMDataset(Dataset):
+    def __init__(self, name, length, pad=16, cls=None, **args):
+        self.name = name
+        self.ds = eval(self.name)(**args)
+        self.length = length  # NOTE images pairs are sampled randomly, so there is no exact definition of dataset size
+                              # length here represents the iterations between two checkpoints
+        self.obj_size = self.ds.obj_resize
+        self.classes = self.ds.classes
+        self.kpt_len = self.ds.kpt_len
+        self.cls = cls
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        self.cls = 0  # force aeroplane
+        anno_dict, perm_mat = self.ds.get_single(self.cls if self.cls is not None else
+                                                 (idx % (cfg.BATCH_SIZE * len(self.classes))) // cfg.BATCH_SIZE)
+        # todo this operation may affect gradient
+        if perm_mat.shape[0] <= 2:
+            return self.__getitem__(idx)
+        img = anno_dict['image']
+        cls = anno_dict['cls']
+        P_gt = [(kp['x'], kp['y']) for kp in anno_dict['keypoints']]
+        n_gt = len(P_gt)
+        P_gt = np.array(P_gt)
+
+        trans = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(cfg.NORM_MEANS, cfg.NORM_STD)
+        ])
+        img = trans(img)
+        return {'image': img,
+                'P': torch.Tensor(P_gt),
+                'n': torch.tensor(n_gt),
+                'cls': torch.tensor(cls),
+                'gt_perm_mat': perm_mat}
 
 
 def collate_fn(data: list):
@@ -119,15 +161,16 @@ def collate_fn(data: list):
 
     ret = stack(data)
 
-    # Compute K
-    G1_gt, G2_gt, G1, G2 = ret['Gs']
-    H1_gt, H2_gt, H1, H2 = ret['Hs']
-    K1G = [kronecker_sparse(x, y) for x, y in zip(G2, G1_gt)]  # 1 as source graph, 2 as target graph
-    K1H = [kronecker_sparse(x, y) for x, y in zip(H2, H1_gt)]
-    K1G = CSRMatrix3d(K1G)
-    K1H = CSRMatrix3d(K1H).transpose()
+    # compute CPU-intensive matrix K1, K2 here to leverage multi-processing nature of dataloader
+    if 'Gs' in ret and 'Hs' in ret:
+        G1_gt, G2_gt, G1, G2 = ret['Gs']
+        H1_gt, H2_gt, H1, H2 = ret['Hs']
+        K1G = [kronecker_sparse(x, y) for x, y in zip(G2_gt, G1_gt)]  # 1 as source graph, 2 as target graph
+        K1H = [kronecker_sparse(x, y) for x, y in zip(H2_gt, H1_gt)]
+        K1G = CSRMatrix3d(K1G)
+        K1H = CSRMatrix3d(K1H).transpose()
 
-    ret['Ks'] = K1G, K1H
+        ret['Ks'] = K1G, K1H
 
     return ret
 

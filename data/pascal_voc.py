@@ -15,6 +15,73 @@ ori_anno_path = cfg.VOC2011.ROOT_DIR + 'Annotations'
 set_path = cfg.VOC2011.SET_SPLIT
 cache_path = cfg.CACHE_PATH
 
+KPT_NAMES = {
+    'cat': ['L_B_Elbow', 'L_B_Paw', 'L_EarBase', 'L_Eye', 'L_F_Elbow',
+            'L_F_Paw', 'Nose', 'R_B_Elbow', 'R_B_Paw', 'R_EarBase', 'R_Eye',
+            'R_F_Elbow', 'R_F_Paw', 'TailBase', 'Throat', 'Withers'],
+    'bottle': ['L_Base', 'L_Neck', 'L_Shoulder', 'L_Top', 'R_Base', 'R_Neck',
+               'R_Shoulder', 'R_Top'],
+    'horse': ['L_B_Elbow', 'L_B_Paw', 'L_EarBase', 'L_Eye', 'L_F_Elbow',
+              'L_F_Paw', 'Nose', 'R_B_Elbow', 'R_B_Paw', 'R_EarBase', 'R_Eye',
+              'R_F_Elbow', 'R_F_Paw', 'TailBase', 'Throat', 'Withers'],
+    'motorbike': ['B_WheelCenter', 'B_WheelEnd', 'ExhaustPipeEnd',
+                  'F_WheelCenter', 'F_WheelEnd', 'HandleCenter', 'L_HandleTip',
+                  'R_HandleTip', 'SeatBase', 'TailLight'],
+    'boat': ['Hull_Back_Bot', 'Hull_Back_Top', 'Hull_Front_Bot',
+             'Hull_Front_Top', 'Hull_Mid_Left_Bot', 'Hull_Mid_Left_Top',
+             'Hull_Mid_Right_Bot', 'Hull_Mid_Right_Top', 'Mast_Top', 'Sail_Left',
+             'Sail_Right'],
+    'tvmonitor': ['B_Bottom_Left', 'B_Bottom_Right', 'B_Top_Left',
+                  'B_Top_Right', 'F_Bottom_Left', 'F_Bottom_Right', 'F_Top_Left',
+                  'F_Top_Right'],
+    'cow': ['L_B_Elbow', 'L_B_Paw', 'L_EarBase', 'L_Eye', 'L_F_Elbow',
+            'L_F_Paw', 'Nose', 'R_B_Elbow', 'R_B_Paw', 'R_EarBase', 'R_Eye',
+            'R_F_Elbow', 'R_F_Paw', 'TailBase', 'Throat', 'Withers'],
+    'chair': ['BackRest_Top_Left', 'BackRest_Top_Right', 'Leg_Left_Back',
+              'Leg_Left_Front', 'Leg_Right_Back', 'Leg_Right_Front',
+              'Seat_Left_Back', 'Seat_Left_Front', 'Seat_Right_Back',
+              'Seat_Right_Front'],
+    'car': ['L_B_RoofTop', 'L_B_WheelCenter', 'L_F_RoofTop', 'L_F_WheelCenter',
+            'L_HeadLight', 'L_SideviewMirror', 'L_TailLight', 'R_B_RoofTop',
+            'R_B_WheelCenter', 'R_F_RoofTop', 'R_F_WheelCenter', 'R_HeadLight',
+            'R_SideviewMirror', 'R_TailLight'],
+    'person': ['B_Head', 'HeadBack', 'L_Ankle', 'L_Ear', 'L_Elbow', 'L_Eye',
+               'L_Foot', 'L_Hip', 'L_Knee', 'L_Shoulder', 'L_Toes', 'L_Wrist', 'Nose',
+               'R_Ankle', 'R_Ear', 'R_Elbow', 'R_Eye', 'R_Foot', 'R_Hip', 'R_Knee',
+               'R_Shoulder', 'R_Toes', 'R_Wrist'],
+    'diningtable': ['Bot_Left_Back', 'Bot_Left_Front', 'Bot_Right_Back',
+                    'Bot_Right_Front', 'Top_Left_Back', 'Top_Left_Front', 'Top_Right_Back',
+                    'Top_Right_Front'],
+    'dog': ['L_B_Elbow', 'L_B_Paw', 'L_EarBase', 'L_Eye', 'L_F_Elbow',
+            'L_F_Paw', 'Nose', 'R_B_Elbow', 'R_B_Paw', 'R_EarBase', 'R_Eye',
+            'R_F_Elbow', 'R_F_Paw', 'TailBase', 'Throat', 'Withers'],
+    'bird': ['Beak_Base', 'Beak_Tip', 'Left_Eye', 'Left_Wing_Base',
+             'Left_Wing_Tip', 'Leg_Center', 'Lower_Neck_Base', 'Right_Eye',
+             'Right_Wing_Base', 'Right_Wing_Tip', 'Tail_Tip', 'Upper_Neck_Base'],
+    'bicycle': ['B_WheelCenter', 'B_WheelEnd', 'B_WheelIntersection',
+                'CranksetCenter', 'F_WheelCenter', 'F_WheelEnd', 'F_WheelIntersection',
+                'HandleCenter', 'L_HandleTip', 'R_HandleTip', 'SeatBase'],
+    'train': ['Base_Back_Left', 'Base_Back_Right', 'Base_Front_Left',
+              'Base_Front_Right', 'Roof_Back_Left', 'Roof_Back_Right',
+              'Roof_Front_Middle'],
+    'sheep': ['L_B_Elbow', 'L_B_Paw', 'L_EarBase', 'L_Eye', 'L_F_Elbow',
+              'L_F_Paw', 'Nose', 'R_B_Elbow', 'R_B_Paw', 'R_EarBase', 'R_Eye',
+              'R_F_Elbow', 'R_F_Paw', 'TailBase', 'Throat', 'Withers'],
+    'aeroplane': ['Bot_Rudder', 'Bot_Rudder_Front', 'L_Stabilizer',
+                  'L_WingTip', 'Left_Engine_Back', 'Left_Engine_Front',
+                  'Left_Wing_Base', 'NoseTip', 'Nose_Bottom', 'Nose_Top',
+                  'R_Stabilizer', 'R_WingTip', 'Right_Engine_Back',
+                  'Right_Engine_Front', 'Right_Wing_Base', 'Top_Rudder'],
+    'sofa': ['Back_Base_Left', 'Back_Base_Right', 'Back_Top_Left',
+             'Back_Top_Right', 'Front_Base_Left', 'Front_Base_Right',
+             'Handle_Front_Left', 'Handle_Front_Right', 'Handle_Left_Junction',
+             'Handle_Right_Junction', 'Left_Junction', 'Right_Junction'],
+    'pottedplant': ['Bottom_Left', 'Bottom_Right', 'Top_Back_Middle',
+                    'Top_Front_Middle', 'Top_Left', 'Top_Right'],
+    'bus': ['L_B_Base', 'L_B_RoofTop', 'L_F_Base', 'L_F_RoofTop', 'R_B_Base',
+            'R_B_RoofTop', 'R_F_Base', 'R_F_RoofTop']
+}
+
 
 class PascalVOC:
     def __init__(self, sets, obj_resize):
@@ -23,6 +90,7 @@ class PascalVOC:
         :param obj_resize: resized object size
         """
         self.classes = cfg.VOC2011.CLASSES
+        self.kpt_len = [len(KPT_NAMES[_]) for _ in cfg.VOC2011.CLASSES]
 
         self.anno_path = Path(anno_path)
         self.img_path = Path(img_path)
@@ -84,10 +152,11 @@ class PascalVOC:
             for x in to_del:
                 self.xml_list[cls_id].remove(x)
 
-    def get_pair(self, cls=None):
+    def get_pair(self, cls=None, shuffle=True):
         """
         Randomly get a pair of objects from VOC-Berkeley keypoints dataset
         :param cls: None for random class, or specify for a certain set
+        :param shuffle: random shuffle the keypoints
         :return: (pair of data, groundtruth permutation matrix)
         """
         if cls is None:
@@ -98,37 +167,9 @@ class PascalVOC:
 
         anno_pair = []
         for xml_name in random.sample(self.xml_list[cls], 2):
-            xml_file = self.anno_path / xml_name
-            assert xml_file.exists(), '{} does not exist.'.format(xml_file)
-
-            tree = ET.parse(xml_file.open())
-            root = tree.getroot()
-
-            img_name = root.find('./image').text + '.jpg'
-            img_file = self.img_path / img_name
-            bounds = root.find('./visible_bounds').attrib
-            h = float(bounds['height'])
-            w = float(bounds['width'])
-            xmin = float(bounds['xmin'])
-            ymin = float(bounds['ymin'])
-            with Image.open(str(img_file)) as img:
-                ori_sizes = img.size
-                obj = img.resize(self.obj_resize, resample=Image.BICUBIC, box=(xmin, ymin, xmin + w, ymin + h))
-
-            keypoint_list = []
-            for keypoint in root.findall('./keypoints/keypoint'):
-                attr = keypoint.attrib
-                attr['x'] = (float(attr['x']) - xmin) * self.obj_resize[0] / w
-                attr['y'] = (float(attr['y']) - ymin) * self.obj_resize[1] / h
-                keypoint_list.append(attr)
-
-            anno_dict = dict()
-            anno_dict['image'] = obj
-            anno_dict['keypoints'] = keypoint_list
-            anno_dict['bounds'] = xmin, ymin, w, h
-            anno_dict['ori_sizes'] = ori_sizes
-            anno_dict['cls'] = cls
-
+            anno_dict = self.__get_anno_dict(xml_name, cls)
+            if shuffle:
+                random.shuffle(anno_dict['keypoints'])
             anno_pair.append(anno_dict)
 
         perm_mat = np.zeros([len(_['keypoints']) for _ in anno_pair], dtype=np.float32)
@@ -141,12 +182,83 @@ class PascalVOC:
                     row_list.append(i)
                     col_list.append(j)
                     break
+        row_list.sort()
+        col_list.sort()
         perm_mat = perm_mat[row_list, :]
         perm_mat = perm_mat[:, col_list]
         anno_pair[0]['keypoints'] = [anno_pair[0]['keypoints'][i] for i in row_list]
         anno_pair[1]['keypoints'] = [anno_pair[1]['keypoints'][j] for j in col_list]
 
         return anno_pair, perm_mat
+
+    def get_single(self, cls=None, shuffle=True):
+        """
+        Randomly get a single object from VOC-Berkeley keypoints dataset
+        :param cls: None for random class, or specify for a certain set
+        :param shuffle: random shuffle the keypoints
+        :return: (data, groundtruth permutation matrix)
+        """
+        if cls is None:
+            cls = random.randrange(0, len(self.classes))
+        elif type(cls) == str:
+            cls = self.classes.index(cls)
+        assert type(cls) == int and 0 <= cls < len(self.classes)
+
+        xml_name = random.choice(self.xml_list[cls])
+        anno_dict = self.__get_anno_dict(xml_name, cls)
+
+        if shuffle:
+            random.shuffle(anno_dict['keypoints'])
+
+        perm_mat = np.zeros(
+            [len(anno_dict['keypoints']),
+             len(KPT_NAMES[self.classes[cls]])],
+            dtype=np.float32
+        )
+        for i, keypoint in enumerate(anno_dict['keypoints']):
+            for j, _keypoint_name in enumerate(KPT_NAMES[self.classes[cls]]):
+                if keypoint['name'] == _keypoint_name:
+                    perm_mat[i, j] = 1
+                    break
+
+        return anno_dict, perm_mat
+
+    def __get_anno_dict(self, xml_name, cls):
+        """
+        Get an annotation dict from xml file
+        """
+        xml_file = self.anno_path / xml_name
+        assert xml_file.exists(), '{} does not exist.'.format(xml_file)
+
+        tree = ET.parse(xml_file.open())
+        root = tree.getroot()
+
+        img_name = root.find('./image').text + '.jpg'
+        img_file = self.img_path / img_name
+        bounds = root.find('./visible_bounds').attrib
+        h = float(bounds['height'])
+        w = float(bounds['width'])
+        xmin = float(bounds['xmin'])
+        ymin = float(bounds['ymin'])
+        with Image.open(str(img_file)) as img:
+            ori_sizes = img.size
+            obj = img.resize(self.obj_resize, resample=Image.BICUBIC, box=(xmin, ymin, xmin + w, ymin + h))
+
+        keypoint_list = []
+        for keypoint in root.findall('./keypoints/keypoint'):
+            attr = keypoint.attrib
+            attr['x'] = (float(attr['x']) - xmin) * self.obj_resize[0] / w
+            attr['y'] = (float(attr['y']) - ymin) * self.obj_resize[1] / h
+            keypoint_list.append(attr)
+
+        anno_dict = dict()
+        anno_dict['image'] = obj
+        anno_dict['keypoints'] = keypoint_list
+        anno_dict['bounds'] = xmin, ymin, w, h
+        anno_dict['ori_sizes'] = ori_sizes
+        anno_dict['cls'] = cls
+
+        return anno_dict
 
 
 if __name__ == '__main__':

@@ -46,6 +46,11 @@ __C.GMN.BS_ITER_NUM = 10
 __C.GMN.BS_EPSILON = 1e-10
 __C.GMN.VOTING_ALPHA = 2e8
 
+# GMGNN model options
+__C.GMGNN = edict()
+__C.GMGNN.GNN_HIDDEN_LAYER = 5
+__C.GMGNN.GNN_HIDDEN_FEAT = 1024
+
 #
 # Training options
 #

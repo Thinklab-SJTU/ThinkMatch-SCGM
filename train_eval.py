@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.optim as optim
 import time
 from datetime import datetime
@@ -6,10 +7,12 @@ from pathlib import Path
 from tensorboardX import SummaryWriter
 import scipy.sparse as ssp
 
-from data.data_loader import GMDataset, get_dataloader
+from data.data_loader import GMDataset, SMDataset, get_dataloader
 from GMN.displacement_layer import Displacement
+from GMN.bi_stochastic import BiStochastic
 from GMN.robust_loss import RobustLoss
-from utils.evaluation_metric import pck as eval_pck
+from GMN.permutation_loss import CrossEntropyLoss
+from utils.evaluation_metric import pck as eval_pck, matching_accuracy
 from parallel import DataParallel
 from utils.model_sl import load_model, save_model
 from eval import eval_model
@@ -30,6 +33,7 @@ def train_eval_model(model,
     since = time.time()
     dataset_size = len(dataloader['train'].dataset)
     displacement = Displacement()
+    lap_solver = BiStochastic(max_iter=20)
 
     device = next(model.parameters()).device
     print('model on device: {}'.format(device))
@@ -80,46 +84,52 @@ def train_eval_model(model,
             KG, KH = inputs['Ks']
             perm_mat = inputs['gt_perm_mat']
 
-            P1_gt = P1_gt.cuda()
-            P2 = P2.cuda()
-            n1_gt = n1_gt.cuda()
+            #P1_gt = P1_gt.cuda()
+            #P2 = P2.cuda()
+            #n1_gt = n1_gt.cuda()
             perm_mat = perm_mat.cuda()
-            P2_gt = P2_gt.cuda()
-            KG, KH = KG.cuda(), KH.cuda()
+            #P2_gt = P2_gt.cuda()
+            #KG, KH = KG.cuda(), KH.cuda()
 
-            iter_num = iter_num + img1.size(0)
+            iter_num = iter_num + perm_mat.size(0)
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             with torch.set_grad_enabled(True):
                 # forward
-                s_pred, d_pred = model(img1, img2, P1_gt, P2, G1_gt, G2, H1_gt, H2, n1_gt, n2, KG, KH, tfboard_writer)
+                s_pred, d_pred = model(img1, img2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, tfboard_writer)
 
-                d_gt, grad_mask = displacement(perm_mat, P1_gt, P2_gt, n1_gt)
-                loss = criterion(d_pred, d_gt, grad_mask)
+                #d_gt, grad_mask = displacement(perm_mat, P1_gt.cuda(), P2_gt.cuda(), n1_gt.cuda())
+                #loss = criterion(d_pred, d_gt, grad_mask)
+
+                loss = criterion(s_pred, perm_mat, n1_gt, n2_gt)
 
                 # backward + optimize
                 loss.backward()
                 optimizer.step()
 
                 # training pck statistic
-                thres = torch.empty(img1.size(0), len(alphas)).cuda()
-                for b in range(img1.size(0)):
+                thres = torch.empty(perm_mat.size(0), len(alphas)).cuda()
+                for b in range(perm_mat.size(0)):
                     thres[b] = alphas * cfg.EVAL.PCK_L
-                pck, _, __ = eval_pck(P2, P2_gt, s_pred, thres, n1_gt)
+                #pck, _, __ = eval_pck(P2, P2_gt, s_pred, thres, n1_gt)
+                acc, _, __ = matching_accuracy(lap_solver(s_pred, n1_gt, n2_gt, exp=True), perm_mat, n1_gt)
 
                 # tfboard writer
                 tfboard_writer.add_scalars('loss', {'loss': loss.item()}, epoch * cfg.TRAIN.EPOCH_ITERS + iter_num)
+                #accdict = {'PCK@{:.2f}'.format(a): p for a, p in zip(alphas, pck)}
+                accdict = dict()
+                accdict['matching accuracy'] = acc
                 tfboard_writer.add_scalars(
                     'training accuracy',
-                    {'PCK@{:.2f}'.format(a): p for a, p in zip(alphas, pck)},
+                    accdict,
                     epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
                 )
 
                 # statistics
-                running_loss += loss.item() * img1.size(0)
-                epoch_loss += loss.item() * img1.size(0)
+                running_loss += loss.item() * perm_mat.size(0)
+                epoch_loss += loss.item() * perm_mat.size(0)
 
                 if iter_num % cfg.STATISTIC_STEP == 0:
                     running_speed = cfg.STATISTIC_STEP / (time.time() - running_since)
@@ -142,15 +152,14 @@ def train_eval_model(model,
         print()
 
         # Eval in each epoch
-        pcks = eval_model(model, alphas, dataloader['test'])
-        for i in range(len(alphas)):
-            pck_dict = {cls: single_pck for cls, single_pck in zip(dataloader['train'].dataset.classes, pcks[:, i])}
-            pck_dict['average'] = torch.mean(pcks[:, i])
-            tfboard_writer.add_scalars(
-                'Eval PCK@{:.2f}'.format(alphas[i]),
-                pck_dict,
-                (epoch + 1) * cfg.TRAIN.EPOCH_ITERS
-            )
+        accs = eval_model(model, alphas, dataloader['test'])
+        acc_dict = {cls: single_acc for cls, single_acc in zip(dataloader['train'].dataset.classes, accs)}
+        acc_dict['average'] = torch.mean(accs)
+        tfboard_writer.add_scalars(
+            'Eval acc',
+            acc_dict,
+            (epoch + 1) * cfg.TRAIN.EPOCH_ITERS
+        )
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}h {:.0f}m {:.0f}s'
@@ -188,7 +197,8 @@ if __name__ == '__main__':
     model = model.cuda()
     model = DataParallel(model, device_ids=cfg.GPUS)
 
-    criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
+    #criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
+    criterion = CrossEntropyLoss()#nn.NLLLoss()
 
     optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM)
 
