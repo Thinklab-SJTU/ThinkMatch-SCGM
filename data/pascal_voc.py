@@ -191,38 +191,6 @@ class PascalVOC:
 
         return anno_pair, perm_mat
 
-    def get_single(self, cls=None, shuffle=True):
-        """
-        Randomly get a single object from VOC-Berkeley keypoints dataset
-        :param cls: None for random class, or specify for a certain set
-        :param shuffle: random shuffle the keypoints
-        :return: (data, groundtruth permutation matrix)
-        """
-        if cls is None:
-            cls = random.randrange(0, len(self.classes))
-        elif type(cls) == str:
-            cls = self.classes.index(cls)
-        assert type(cls) == int and 0 <= cls < len(self.classes)
-
-        xml_name = random.choice(self.xml_list[cls])
-        anno_dict = self.__get_anno_dict(xml_name, cls)
-
-        if shuffle:
-            random.shuffle(anno_dict['keypoints'])
-
-        perm_mat = np.zeros(
-            [len(anno_dict['keypoints']),
-             len(KPT_NAMES[self.classes[cls]])],
-            dtype=np.float32
-        )
-        for i, keypoint in enumerate(anno_dict['keypoints']):
-            for j, _keypoint_name in enumerate(KPT_NAMES[self.classes[cls]]):
-                if keypoint['name'] == _keypoint_name:
-                    perm_mat[i, j] = 1
-                    break
-
-        return anno_dict, perm_mat
-
     def __get_anno_dict(self, xml_name, cls):
         """
         Get an annotation dict from xml file

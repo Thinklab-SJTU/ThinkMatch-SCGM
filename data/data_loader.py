@@ -69,45 +69,6 @@ class GMDataset(Dataset):
                 'Hs': [torch.Tensor(x) for x in [H1_gt, H2_gt, H1, H2]]}
 
 
-class SMDataset(Dataset):
-    def __init__(self, name, length, pad=16, cls=None, **args):
-        self.name = name
-        self.ds = eval(self.name)(**args)
-        self.length = length  # NOTE images pairs are sampled randomly, so there is no exact definition of dataset size
-                              # length here represents the iterations between two checkpoints
-        self.obj_size = self.ds.obj_resize
-        self.classes = self.ds.classes
-        self.kpt_len = self.ds.kpt_len
-        self.cls = cls
-
-    def __len__(self):
-        return self.length
-
-    def __getitem__(self, idx):
-        self.cls = 0  # force aeroplane
-        anno_dict, perm_mat = self.ds.get_single(self.cls if self.cls is not None else
-                                                 (idx % (cfg.BATCH_SIZE * len(self.classes))) // cfg.BATCH_SIZE)
-        # todo this operation may affect gradient
-        if perm_mat.shape[0] <= 2:
-            return self.__getitem__(idx)
-        img = anno_dict['image']
-        cls = anno_dict['cls']
-        P_gt = [(kp['x'], kp['y']) for kp in anno_dict['keypoints']]
-        n_gt = len(P_gt)
-        P_gt = np.array(P_gt)
-
-        trans = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(cfg.NORM_MEANS, cfg.NORM_STD)
-        ])
-        img = trans(img)
-        return {'image': img,
-                'P': torch.Tensor(P_gt),
-                'n': torch.tensor(n_gt),
-                'cls': torch.tensor(cls),
-                'gt_perm_mat': perm_mat}
-
-
 def collate_fn(data: list):
     """
     Create mini-batch data for training.

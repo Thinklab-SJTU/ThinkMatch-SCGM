@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from GMN.bi_stochastic import BiStochastic
-from data.data_loader import GMDataset, SMDataset, get_dataloader
+from data.data_loader import GMDataset, get_dataloader
 from utils.evaluation_metric import pck, matching_accuracy
 from parallel import DataParallel
 from utils.model_sl import load_model

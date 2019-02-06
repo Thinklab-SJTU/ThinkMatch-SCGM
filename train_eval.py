@@ -7,7 +7,7 @@ from pathlib import Path
 from tensorboardX import SummaryWriter
 import scipy.sparse as ssp
 
-from data.data_loader import GMDataset, SMDataset, get_dataloader
+from data.data_loader import GMDataset, get_dataloader
 from GMN.displacement_layer import Displacement
 from GMN.bi_stochastic import BiStochastic
 from GMN.robust_loss import RobustLoss
