@@ -56,19 +56,23 @@ std::vector<at::Tensor> csr_dot_csc_cpu(
     std::list<int64_t> out_indices_list[batch_size * out_h];
     std::list<float> out_data_list[batch_size * out_h];
     auto out_indptr = at::zeros({batch_size * out_h + 1}, t1_indptr.type());
+    auto t1_indptr_acc = t1_indptr.accessor<int64_t, 1>();
+    auto t2_indptr_acc = t2_indptr.accessor<int64_t, 1>();
+    auto t1_indices_acc = t1_indices.accessor<int64_t, 1>();
+    auto t2_indices_acc = t2_indices.accessor<int64_t, 1>();
 
     for (int64_t b = 0; b < batch_size; b++)
     {
         for (int64_t i = 0; i < out_h; i++)
         {
-            int64_t t1_start = at::Scalar(t1_indptr.select(0, b * out_h + i)).to<int64_t>();
-            int64_t t1_stop = at::Scalar(t1_indptr.select(0, b * out_h + i + 1)).to<int64_t>();
+            int64_t t1_start = t1_indptr_acc[b * out_h + i];
+            int64_t t1_stop = t1_indptr_acc[b * out_h + i + 1];
             int64_t row_nnz = 0;
 
             for (int64_t j = 0; j < out_w; j++)
             {
-                int64_t t2_start = at::Scalar(t2_indptr.select(0, b * out_w + j)).to<int64_t>();
-                int64_t t2_stop = at::Scalar(t2_indptr.select(0, b * out_w + j + 1)).to<int64_t>();
+                int64_t t2_start = t2_indptr_acc[b * out_w + j];
+                int64_t t2_stop = t2_indptr_acc[b * out_w + j + 1];
 
                 float outp = 0;//at::zeros({}, t1_data.type());
                 int64_t t1_ptr_idx = t1_start;
@@ -76,12 +80,13 @@ std::vector<at::Tensor> csr_dot_csc_cpu(
 
                 while (t1_ptr_idx < t1_stop && t2_ptr_idx < t2_stop)
                 {
-                    int64_t t1_cur_indice = at::Scalar(t1_indices[t1_ptr_idx]).to<int64_t>();
-                    int64_t t2_cur_indice = at::Scalar(t2_indices[t2_ptr_idx]).to<int64_t>();
+                    int64_t t1_cur_indice = t1_indices_acc[t1_ptr_idx];
+                    int64_t t2_cur_indice = t2_indices_acc[t2_ptr_idx];
                     if (t1_cur_indice == t2_cur_indice)
                     {
                         auto tmp = t1_data[t1_ptr_idx] * t2_data[t2_ptr_idx];
-                        outp += at::Scalar(tmp).to<float>();
+                        auto tmp_acc = tmp.accessor<float, 1>();
+                        outp += tmp_acc[0];
                         t1_ptr_idx++;
                         t2_ptr_idx++;
                     }
@@ -90,7 +95,6 @@ std::vector<at::Tensor> csr_dot_csc_cpu(
                     else
                         t2_ptr_idx++;
                 }
-                //if (at::Scalar(outp.select(0, 0)).to<float>() != 0)
                 if (outp != 0)
                 {
                     out_data_list[b * out_h + i].push_back(outp);
@@ -102,8 +106,8 @@ std::vector<at::Tensor> csr_dot_csc_cpu(
         }
     }
 
-
-    int64_t nnz = at::Scalar(out_indptr.select(0, -1)).to<int64_t>();
+    auto out_indptr_acc = out_indptr.accessor<int64_t, 1>();
+    int64_t nnz = out_indptr_acc[-1];
     auto out_indices = at::zeros({nnz}, t1_indices.type());
     auto out_data = at::zeros({nnz}, t1_data.type());
     int64_t idx = 0;
@@ -206,15 +210,18 @@ std::vector<at::Tensor> csr_dot_diag_cpu(
     auto outp_indptr = at::clone(t1_indptr);
     auto outp_data = at::zeros_like(t1_data);
 
+    auto t1_indptr_acc = t1_indptr.accessor<int64_t, 1>();
+    auto t1_indices_acc = t1_indices.accessor<int64_t, 1>();
+
     for (int64_t b = 0; b < batch_size; b++)
     {
         for (int64_t i = 0; i < out_h; i++)
         {
-            int64_t start = at::Scalar(t1_indptr.select(0, b * out_h + i)).to<int64_t>();
-            int64_t stop = at::Scalar(t1_indptr.select(0, b * out_h + i + 1)).to<int64_t>();
+            int64_t start = t1_indptr_acc[b * out_h + i];
+            int64_t stop = t1_indptr_acc[b * out_h + i + 1];
             for (int64_t data_idx = start; data_idx < stop; data_idx++)
             {
-                int64_t row_idx = at::Scalar(t1_indices.select(0, data_idx)).to<int64_t>();
+                int64_t row_idx = t1_indices_acc[data_idx];
                 outp_data[data_idx] = t1_data[data_idx] * t2[b][row_idx];
             }
         }

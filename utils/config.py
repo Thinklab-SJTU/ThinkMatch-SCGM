@@ -27,6 +27,8 @@ __C.PAIR.RESCALE = (256, 256)  # rescaled image size
 __C.PAIR.PADDING = 23  # padding length of keypoint pairs for batch operation
 __C.PAIR.CANDIDATE_SHAPE = (16, 16)  # shape of candidates
 __C.PAIR.CANDIDATE_LENGTH = np.cumprod(__C.PAIR.CANDIDATE_SHAPE)[-1]
+__C.PAIR.GT_GRAPH_CONSTRUCT = 'tri'
+__C.PAIR.REF_GRAPH_CONSTRUCT = 'fc'
 
 # VOC2011-Keypoint Dataset
 __C.VOC2011 = edict()
@@ -36,6 +38,31 @@ __C.VOC2011.SET_SPLIT = 'data/PascalVOC/voc2011_pairs.npz'  # set split path
 __C.VOC2011.CLASSES = ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow',
                        'diningtable', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train',
                        'tvmonitor']
+
+# Willow-Object Dataset
+__C.WILLOW = edict()
+__C.WILLOW.ROOT_DIR = 'data/WILLOW-ObjectClass'
+__C.WILLOW.CLASSES = ['Car', 'Duck', 'Face', 'Motorbike', 'Winebottle']
+__C.WILLOW.KPT_LEN = 10
+__C.WILLOW.TRAIN_NUM = 20
+__C.WILLOW.SPLIT_OFFSET = 0
+
+# Synthetic dataset
+__C.SYNTHETIC = edict()
+__C.SYNTHETIC.DIM = 1024
+__C.SYNTHETIC.TRAIN_NUM = 100  # training graphs
+__C.SYNTHETIC.TEST_NUM = 100  # testing graphs
+__C.SYNTHETIC.RANDOM_EXP_ID = 0  # id of random experiment
+__C.SYNTHETIC.EDGE_DENSITY = 0.3  # edge_num = X * node_num^2 / 4
+__C.SYNTHETIC.KPT_NUM = 10  # number of nodes
+__C.SYNTHETIC.FEAT_GT_UNIFORM = 1.  # reference node features in uniform(-X, X) for each dimension
+__C.SYNTHETIC.FEAT_NOISE_STD = 0.1  # corresponding node features add a random noise ~ N(0, X^2)
+__C.SYNTHETIC.POS_GT_UNIFORM = 256.  # reference keypoint position in image: uniform(0, X)
+__C.SYNTHETIC.POS_AFFINE_DXY = 50.  # corresponding position after affine transform: t_x, t_y ~ uniform(-X, X)
+__C.SYNTHETIC.POS_AFFINE_S_LOW = 0.8  # corresponding position after affine transform: s ~ uniform(S_LOW, S_HIGH)
+__C.SYNTHETIC.POS_AFFINE_S_HIGH = 1.2
+__C.SYNTHETIC.POS_AFFINE_DTHETA = 60.  # corresponding position after affine transform: theta ~ uniform(-X, X)
+__C.SYNTHETIC.POS_NOISE_STD = 10.  # corresponding position add a random noise ~ N(0, X^2) after affine transform
 
 # GMN model options
 __C.GMN = edict()
@@ -48,8 +75,10 @@ __C.GMN.VOTING_ALPHA = 2e8
 
 # GMGNN model options
 __C.GMGNN = edict()
-__C.GMGNN.GNN_HIDDEN_LAYER = 5
-__C.GMGNN.GNN_HIDDEN_FEAT = 1024
+__C.GMGNN.GNN_LAYER = 5
+__C.GMGNN.GNN_FEAT = 1024
+__C.GMGNN.LOSS_WEIGHTS = [0., 1.]  # [cross-module loss, final prediction loss]
+
 
 #
 # Training options
@@ -80,6 +109,12 @@ __C.TRAIN.MOMENTUM = 0.9
 
 # RobustLoss normalization
 __C.TRAIN.RLOSS_NORM = max(__C.PAIR.RESCALE)
+
+# Specify a class for training
+__C.TRAIN.CLASS = 'none'
+
+# Loss function. Should be 'offset' or 'perm'
+__C.TRAIN.LOSS_FUNC = 'perm'
 
 
 #
@@ -138,6 +173,7 @@ __C.CACHE_PATH = 'data/cache'
 # Model name and dataset name
 __C.MODEL_NAME = ''
 __C.DATASET_NAME = ''
+__C.DATASET_FULL_NAME = 'PascalVOC' # 'PascalVOC' or 'WillowObject'
 
 # Module path of module
 __C.MODULE = ''

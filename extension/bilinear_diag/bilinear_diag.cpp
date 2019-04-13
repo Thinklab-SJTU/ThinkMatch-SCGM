@@ -248,15 +248,17 @@ at::Tensor bilinear_diag_csc_cpu(
     CHECK_CPU(t3_data);
 
     auto outp = at::zeros({batch_size, xlen}, t2.type());
+    auto t1_indptr_acc = t1_indptr.accessor<int64_t, 1>();
+    auto t3_indptr_acc = t3_indptr.accessor<int64_t, 1>();
 
     for (int64_t b = 0; b < batch_size; b++)
     {
         for (int64_t i = 0; i < xlen; i++)
         {
-            auto t1_start = at::Scalar(t1_indptr.select(0, b * xlen + i)).to<int64_t>();
-            auto t1_stop = at::Scalar(t1_indptr.select(0, b * xlen + i + 1)).to<int64_t>();
-            auto t3_start = at::Scalar(t3_indptr.select(0, b * xlen + i)).to<int64_t>();
-            auto t3_stop = at::Scalar(t3_indptr.select(0, b * xlen + i + 1)).to<int64_t>();
+            int64_t t1_start = t1_indptr_acc[b * xlen + i];
+            int64_t t1_stop = t1_indptr_acc[b * xlen + i + 1];
+            int64_t t3_start = t3_indptr_acc[b * xlen + i];
+            int64_t t3_stop = t3_indptr_acc[b * xlen + i + 1];
 
             for (auto t1_idx = t1_start; t1_idx < t1_stop; t1_idx++)
             {

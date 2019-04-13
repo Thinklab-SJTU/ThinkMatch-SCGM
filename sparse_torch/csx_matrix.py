@@ -1,12 +1,17 @@
+import sys
 import torch
 import numpy as np
 import scipy.sparse as ssp
 
 from torch.utils.cpp_extension import load
 
-sparse_dot = load(name='sparse_dot', sources=['extension/sparse_dot/sparse_dot.cpp',
-                                              'extension/sparse_dot/csr_dot_csc_cuda.cu',
-                                              'extension/sparse_dot/csr_dot_diag_cuda.cu'])
+sparse_dot = load(name='sparse_dot',
+                  sources=['extension/sparse_dot/sparse_dot.cpp',
+                           'extension/sparse_dot/csr_dot_csc_cuda.cu',
+                           'extension/sparse_dot/csr_dot_diag_cuda.cu'],
+                  extra_include_paths=[
+                      '/usr/include/python{}.{}/'.format(sys.version_info.major, sys.version_info.minor)]
+)
 
 
 class CSXMatrix3d:
@@ -60,9 +65,18 @@ class CSXMatrix3d:
             if type(ind) == torch.Tensor and device is None:
                 device = ind.device
 
-            indices_t = torch.tensor(ind, dtype=torch.int64, device=device)
-            indptr_t = torch.tensor(indp, dtype=torch.int64, device=device)
-            data_t = torch.tensor(data, device=device)
+            if type(ind) is torch.Tensor:
+                indices_t = ind.to(torch.int64).to(device)
+            else:
+                indices_t = torch.tensor(ind, dtype=torch.int64, device=device)
+            if type(indp) is torch.Tensor:
+                indptr_t = indp.to(torch.int64).to(device)
+            else:
+                indptr_t = torch.tensor(indp, dtype=torch.int64, device=device)
+            if type(data) is torch.Tensor:
+                data_t = data.to(device)
+            else:
+                data_t = torch.tensor(data, device=device)
 
             return indices_t, indptr_t, data_t, tuple(shape)
 

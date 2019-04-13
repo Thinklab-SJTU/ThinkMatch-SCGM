@@ -1,9 +1,11 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16
+MODEL_NAME: vgg16_sm_ol
 DATASET_NAME: voc
 
-MODULE: GMN.model_nn
+DATASET_FULL_NAME: PascalVOC
+
+MODULE: GMN.model
 
 BATCH_SIZE: 8
 
@@ -12,7 +14,7 @@ RANDOM_SEED: 123
 # available GPU ids
 GPUS:
   - 0
-  - 1
+#  - 1
 
 # Pairwise data configuration
 PAIR:
@@ -22,22 +24,26 @@ PAIR:
   CANDIDATE_SHAPE:  # target candidate grid
     - 16
     - 16
-  PADDING: 23  # padding length of keypoint pairs.
-               # It should be equal to (or larger than) the largest number of keypoints in dataset
+  GT_GRAPH_CONSTRUCT: tri
+  REF_GRAPH_CONSTRUCT: fc
 
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 30
+  NUM_EPOCHS: 10
+
+  LOSS_FUNC: offset
 
   # learning rate
-  LR: 1. #0.0001
+  LR: 1.0e-4
   MOMENTUM: 0.9
   LR_DECAY: 0.1
-  LR_STEP: 15  # (in epochs)
+  LR_STEP: 5  # (in epochs)
 
   EPOCH_ITERS: 10000  # iterations per epoch
+
+  CLASS: none
 
 # Evaluation settings and PCK metric
 EVAL:
@@ -59,8 +65,8 @@ VISUAL:
 # GMN model parameters
 GMN:
   FEATURE_CHANNEL: 512
-  PI_ITER_NUM: 50
+  PI_ITER_NUM: 25
   PI_STOP_THRESH: 0. #2.0e-7
-  BS_ITER_NUM: 10
+  BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 200. #2.0e+6
+  VOTING_ALPHA: 200.

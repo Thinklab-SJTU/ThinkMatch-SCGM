@@ -1,3 +1,4 @@
+import sys
 import torch
 from torch.autograd import Function
 import numpy as np
@@ -7,7 +8,10 @@ from sparse_torch import CSRMatrix3d, CSCMatrix3d
 
 from torch.utils.cpp_extension import load
 bilinear_diag = load(name='bilinear_diag', sources=['extension/bilinear_diag/bilinear_diag.cpp',
-                                                    'extension/bilinear_diag/bilinear_diag_cuda.cu'])
+                                                    'extension/bilinear_diag/bilinear_diag_cuda.cu'],
+                     extra_include_paths=[
+                         '/usr/include/python{}.{}/'.format(sys.version_info.major, sys.version_info.minor)]
+                     )
 
 
 def sbmm(t1, t2):

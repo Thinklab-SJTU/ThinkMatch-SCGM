@@ -3,13 +3,6 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-if torch.cuda.is_available():
-    dtype = torch.cuda.FloatTensor
-    dtype_l = torch.cuda.LongTensor
-else:
-    dtype = torch.FloatTensor
-    dtype_l = torch.LongTensor
-
 def gmul(input):
     W, x = input
     # x is a tensor of size (bs, N, num_features)
@@ -79,11 +72,11 @@ class Gconv(nn.Module):
 '''
 
 class GNN(nn.Module):
-    def __init__(self, num_features, num_layers, J):
+    def __init__(self, in_features, num_features, num_layers, J):
         super(GNN, self).__init__()
         self.num_features = num_features
         self.num_layers = num_layers
-        self.featuremap_in = [1024, num_features]
+        self.featuremap_in = [in_features, num_features]
         #self.featuremap_mi = [num_features, num_features]
         #self.featuremap_end = [num_features, num_features]
         self.layer0 = Gconv(*self.featuremap_in)
@@ -101,16 +94,15 @@ class GNN(nn.Module):
         return out[1]
 
 class Siamese_GNN(nn.Module):
-    def __init__(self, num_features, num_layers, J):
+    def __init__(self, in_features, num_features, num_layers, J):
         super(Siamese_GNN, self).__init__()
-        self.gnn = GNN(num_features, num_layers, J)
+        self.gnn = GNN(in_features, num_features, num_layers, J)
 
     def forward(self, g1, g2):
         emb1 = self.gnn(*g1)
         emb2 = self.gnn(*g2)
         # embx are tensors of size (bs, N, num_features)
-        out = torch.bmm(emb1, emb2.permute(0, 2, 1))
-        return out # out has size (bs, N, N)
+        return emb1, emb2
 
 if __name__ == '__main__':
     # test modules

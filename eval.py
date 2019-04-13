@@ -48,29 +48,23 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         acc_match_num = torch.zeros(1, device=device)
         acc_total_num = torch.zeros(1, device=device)
         for inputs in dataloader:
-            img1, img2 = inputs['images']
-            P1_gt, P2_gt, P1, P2 = inputs['Ps']
-            n1_gt, n2_gt, n1, n2 = inputs['ns']
-            e1_gt, e2_gt, e1, e2 = inputs['es']
-            G1_gt, G2_gt, G1, G2 = inputs['Gs']
-            H1_gt, H2_gt, H1, H2 = inputs['Hs']
+            if 'images' in inputs:
+                data1, data2 = [_.cuda() for _ in inputs['images']]
+                inp_type = 'img'
+            elif 'features' in inputs:
+                data1, data2 = [_.cuda() for _ in inputs['features']]
+                inp_type = 'feat'
+            else:
+                raise ValueError('no valid data key (\'images\' or \'features\') found from dataloader!')
+            P1_gt, P2_gt = [_.cuda() for _ in inputs['Ps']]
+            n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
+            e1_gt, e2_gt = [_.cuda() for _ in inputs['es']]
+            G1_gt, G2_gt = [_.cuda() for _ in inputs['Gs']]
+            H1_gt, H2_gt = [_.cuda() for _ in inputs['Hs']]
+            KG, KH = [_.cuda() for _ in inputs['Ks']]
+            perm_mat = inputs['gt_perm_mat'].cuda()
 
-            KG, KH = inputs['Ks']
-
-            perm_mat = inputs['gt_perm_mat']
-
-            #img1 = img1.to(device)
-            #img2 = img2.to(device)
-            #P1_gt = P1_gt.to(device)
-            #P2 = P2.to(device)
-            #n1_gt = n1_gt.to(device)
-            #n2 = n2.to(device)
-            perm_mat = perm_mat.to(device)
-            #P2_gt = P2_gt.to(device)
-            #G1_gt, G2, H1_gt, H2 = G1_gt.to(device), G2.to(device), H1_gt.to(device), H2.to(device)
-            #KG, KH = KG.to(device), KH.to(device)
-
-            batch_num = img1.size(0)
+            batch_num = data1.size(0)
 
             iter_num = iter_num + batch_num
 
@@ -79,13 +73,17 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 thres[b] = alphas * cfg.EVAL.PCK_L
 
             with torch.set_grad_enabled(False):
-                s_pred, _ = model(img1, img2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH)
+                s_pred, _ = model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
 
-            #_, _match_num, _total_num = pck(P2, P2_gt, s_pred, thres, n1_gt)
-            #match_num += _match_num
-            #total_num += _total_num
+            if type(s_pred) is list:
+                s_pred = s_pred[-1]
+            s_pred_perm = lap_solver(s_pred, n1_gt, n2_gt, exp=True)
 
-            _, _acc_match_num, _acc_total_num = matching_accuracy(lap_solver(s_pred, n1_gt, n2_gt, exp=True), perm_mat, n1_gt)
+            _, _match_num, _total_num = pck(P2_gt, P2_gt, torch.bmm(s_pred_perm, perm_mat.transpose(1, 2)), thres, n1_gt)
+            match_num += _match_num
+            total_num += _total_num
+
+            _, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_perm, perm_mat, n1_gt)
             acc_match_num += _acc_match_num
             acc_total_num += _acc_total_num
 
@@ -101,6 +99,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
             print('Class {} PCK@{{'.format(cls) +
                   ', '.join(list(map('{:.2f}'.format, alphas.tolist()))) + '} = {' +
                   ', '.join(list(map('{:.4f}'.format, pcks[i].tolist()))) + '}')
+            print('Class {} acc = {:.4f}'.format(cls, accs[i]))
 
     time_elapsed = time.time() - since
     print('Evaluation complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
@@ -126,6 +125,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 if __name__ == '__main__':
     from utils.dup_stdout_manager import DupStdoutFileManager
     from utils.parse_args import parse_args
+    from utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching evaluation code.')
 
@@ -135,8 +135,9 @@ if __name__ == '__main__':
 
     torch.manual_seed(cfg.RANDOM_SEED)
 
-    image_dataset = GMDataset('PascalVOC',
-                              sets='test',
+    image_dataset = GMDataset(cfg.DATASET_FULL_NAME,
+                              #sets='test',
+                              sets='train',
                               length=cfg.EVAL.EPOCH_ITERS,
                               pad=cfg.PAIR.PADDING,
                               obj_resize=cfg.PAIR.RESCALE)
@@ -152,6 +153,7 @@ if __name__ == '__main__':
         Path(cfg.OUTPUT_PATH).mkdir(parents=True)
     now_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('eval_log_' + now_time + '.log'))) as _:
+        print_easydict(cfg)
         alphas = torch.tensor(cfg.EVAL.PCK_ALPHAS, dtype=torch.float32, device=device)
         classes = dataloader.dataset.classes
         pcks = eval_model(model, alphas, dataloader,

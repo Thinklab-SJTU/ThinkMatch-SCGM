@@ -96,6 +96,7 @@ class PascalVOC:
         self.img_path = Path(img_path)
         self.ori_anno_path = Path(ori_anno_path)
         self.obj_resize = obj_resize
+        self.sets = sets
 
         assert sets == 'train' or 'test', 'No match found for dataset {}'.format(sets)
         cache_name = 'voc_db_' + sets + '.pkl'
@@ -125,7 +126,7 @@ class PascalVOC:
         for cls_id in range(len(self.classes)):
             to_del = []
             for xml_name in self.xml_list[cls_id]:
-                xml_comps = xml_name.split('/')[1].strip('.xml').split('_')
+                xml_comps = xml_name.split('/')[-1].strip('.xml').split('_')
                 ori_xml_name = '_'.join(xml_comps[:-1]) + '.xml'
                 voc_idx = int(xml_comps[-1])
                 xml_file = self.ori_anno_path / ori_xml_name
@@ -148,6 +149,12 @@ class PascalVOC:
                 if self.classes[cls_id] == 'person' and int(xml_comps[0]) > 2008:
                     to_del.append(xml_name)
                     continue
+
+                # Exclude overlapping images in Willow
+                #if self.sets == 'train' and (self.classes[cls_id] == 'motorbike' or self.classes[cls_id] == 'car') \
+                #        and int(xml_comps[0]) == 2007:
+                #    to_del.append(xml_name)
+                #    continue
 
             for x in to_del:
                 self.xml_list[cls_id].remove(x)

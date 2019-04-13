@@ -5,6 +5,8 @@ from torchvision import transforms
 import numpy as np
 import random
 from data.pascal_voc import PascalVOC
+from data.willow_obj import WillowObject
+from data.synthetic import SyntheticDataset
 from utils.build_graphs import build_graphs, make_grids
 from utils.fgm import kronecker_sparse
 from sparse_torch import CSRMatrix3d
@@ -20,7 +22,7 @@ class GMDataset(Dataset):
                               # length here represents the iterations between two checkpoints
         self.obj_size = self.ds.obj_resize
         self.classes = self.ds.classes
-        self.cls = cls
+        self.cls = None if cls == 'none' else cls
 
     def __len__(self):
         return self.length
@@ -32,7 +34,6 @@ class GMDataset(Dataset):
         if perm_mat.size <= 2 * 2:
             return self.__getitem__(idx)
 
-        imgs = [anno['image'] for anno in anno_pair]
         cls = [anno['cls'] for anno in anno_pair]
         P1_gt = [(kp['x'], kp['y']) for kp in anno_pair[0]['keypoints']]
         P2_gt = [(kp['x'], kp['y']) for kp in anno_pair[1]['keypoints']]
@@ -42,31 +43,39 @@ class GMDataset(Dataset):
         P1_gt = np.array(P1_gt)
         P2_gt = np.array(P2_gt)
 
-        trans = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(cfg.NORM_MEANS, cfg.NORM_STD)
-                ])
-        imgs = [trans(img) for img in imgs]
-
-        P1 = P2 = make_grids((0, 0), cfg.PAIR.RESCALE, cfg.PAIR.CANDIDATE_SHAPE)
-        n1 = n2 = P1.shape[0]
-        G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg='tri') # todo remove redundant items
-        #G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg='fc')
-        G2_gt = np.dot(perm_mat.transpose(), G1_gt)
-        H2_gt = np.dot(perm_mat.transpose(), H1_gt)
-        e2_gt = e1_gt
+        #P1 = P2 = make_grids((0, 0), cfg.PAIR.RESCALE, cfg.PAIR.CANDIDATE_SHAPE)
+        #n1 = n2 = P1.shape[0]
+        G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
+        G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
+        #G2_gt = np.dot(perm_mat.transpose(), G1_gt)
+        #H2_gt = np.dot(perm_mat.transpose(), H1_gt)
+        #e2_gt = e1_gt
         #G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg='fc')
         #G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg='fc')
-        G1,    H1   , e1    = build_graphs(P1,    n1,    stg='fc')
-        G2,    H2   , e2    = build_graphs(P2,    n2,    stg='fc')
+        #G1,    H1   , e1    = build_graphs(P1,    n1,    stg='fc')
+        #G2,    H2   , e2    = build_graphs(P2,    n2,    stg='fc')
 
-        return {'images': imgs,
-                'Ps': [torch.Tensor(x) for x in [P1_gt, P2_gt, P1, P2]],
-                'ns': [torch.tensor(x) for x in [n1_gt, n2_gt, n1, n2]],
-                'es': [torch.tensor(x) for x in [e1_gt, e2_gt, e1, e2]],
-                'gt_perm_mat': perm_mat,
-                'Gs': [torch.Tensor(x) for x in [G1_gt, G2_gt, G1, G2]],
-                'Hs': [torch.Tensor(x) for x in [H1_gt, H2_gt, H1, H2]]}
+        ret_dict = {'Ps': [torch.Tensor(x) for x in [P1_gt, P2_gt]], # P1, P2]],
+                    'ns': [torch.tensor(x) for x in [n1_gt, n2_gt]], # n1, n2]],
+                    'es': [torch.tensor(x) for x in [e1_gt, e2_gt]], # e1, e2]],
+                    'gt_perm_mat': perm_mat,
+                    'Gs': [torch.Tensor(x) for x in [G1_gt, G2_gt]], # G1, G2]],
+                    'Hs': [torch.Tensor(x) for x in [H1_gt, H2_gt]]} #H1, H2]]}
+
+        imgs = [anno['image'] for anno in anno_pair]
+        if imgs[0] is not None:
+            trans = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(cfg.NORM_MEANS, cfg.NORM_STD)
+                    ])
+            imgs = [trans(img) for img in imgs]
+            ret_dict['images'] = imgs
+        elif 'feat' in anno_pair[0]['keypoints'][0]:
+            feat1 = np.stack([kp['feat'] for kp in anno_pair[0]['keypoints']], axis=-1)
+            feat2 = np.stack([kp['feat'] for kp in anno_pair[1]['keypoints']], axis=-1)
+            ret_dict['features'] = [torch.Tensor(x) for x in [feat1, feat2]]
+
+        return ret_dict
 
 
 def collate_fn(data: list):
@@ -93,7 +102,8 @@ def collate_fn(data: list):
         for t in inp:
             pad_pattern = np.zeros(2 * len(max_shape), dtype=np.int64)
             pad_pattern[::-2] = max_shape - np.array(t.shape)
-            pad_pattern = torch.from_numpy(np.asfortranarray(pad_pattern))
+            #pad_pattern = torch.from_numpy(np.asfortranarray(pad_pattern))
+            pad_pattern = tuple(pad_pattern.tolist())
             padded_ts.append(F.pad(t, pad_pattern, 'constant', 0))
 
         return padded_ts
@@ -124,8 +134,8 @@ def collate_fn(data: list):
 
     # compute CPU-intensive matrix K1, K2 here to leverage multi-processing nature of dataloader
     if 'Gs' in ret and 'Hs' in ret:
-        G1_gt, G2_gt, G1, G2 = ret['Gs']
-        H1_gt, H2_gt, H1, H2 = ret['Hs']
+        G1_gt, G2_gt = ret['Gs']
+        H1_gt, H2_gt = ret['Hs']
         K1G = [kronecker_sparse(x, y) for x, y in zip(G2_gt, G1_gt)]  # 1 as source graph, 2 as target graph
         K1H = [kronecker_sparse(x, y) for x, y in zip(H2_gt, H1_gt)]
         K1G = CSRMatrix3d(K1G)
@@ -141,14 +151,16 @@ def worker_init_fix(worker_id):
     Init dataloader workers with fixed seed.
     """
     random.seed(cfg.RANDOM_SEED + worker_id)
+    np.random.seed(cfg.RANDOM_SEED + worker_id)
 
 
 def worker_init_rand(worker_id):
     """
     Init dataloader workers with torch.initial_seed().
-    torch.initial_seed() returns different seeds when called in different times.
+    torch.initial_seed() returns different seeds when called from different dataloader threads.
     """
     random.seed(torch.initial_seed())
+    np.random.seed(torch.initial_seed() % 2 ** 32)
 
 
 def get_dataloader(dataset, fix_seed=True):

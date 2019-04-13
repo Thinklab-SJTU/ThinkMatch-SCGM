@@ -75,21 +75,21 @@ def train_eval_model(model,
 
         # Iterate over data.
         for inputs in dataloader['train']:
-            img1, img2 = inputs['images']
-            P1_gt, P2_gt, P1, P2 = inputs['Ps']
-            n1_gt, n2_gt, n1, n2 = inputs['ns']
-            e1_gt, e2_gt, e1, e2 = inputs['es']
-            G1_gt, G2_gt, G1, G2 = inputs['Gs']
-            H1_gt, H2_gt, H1, H2 = inputs['Hs']
-            KG, KH = inputs['Ks']
-            perm_mat = inputs['gt_perm_mat']
-
-            #P1_gt = P1_gt.cuda()
-            #P2 = P2.cuda()
-            #n1_gt = n1_gt.cuda()
-            perm_mat = perm_mat.cuda()
-            #P2_gt = P2_gt.cuda()
-            #KG, KH = KG.cuda(), KH.cuda()
+            if 'images' in inputs:
+                data1, data2 = [_.cuda() for _ in inputs['images']]
+                inp_type = 'img'
+            elif 'features' in inputs:
+                data1, data2 = [_.cuda() for _ in inputs['features']]
+                inp_type = 'feat'
+            else:
+                raise ValueError('no valid data key (\'images\' or \'features\') found from dataloader!')
+            P1_gt, P2_gt = [_.cuda() for _ in inputs['Ps']]
+            n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
+            e1_gt, e2_gt = [_.cuda() for _ in inputs['es']]
+            G1_gt, G2_gt = [_.cuda() for _ in inputs['Gs']]
+            H1_gt, H2_gt = [_.cuda() for _ in inputs['Hs']]
+            KG, KH = [_.cuda() for _ in inputs['Ks']]
+            perm_mat = inputs['gt_perm_mat'].cuda()
 
             iter_num = iter_num + perm_mat.size(0)
 
@@ -98,18 +98,33 @@ def train_eval_model(model,
 
             with torch.set_grad_enabled(True):
                 # forward
-                s_pred, d_pred = model(img1, img2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, tfboard_writer)
+                s_pred, d_pred = \
+                    model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
 
-                #d_gt, grad_mask = displacement(perm_mat, P1_gt.cuda(), P2_gt.cuda(), n1_gt.cuda())
-                #loss = criterion(d_pred, d_gt, grad_mask)
+                multi_loss = []
+                if cfg.TRAIN.LOSS_FUNC == 'offset':
+                    d_gt, grad_mask = displacement(perm_mat, P1_gt, P2_gt, n1_gt)
+                    loss = criterion(d_pred, d_gt, grad_mask)
+                elif cfg.TRAIN.LOSS_FUNC == 'perm':
+                    loss = torch.zeros(1).cuda()
+                    if type(s_pred) is list:
+                        for _s_pred, weight in zip(s_pred, cfg.GMGNN.LOSS_WEIGHTS):
+                            l = criterion(_s_pred, perm_mat, n1_gt, n2_gt)
+                            multi_loss.append(l)
+                            loss += l * weight
+                    else:
+                        loss = criterion(s_pred, perm_mat, n1_gt, n2_gt)
+                else:
+                    raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-                loss = criterion(s_pred, perm_mat, n1_gt, n2_gt)
+                if type(s_pred) is list:
+                    s_pred = s_pred[-1]
 
                 # backward + optimize
                 loss.backward()
                 optimizer.step()
 
-                # training pck statistic
+                # training accuracy statistic
                 thres = torch.empty(perm_mat.size(0), len(alphas)).cuda()
                 for b in range(perm_mat.size(0)):
                     thres[b] = alphas * cfg.EVAL.PCK_L
@@ -117,7 +132,9 @@ def train_eval_model(model,
                 acc, _, __ = matching_accuracy(lap_solver(s_pred, n1_gt, n2_gt, exp=True), perm_mat, n1_gt)
 
                 # tfboard writer
-                tfboard_writer.add_scalars('loss', {'loss': loss.item()}, epoch * cfg.TRAIN.EPOCH_ITERS + iter_num)
+                loss_dict = {'loss_{}'.format(i): l.item() for i, l in enumerate(multi_loss)}
+                loss_dict['loss'] = loss.item()
+                tfboard_writer.add_scalars('loss', loss_dict, epoch * cfg.TRAIN.EPOCH_ITERS + iter_num)
                 #accdict = {'PCK@{:.2f}'.format(a): p for a, p in zip(alphas, pck)}
                 accdict = dict()
                 accdict['matching accuracy'] = acc
@@ -171,6 +188,7 @@ def train_eval_model(model,
 if __name__ == '__main__':
     from utils.dup_stdout_manager import DupStdoutFileManager
     from utils.parse_args import parse_args
+    from utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching training & evaluation code.')
 
@@ -182,10 +200,11 @@ if __name__ == '__main__':
 
     dataset_len = {'train': cfg.TRAIN.EPOCH_ITERS, 'test': cfg.EVAL.EPOCH_ITERS}
     image_dataset = {
-        x: GMDataset('PascalVOC',
+        x: GMDataset(cfg.DATASET_FULL_NAME,
                      sets=x,
                      length=dataset_len[x],
                      pad=cfg.PAIR.PADDING,
+                     cls=cfg.TRAIN.CLASS if x == 'train' else None,
                      obj_resize=cfg.PAIR.RESCALE)
         for x in ('train', 'test')}
     dataloader = {x: get_dataloader(image_dataset[x], fix_seed=(x == 'test'))
@@ -197,8 +216,12 @@ if __name__ == '__main__':
     model = model.cuda()
     model = DataParallel(model, device_ids=cfg.GPUS)
 
-    #criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
-    criterion = CrossEntropyLoss()#nn.NLLLoss()
+    if cfg.TRAIN.LOSS_FUNC == 'offset':
+        criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
+    elif cfg.TRAIN.LOSS_FUNC == 'perm':
+        criterion = CrossEntropyLoss()
+    else:
+        raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
     optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM)
 
@@ -209,6 +232,7 @@ if __name__ == '__main__':
     tfboardwriter = SummaryWriter(log_dir=str(Path(cfg.OUTPUT_PATH) / 'tensorboard' / 'training_{}'.format(now_time)))
 
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('train_log_' + now_time + '.log'))) as _:
+        print_easydict(cfg)
         model = train_eval_model(model, criterion, optimizer, dataloader, tfboardwriter,
                                  num_epochs=cfg.TRAIN.NUM_EPOCHS,
                                  resume=cfg.TRAIN.START_EPOCH != 0,

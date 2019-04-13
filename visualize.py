@@ -2,9 +2,10 @@ import torch
 import numpy as np
 from pathlib import Path
 
-from data.data_loader import GMDataset
-from GMN.model import Net
-from utils.build_graphs import make_grids
+from data.data_loader import GMDataset, get_dataloader
+from utils.model_sl import load_model
+from parallel import DataParallel
+from GMN.bi_stochastic import BiStochastic
 
 import matplotlib
 try:
@@ -28,30 +29,34 @@ def visualize_model(model, dataloader, device, num_images=6, set='train', cls=No
     if cls is not None:
         dataloader[set].dataset.cls = cls
 
+    lap_solver = BiStochastic(max_iter=20)
+
     visualize_path = Path(cfg.OUTPUT_PATH) / 'visual'
     if save_img:
         if not visualize_path.exists():
             visualize_path.mkdir(parents=True)
     with torch.no_grad():
         for i, inputs in enumerate(dataloader[set]):
-            img_src, img_tgt = inputs['images']
-            P_src, P_tgt_gt = inputs['Ps']
-            n_src, n_tgt_gt = inputs['ns']
-            perm_mat = inputs['gt_perm_mat']
+            if 'images' in inputs:
+                data1, data2 = [_.cuda() for _ in inputs['images']]
+                inp_type = 'img'
+            elif 'features' in inputs:
+                data1, data2 = [_.cuda() for _ in inputs['features']]
+                inp_type = 'feat'
+            else:
+                raise ValueError('no valid data key (\'images\' or \'features\') found from dataloader!')
+            P1_gt, P2_gt = [_.cuda() for _ in inputs['Ps']]
+            n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
+            e1_gt, e2_gt = [_.cuda() for _ in inputs['es']]
+            G1_gt, G2_gt = [_.cuda() for _ in inputs['Gs']]
+            H1_gt, H2_gt = [_.cuda() for _ in inputs['Hs']]
+            KG, KH = [_.cuda() for _ in inputs['Ks']]
+            perm_mat = inputs['gt_perm_mat'].cuda()
 
-            P_tgt = make_grids((0, 0), cfg.PAIR.RESCALE, cfg.PAIR.CANDIDATE_SHAPE, device, batch=cfg.BATCH_SIZE)
-            n_tgt = torch.as_tensor([x.shape[0] for x in P_tgt])
-
-            img_src = img_src.to(device)
-            img_tgt = img_tgt.to(device)
-            P_src = P_src.to(device)
-            P_tgt = P_tgt.to(device)
-            n_src = n_src.to(device)
-            n_tgt = n_tgt.to(device)
-            perm_mat = perm_mat.to(device)
-            P_tgt_gt = P_tgt_gt.to(device)
-
-            s_pred = model(img_src, img_tgt, P_src, P_tgt, n_src, n_tgt)
+            s_pred, _ = model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
+            if type(s_pred) is list:
+                s_pred = s_pred[-1]
+            s_pred_perm = lap_solver(s_pred, n1_gt, n2_gt, exp=True)
 
             for j in range(s_pred.size()[0]):
                 images_so_far += 1
@@ -59,24 +64,24 @@ def visualize_model(model, dataloader, device, num_images=6, set='train', cls=No
 
                 fig = plt.figure()
 
-                colorset = np.random.rand(n_src[j], 3)
+                colorset = np.random.rand(n1_gt[j], 3)
                 ax = plt.subplot(1, 3, 1)
                 ax.axis('off')
                 plt.title('source')
-                plot_helper(img_src[j], P_src[j], n_src[j], ax, colorset)
+                plot_helper(data1[j], P1_gt[j], n1_gt[j], ax, colorset)
 
                 ax = plt.subplot(1, 3, 2)
                 ax.axis('off')
                 plt.title('predict')
-                plot_helper(img_tgt[j], P_tgt[j], n_src[j], ax, colorset, 'tgt', s_pred[j])
+                plot_helper(data2[j], P2_gt[j], n1_gt[j], ax, colorset, 'tgt', s_pred_perm[j])
 
                 ax = plt.subplot(1, 3, 3)
                 ax.axis('off')
                 plt.title('groundtruth')
-                plot_helper(img_tgt[j], P_tgt_gt[j], n_src[j], ax, colorset, 'tgt', perm_mat[j])
+                plot_helper(data2[j], P2_gt[j], n1_gt[j], ax, colorset, 'tgt', perm_mat[j])
 
                 if save_img:
-                    fig.savefig(str(visualize_path / '{:0>4}.jpg'.format(images_so_far)))
+                    fig.savefig(str(visualize_path / '{:0>4}.pdf'.format(images_so_far)), bbox_inches='tight')
                 else:
                     plt.show()
                     print("Press Enter to continue...", end='', flush=True)  # prevent new line
@@ -124,6 +129,11 @@ if __name__ == '__main__':
     from utils.parse_args import parse_args
     args = parse_args('Deep learning of graph matching visualization code.')
 
+    import importlib
+
+    mod = importlib.import_module(cfg.MODULE)
+    Net = mod.Net
+
     dataset_len = {'train': cfg.TRAIN.EPOCH_ITERS, 'test': cfg.EVAL.EPOCH_ITERS}
     image_dataset = {
         x: GMDataset('PascalVOC',
@@ -132,26 +142,23 @@ if __name__ == '__main__':
                      pad=cfg.PAIR.PADDING,
                      obj_resize=cfg.PAIR.RESCALE)
         for x in ('train', 'test')}
-    dataloader = {
-        x: torch.utils.data.DataLoader(image_dataset[x],
-                                       batch_size=cfg.BATCH_SIZE,
-                                       shuffle=False,
-                                       num_workers=cfg.BATCH_SIZE)
+    dataloader = {x: get_dataloader(image_dataset[x], fix_seed=(x == 'test'))
         for x in ('train', 'test')}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     model = Net()
     model = model.to(device)
+    model = DataParallel(model, device_ids=cfg.GPUS)
 
     model_path = None
     if cfg.VISUAL.EPOCH != 0:
-        model_path = str(Path(cfg.OUTPUT_PATH) / 'params_{:04}.pt'.format(cfg.VISUAL.EPOCH))
+        model_path = str(Path(cfg.OUTPUT_PATH) / 'params' / 'params_{:04}.pt'.format(cfg.VISUAL.EPOCH))
     elif len(cfg.VISUAL.WEIGHT_PATH) != 0:
         model_path = cfg.VISUAL.WEIGHT_PATH
     if model_path is not None:
         print('Loading model parameters from {}'.format(model_path))
-        model.load_state_dict(torch.load(model_path))
+        load_model(model, model_path)
 
     visualize_model(model, dataloader, device,
                     num_images=cfg.VISUAL.NUM_IMGS,
