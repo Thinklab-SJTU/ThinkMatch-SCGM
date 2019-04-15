@@ -75,6 +75,10 @@ __C.GMN.VOTING_ALPHA = 2e8
 
 # GMGNN model options
 __C.GMGNN = edict()
+__C.GMGNN.FEATURE_CHANNEL = 512
+__C.GMGNN.BS_ITER_NUM = 20
+__C.GMGNN.BS_EPSILON = 1.0e-10
+__C.GMGNN.VOTING_ALPHA = 200.
 __C.GMGNN.GNN_LAYER = 5
 __C.GMGNN.GNN_FEAT = 1024
 __C.GMGNN.LOSS_WEIGHTS = [0., 1.]  # [cross-module loss, final prediction loss]

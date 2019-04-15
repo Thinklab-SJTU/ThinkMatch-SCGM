@@ -1,11 +1,11 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_pca
+MODEL_NAME: vgg16_gnnqap
 DATASET_NAME: voc
 
 DATASET_FULL_NAME: PascalVOC
 
-MODULE: GMGNN.model
+MODULE: GNNQAP.model
 
 BATCH_SIZE: 8
 
@@ -14,7 +14,7 @@ RANDOM_SEED: 123
 # available GPU ids
 GPUS:
   - 0
-  - 1
+#  - 1
 
 # Pairwise data configuration
 PAIR:
@@ -25,7 +25,7 @@ PAIR:
     - 16
     - 16
   GT_GRAPH_CONSTRUCT: tri
-  REF_GRAPH_CONSTRUCT: tri
+  REF_GRAPH_CONSTRUCT: fc
 
 # Training settings
 TRAIN:
@@ -62,14 +62,11 @@ VISUAL:
   SAVE: True  # save images as files, else plot images via matplotlib
   NUM_IMGS: 100  # number of images to be visualized
 
-# GMGNN model parameters
-GMGNN:
+# model parameters
+GNNQAP:
   FEATURE_CHANNEL: 512
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
   VOTING_ALPHA: 200.
-  GNN_FEAT: 2048
+  GNN_FEAT: 256
   GNN_LAYER: 2
-  LOSS_WEIGHTS:
-    - 0.  # cross-module loss
-    - 1.  # final prediction loss

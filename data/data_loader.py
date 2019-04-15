@@ -28,8 +28,9 @@ class GMDataset(Dataset):
         return self.length
 
     def __getitem__(self, idx):
-        anno_pair, perm_mat = self.ds.get_pair(self.cls if self.cls is not None else
-                                               (idx % (cfg.BATCH_SIZE * len(self.classes))) // cfg.BATCH_SIZE)
+        #anno_pair, perm_mat = self.ds.get_pair(self.cls if self.cls is not None else
+        #                                       (idx % (cfg.BATCH_SIZE * len(self.classes))) // cfg.BATCH_SIZE)
+        anno_pair, perm_mat = self.ds.get_pair(self.cls)
         # todo this operation may affect gradient
         if perm_mat.size <= 2 * 2:
             return self.__getitem__(idx)

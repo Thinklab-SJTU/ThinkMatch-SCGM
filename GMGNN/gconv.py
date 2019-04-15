@@ -43,7 +43,7 @@ class Gconv(nn.Module):
 
         x = torch.bmm(A_norm, F.relu(ax)) + F.relu(ux) # has size (bs, N, num_outputs)
 
-        return A, x
+        return x
 
 '''
 class Gconv(nn.Module):
@@ -69,7 +69,6 @@ class Gconv(nn.Module):
         x = self.bn(x.view(-1, self.num_outputs))
         x = x.view(*x_size[:-1], self.num_outputs)
         return W, x
-'''
 
 class GNN(nn.Module):
     def __init__(self, in_features, num_features, num_layers, J):
@@ -92,49 +91,15 @@ class GNN(nn.Module):
         #out = self.layerlast(cur)
         out = cur
         return out[1]
+'''
 
-class Siamese_GNN(nn.Module):
-    def __init__(self, in_features, num_features, num_layers, J):
-        super(Siamese_GNN, self).__init__()
-        self.gnn = GNN(in_features, num_features, num_layers, J)
+class Siamese_Gconv(nn.Module):
+    def __init__(self, in_features, num_features):
+        super(Siamese_Gconv, self).__init__()
+        self.gconv = Gconv(in_features, num_features)
 
     def forward(self, g1, g2):
-        emb1 = self.gnn(*g1)
-        emb2 = self.gnn(*g2)
+        emb1 = self.gconv(*g1)
+        emb2 = self.gconv(*g2)
         # embx are tensors of size (bs, N, num_features)
         return emb1, emb2
-
-if __name__ == '__main__':
-    # test modules
-    bs =  4
-    num_features = 10
-    num_layers = 5
-    N = 8
-    x = torch.ones((bs, N, num_features))
-    W1 = torch.eye(N).unsqueeze(0).unsqueeze(-1).expand(bs, N, N, 1)
-    W2 = torch.ones(N).unsqueeze(0).unsqueeze(-1).expand(bs, N, N, 1)
-    J = 2
-    W = torch.cat((W1, W2), 3)
-    input = [Variable(W), Variable(x)]
-    ######################### test gmul ##############################
-    # feature_maps = [num_features, num_features, num_features]
-    # out = gmul(input)
-    # print(out[0, :, num_features:])
-    ######################### test gconv ##############################
-    # feature_maps = [num_features, num_features, num_features]
-    # gconv = Gconv(feature_maps, J)
-    # _, out = gconv(input)
-    # print(out.size())
-    ######################### test gnn ##############################
-    # x = torch.ones((bs, N, 1))
-    # input = [Variable(W), Variable(x)]
-    # gnn = GNN(num_features, num_layers, J)
-    # out = gnn(input)
-    # print(out.size())
-    ######################### test siamese gnn ##############################
-    x = torch.ones((bs, N, 1))
-    input1 = [Variable(W), Variable(x)]
-    input2 = [Variable(W.clone()), Variable(x.clone())]
-    siamese_gnn = Siamese_GNN(num_features, num_layers, J)
-    out = siamese_gnn(input1, input2)
-    print(out.size())
