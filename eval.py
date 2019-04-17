@@ -136,8 +136,7 @@ if __name__ == '__main__':
     torch.manual_seed(cfg.RANDOM_SEED)
 
     image_dataset = GMDataset(cfg.DATASET_FULL_NAME,
-                              #sets='test',
-                              sets='train',
+                              sets='test',
                               length=cfg.EVAL.EPOCH_ITERS,
                               pad=cfg.PAIR.PADDING,
                               obj_resize=cfg.PAIR.RESCALE)
