@@ -29,9 +29,9 @@ class Gconv(nn.Module):
         #self.u_bn = nn.BatchNorm1d(self.num_outputs)
 
 
-    def forward(self, A, x):
-        x_size = x.size()
-        A_norm = F.normalize(A, p=1, dim=-1)
+    def forward(self, A, x, norm=True):
+        if norm is True:
+            A = F.normalize(A, p=1, dim=-2)
 
         ax = self.a_fc(x)
         #ax = self.a_bn(ax.view(-1, self.num_outputs))
@@ -41,7 +41,7 @@ class Gconv(nn.Module):
         #ux = self.u_bn(ux.view(-1, self.num_outputs))
         #ux = ux.view(*x_size[:-1], self.num_outputs)
 
-        x = torch.bmm(A_norm, F.relu(ax)) + F.relu(ux) # has size (bs, N, num_outputs)
+        x = torch.bmm(A, F.relu(ax)) + F.relu(ux) # has size (bs, N, num_outputs)
 
         return x
 
