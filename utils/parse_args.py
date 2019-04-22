@@ -1,5 +1,5 @@
 import argparse
-from utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir, lcm
+from utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
 from pathlib import Path
 
 
@@ -38,8 +38,5 @@ def parse_args(description):
     assert len(cfg.OUTPUT_PATH) != 0, 'Invalid OUTPUT_PATH! Make sure model name and dataset name are specified.'
     if not Path(cfg.OUTPUT_PATH).exists():
         Path(cfg.OUTPUT_PATH).mkdir(parents=True)
-
-    stat_step = lcm(cfg.BATCH_SIZE, cfg.STATISTIC_STEP)
-    cfg_from_list(['STATISTIC_STEP', stat_step])
 
     return args

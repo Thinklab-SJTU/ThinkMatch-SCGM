@@ -43,8 +43,8 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         iter_num = 0
 
         ds.cls = cls
-        match_num = torch.zeros(len(alphas), device=device)
-        total_num = torch.zeros(len(alphas), device=device)
+        pck_match_num = torch.zeros(len(alphas), device=device)
+        pck_total_num = torch.zeros(len(alphas), device=device)
         acc_match_num = torch.zeros(1, device=device)
         acc_total_num = torch.zeros(1, device=device)
         for inputs in dataloader:
@@ -66,7 +66,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
             batch_num = data1.size(0)
 
-            iter_num = iter_num + batch_num
+            iter_num = iter_num + 1
 
             thres = torch.empty(batch_num, len(alphas), device=device)
             for b in range(batch_num):
@@ -79,9 +79,9 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 s_pred = s_pred[-1]
             s_pred_perm = lap_solver(s_pred, n1_gt, n2_gt, exp=True)
 
-            _, _match_num, _total_num = pck(P2_gt, P2_gt, torch.bmm(s_pred_perm, perm_mat.transpose(1, 2)), thres, n1_gt)
-            match_num += _match_num
-            total_num += _total_num
+            _, _pck_match_num, _pck_total_num = pck(P2_gt, P2_gt, torch.bmm(s_pred_perm, perm_mat.transpose(1, 2)), thres, n1_gt)
+            pck_match_num += _pck_match_num
+            pck_total_num += _pck_total_num
 
             _, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_perm, perm_mat, n1_gt)
             acc_match_num += _acc_match_num
@@ -89,11 +89,11 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
 
             if iter_num % cfg.STATISTIC_STEP == 0 and verbose:
-                running_speed = cfg.STATISTIC_STEP / (time.time() - running_since)
+                running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)
                 print('Class {:<8} Iteration {:<4} {:>4.2f}sample/s'.format(cls, iter_num, running_speed))
                 running_since = time.time()
 
-        pcks[i] = match_num / total_num
+        pcks[i] = pck_match_num / pck_total_num
         accs[i] = acc_match_num / acc_total_num
         if verbose:
             print('Class {} PCK@{{'.format(cls) +
@@ -137,7 +137,7 @@ if __name__ == '__main__':
 
     image_dataset = GMDataset(cfg.DATASET_FULL_NAME,
                               sets='test',
-                              length=cfg.EVAL.EPOCH_ITERS,
+                              length=cfg.EVAL.SAMPLES,
                               pad=cfg.PAIR.PADDING,
                               obj_resize=cfg.PAIR.RESCALE)
     dataloader = get_dataloader(image_dataset)

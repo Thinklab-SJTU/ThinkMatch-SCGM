@@ -134,8 +134,8 @@ __C.EVAL.EPOCH = 30
 __C.EVAL.PCK_ALPHAS = [0.05, 0.10]
 __C.EVAL.PCK_L = float(max(__C.PAIR.RESCALE))  # PCK reference.
 
-# Iterations per epochs. Stands for number of images in each classes (VOC)
-__C.EVAL.EPOCH_ITERS = 100
+# Number of samples for testing. Stands for number of image pairs in each classes (VOC)
+__C.EVAL.SAMPLES = 1000
 
 
 #

@@ -91,7 +91,7 @@ def train_eval_model(model,
             KG, KH = [_.cuda() for _ in inputs['Ks']]
             perm_mat = inputs['gt_perm_mat'].cuda()
 
-            iter_num = iter_num + perm_mat.size(0)
+            iter_num = iter_num + 1
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -149,9 +149,9 @@ def train_eval_model(model,
                 epoch_loss += loss.item() * perm_mat.size(0)
 
                 if iter_num % cfg.STATISTIC_STEP == 0:
-                    running_speed = cfg.STATISTIC_STEP / (time.time() - running_since)
+                    running_speed = cfg.STATISTIC_STEP * perm_mat.size(0) / (time.time() - running_since)
                     print('Epoch {:<4} Iteration {:<4} {:>4.2f}sample/s Loss={:<8.4f}'
-                          .format(epoch, iter_num, running_speed, running_loss / cfg.STATISTIC_STEP))
+                          .format(epoch, iter_num, running_speed, running_loss / cfg.STATISTIC_STEP / perm_mat.size(0)))
                     tfboard_writer.add_scalars(
                         'speed',
                         {'speed': running_speed},
@@ -198,7 +198,7 @@ if __name__ == '__main__':
 
     torch.manual_seed(cfg.RANDOM_SEED)
 
-    dataset_len = {'train': cfg.TRAIN.EPOCH_ITERS, 'test': cfg.EVAL.EPOCH_ITERS}
+    dataset_len = {'train': cfg.TRAIN.EPOCH_ITERS * cfg.BATCH_SIZE, 'test': cfg.EVAL.SAMPLES}
     image_dataset = {
         x: GMDataset(cfg.DATASET_FULL_NAME,
                      sets=x,
