@@ -125,7 +125,7 @@ class RebuildFGM(Function):
         K1, K2 = ctx.K
         dMe = dMp = None
         if ctx.needs_input_grad[0]:
-            dMe = bilinear_diag_torch(K1.transpose(keep_type=True), dM, K2.transpose(keep_type=True))
+            dMe = bilinear_diag_torch(K1.transpose(keep_type=True), dM.contiguous(), K2.transpose(keep_type=True))
             dMe = dMe.view(Me.shape[0], Me.shape[2], Me.shape[1]).transpose(1, 2)
         if ctx.needs_input_grad[1]:
             dMp = torch.diagonal(dM, dim1=-2, dim2=-1)

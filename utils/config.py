@@ -83,6 +83,15 @@ __C.GMGNN.GNN_LAYER = 5
 __C.GMGNN.GNN_FEAT = 1024
 __C.GMGNN.LOSS_WEIGHTS = [0., 1.]  # [cross-module loss, final prediction loss]
 
+# GNNQAP model options
+__C.GNNQAP = edict()
+__C.GNNQAP.FEATURE_CHANNEL = 512
+__C.GNNQAP.BS_ITER_NUM = 10
+__C.GNNQAP.BS_EPSILON = 1e-10
+__C.GNNQAP.VOTING_ALPHA = 200.
+__C.GNNQAP.GNN_FEAT = 256
+__C.GNNQAP.GNN_LAYER = 3
+
 
 #
 # Training options
