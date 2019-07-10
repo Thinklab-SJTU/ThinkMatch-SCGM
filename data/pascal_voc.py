@@ -109,7 +109,7 @@ class PascalVOC:
         else:
             print('Caching xml list to {}...'.format(self.cache_file))
             self.cache_path.mkdir(exist_ok=True, parents=True)
-            with np.load(set_path) as f:
+            with np.load(set_path, allow_pickle=True) as f:
                 self.xml_list = f[sets]
             before_filter = sum([len(k) for k in self.xml_list])
             self.filter_list()
