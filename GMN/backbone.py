@@ -3,22 +3,24 @@ import torch.nn as nn
 from torchvision import models
 
 
-class VGG16(nn.Module):
-    def __init__(self):
-        super(VGG16, self).__init__()
-        self.node_layers, self.edge_layers = self.get_backbone()
+class VGG16_base(nn.Module):
+    def __init__(self, batch_norm=True):
+        super(VGG16_base, self).__init__()
+        self.node_layers, self.edge_layers = self.get_backbone(batch_norm)
 
     def forward(self, *input):
         raise NotImplementedError
 
     @staticmethod
-    def get_backbone():
+    def get_backbone(batch_norm):
         """
         Get pretrained VGG16 models for feature extraction.
         :return: feature sequence
         """
-        model = models.vgg16_bn(pretrained=True)
-        #model = models.vgg16(pretrained=True)
+        if batch_norm:
+            model = models.vgg16_bn(pretrained=True)
+        else:
+            model = models.vgg16(pretrained=True)
 
         conv_layers = nn.Sequential(*list(model.features.children()))
 
@@ -48,3 +50,22 @@ class VGG16(nn.Module):
         edge_layers = nn.Sequential(*edge_list)
 
         return node_layers, edge_layers
+    
+
+class VGG16_bn(VGG16_base):
+    def __init__(self):
+        super(VGG16_bn, self).__init__(True)
+
+
+class VGG16(VGG16_base):
+    def __init__(self):
+        super(VGG16, self).__init__(False)
+
+
+class NoBackbone(nn.Module):
+    def __init__(self, batch_norm=True):
+        super(NoBackbone, self).__init__()
+        self.node_layers, self.edge_layers = None, None
+
+    def forward(self, *input):
+        raise NotImplementedError

@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from GMN.bi_stochastic import BiStochastic
+from utils.hungarian import hungarian
 from data.data_loader import GMDataset, get_dataloader
 from utils.evaluation_metric import pck, matching_accuracy
 from parallel import DataParallel
@@ -30,7 +31,8 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
     classes = ds.classes
     cls_cache = ds.cls
 
-    lap_solver = BiStochastic(max_iter=20)
+    #lap_solver = BiStochastic(max_iter=20)
+    lap_solver = hungarian
 
     pcks = torch.zeros(len(classes), len(alphas), device=device)
     accs = torch.zeros(len(classes), device=device)
@@ -73,15 +75,20 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 thres[b] = alphas * cfg.EVAL.PCK_L
 
             with torch.set_grad_enabled(False):
-                s_pred, _ = model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
+                pred = \
+                    model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
+                if len(pred) == 2:
+                    s_pred_score, d_pred = pred
+                else:
+                    s_pred_score, _, d_pred = pred
 
-            if type(s_pred) is list:
-                s_pred = s_pred[-1]
-            s_pred_perm = lap_solver(s_pred, n1_gt, n2_gt, exp=True)
+            if type(s_pred_score) is list:
+                s_pred_score = s_pred_score[-1]
+            s_pred_perm = lap_solver(s_pred_score, n1_gt, n2_gt)
 
-            _, _pck_match_num, _pck_total_num = pck(P2_gt, P2_gt, torch.bmm(s_pred_perm, perm_mat.transpose(1, 2)), thres, n1_gt)
-            pck_match_num += _pck_match_num
-            pck_total_num += _pck_total_num
+            #_, _pck_match_num, _pck_total_num = pck(P2_gt, P2_gt, torch.bmm(s_pred_perm, perm_mat.transpose(1, 2)), thres, n1_gt)
+            #pck_match_num += _pck_match_num
+            #pck_total_num += _pck_total_num
 
             _, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_perm, perm_mat, n1_gt)
             acc_match_num += _acc_match_num

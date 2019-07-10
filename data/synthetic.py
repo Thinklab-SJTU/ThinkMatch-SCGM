@@ -4,19 +4,36 @@ import random
 from pathlib import Path
 from data.base_dataset import BaseDataset
 import pickle
+from copy import deepcopy
+
+
+class MixedSyntheticDataset(BaseDataset):
+    def __init__(self, sets, obj_resize):
+        super(MixedSyntheticDataset, self).__init__()
+        self.rand_size = cfg.SYNTHETIC.MIXED_DATA_NUM
+        self.classes = list(range(self.rand_size))
+        self.obj_resize = obj_resize
+
+        self.data_list = [SyntheticDataset(sets, obj_resize, i) for i in self.classes]
+
+    def get_pair(self, cls=None, shuffle=True):
+        if cls is None:
+            cls = random.choice(self.classes)
+        return self.data_list[cls].get_pair(shuffle=shuffle)
 
 
 class SyntheticDataset(BaseDataset):
-    def __init__(self, sets, obj_resize):
+    def __init__(self, sets, obj_resize, exp_id=cfg.SYNTHETIC.RANDOM_EXP_ID):
         super(SyntheticDataset, self).__init__()
         self.classes = ['synthetic']
         self.obj_resize = obj_resize
 
         self.train_num = cfg.SYNTHETIC.TRAIN_NUM
         self.test_num = cfg.SYNTHETIC.TEST_NUM
-        self.exp_id = cfg.SYNTHETIC.RANDOM_EXP_ID
+        self.exp_id = exp_id
 
-        self.kpt_len = cfg.SYNTHETIC.KPT_NUM
+        self.inlier_num = cfg.SYNTHETIC.KPT_NUM
+        self.outlier_num = cfg.SYNTHETIC.OUT_NUM
         self.dimension = cfg.SYNTHETIC.DIM
         self.gt_feat_high = cfg.SYNTHETIC.FEAT_GT_UNIFORM
         self.gt_feat_low = - cfg.SYNTHETIC.FEAT_GT_UNIFORM
@@ -32,10 +49,10 @@ class SyntheticDataset(BaseDataset):
         self.affine_theta_low = - cfg.SYNTHETIC.POS_AFFINE_DTHETA
         self.pos_noise = cfg.SYNTHETIC.POS_NOISE_STD
 
-        self.cache_name = 'synthetic_train{}_test{}_kpt{}_dim{}_feat{:.2f}n{:.2f}_pos{:.2f}n{:.2f}_id{}.pkl'.format(
-            self.train_num, self.test_num, self.kpt_len, self.dimension,
+        self.cache_name = 'synthetic_train{}_test{}_in{}_out{}_dim{}_feat{:.2f}n{:.2f}_pos{:.2f}n{:.2f}_id{}.pkl'.format(
+            self.train_num, self.test_num, self.inlier_num, self.outlier_num, self.dimension,
             self.gt_feat_high, self.feat_noise, self.gt_pos_high, self.pos_noise,
-            self.exp_id
+           self.exp_id
         )
         self.cache_path = Path(cfg.CACHE_PATH) / 'synthetic' / self.cache_name
 
@@ -48,12 +65,13 @@ class SyntheticDataset(BaseDataset):
                 data_dict = pickle.load(f)
         else:
             print('caching dataset to {}'.format(self.cache_path))
-            self.data_feat = np.random.uniform(self.gt_feat_low, self.gt_feat_high, (self.dimension, self.kpt_len))
-            self.data_pos = np.random.uniform(self.gt_pos_low, self.gt_pos_high, (2, self.kpt_len))
+            self.data_feat = np.random.uniform(self.gt_feat_low, self.gt_feat_high, (self.dimension, self.inlier_num))
+            self.data_pos = np.random.uniform(self.gt_pos_low, self.gt_pos_high, (2, self.inlier_num))
             data_dict = self.__gen_data()
             with self.cache_path.open(mode='wb') as f:
                 pickle.dump(data_dict, f)
         self.data_list = data_dict[sets]
+        pass
 
     def __gen_data(self):
         """
@@ -69,12 +87,25 @@ class SyntheticDataset(BaseDataset):
 
     def __gen_anno_dict(self, is_src=False):
         """
-        Generate an annotation dict according to is_ref True or False
-        :param is_src: get a source point (i.e. ground truth point w/o noise) or not
+        Generate an annotation dict according to is_src True or False
+        :param is_src: get a source point (i.e. ground truth point w/o noise and outlier) or not
         """
-        data_feat = self.data_feat.copy()
-        data_pos = np.concatenate((self.data_pos, np.ones((1, self.kpt_len))), axis=0)
-        if not is_src:
+        if is_src:
+            data_feat = self.data_feat.copy()
+            data_pos = np.concatenate((self.data_pos, np.ones((1, self.inlier_num))), axis=0)
+
+        else:
+            outlier_feat = np.random.uniform(self.gt_feat_low, self.gt_feat_high, (self.dimension, self.outlier_num))
+            outlier_pos = np.random.uniform(self.gt_pos_low, self.gt_pos_high, (2, self.outlier_num))
+            
+            data_feat = np.concatenate((self.data_feat, outlier_feat), axis=1)
+            data_pos = np.concatenate(
+                (
+                    np.concatenate((self.data_pos, outlier_pos), axis=1),
+                    np.ones((1, self.inlier_num + self.outlier_num))
+                ), 
+                axis=0)
+            
             # feature distortion
             data_feat = data_feat + np.random.normal(0, self.feat_noise, data_feat.shape)
 
@@ -90,9 +121,9 @@ class SyntheticDataset(BaseDataset):
             )
             data_pos = np.matmul(aff, data_pos)[:2, :]
             data_pos = data_pos + np.random.normal(0, self.pos_noise, data_pos.shape)
-
+            
         keypoint_list = []
-        for idx in range(self.kpt_len):
+        for idx in range(self.inlier_num + (0 if is_src else self.outlier_num)):
             keypoint = data_pos[:, idx]
             attr = dict()
             attr['name'] = idx
@@ -120,6 +151,7 @@ class SyntheticDataset(BaseDataset):
         """
         anno_pair = []
         for anno_dict in random.sample(self.data_list, 2):
+            anno_dict = deepcopy(anno_dict)
             if shuffle:
                 random.shuffle(anno_dict['keypoints'])
             anno_pair.append(anno_dict)
@@ -130,8 +162,9 @@ class SyntheticDataset(BaseDataset):
         for i, keypoint in enumerate(anno_pair[0]['keypoints']):
             for j, _keypoint in enumerate(anno_pair[1]['keypoints']):
                 if keypoint['name'] == _keypoint['name']:
-                    perm_mat[i, j] = 1
-                    row_list.append(i)
+                    if keypoint['name'] < self.inlier_num:
+                        perm_mat[i, j] = 1
+                        row_list.append(i)
                     col_list.append(j)
                     break
         row_list.sort()

@@ -15,41 +15,51 @@ class BiStochastic(nn.Module):
         self.max_iter = max_iter
         self.epsilon = epsilon
 
-    def forward(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20):
+    def forward(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20, dummy_row=False):
         batch_size = s.shape[0]
-        # nonzero_mask = (s != 0).to(s.dtype)
 
-        row_ones = torch.zeros(batch_size, s.shape[2], s.shape[2], device=s.device)
-        col_ones = torch.zeros(batch_size, s.shape[1], s.shape[1], device=s.device)
+        if dummy_row:
+            dummy_shape = list(s.shape)
+            dummy_shape[1] = s.shape[2] - s.shape[1]
+            s = torch.cat((s, torch.full(dummy_shape, self.epsilon * 10).to(s.device)), dim=1)
+            nrows = nrows + dummy_shape[1] # non in-place
+
+        row_norm_ones = torch.zeros(batch_size, s.shape[1], s.shape[1], device=s.device)  # size: row x row
+        col_norm_ones = torch.zeros(batch_size, s.shape[2], s.shape[2], device=s.device)  # size: col x col
         for b in range(batch_size):
             row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
             col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
-            row_ones[b, row_slice, row_slice] = 1
-            col_ones[b, col_slice, col_slice] = 1
+            row_norm_ones[b, row_slice, row_slice] = 1
+            col_norm_ones[b, col_slice, col_slice] = 1
+
+        # for Sinkhorn stacked on last dimension
+        if len(s.shape) == 4:
+            row_norm_ones = row_norm_ones.unsqueeze(-1)
+            col_norm_ones = col_norm_ones.unsqueeze(-1)
 
         s += self.epsilon
 
         for i in range(self.max_iter):
             if exp:
                 s = torch.exp(exp_alpha * s)
-            if i % 2 == 0:
+            if i % 2 == 1:
                 # column norm
                 #ones = torch.ones(batch_size, s.shape[1], s.shape[1], device=s.device)
-                col_sum = torch.bmm(col_ones, s)
-                tmp = torch.zeros_like(s)
-                for b in range(batch_size):
-                    col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
-                    tmp[b, col_slice, col_slice] = 1 / col_sum[b, col_slice, col_slice]
-                s = s * tmp
+                sum = torch.sum(torch.mul(s.unsqueeze(3), col_norm_ones.unsqueeze(1)), dim=2)
             else:
                 # row norm
-                #ones = torch.ones(batch_size, s.shape[2], s.shape[2], device=s.device)
-                row_sum = torch.bmm(s, row_ones)
-                tmp = torch.zeros_like(s)
-                for b in range(batch_size):
-                    row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
-                    tmp[b, row_slice, row_slice] = 1 / row_sum[b, row_slice, row_slice]
-                s = s * tmp
+                # ones = torch.ones(batch_size, s.shape[2], s.shape[2], device=s.device)
+                sum = torch.sum(torch.mul(row_norm_ones.unsqueeze(3), s.unsqueeze(1)), dim=2)
+
+            tmp = torch.zeros_like(s)
+            for b in range(batch_size):
+                row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
+                col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
+                tmp[b, row_slice, col_slice] = 1 / sum[b, row_slice, col_slice]
+            s = s * tmp
+
+        if dummy_row and dummy_shape[1] > 0:
+            s = s[:, :-dummy_shape[1]]
 
         return s
 

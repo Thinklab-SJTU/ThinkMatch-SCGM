@@ -6,7 +6,7 @@ import numpy as np
 import random
 from data.pascal_voc import PascalVOC
 from data.willow_obj import WillowObject
-from data.synthetic import SyntheticDataset
+from data.synthetic import SyntheticDataset, MixedSyntheticDataset
 from utils.build_graphs import build_graphs, make_grids
 from utils.fgm import kronecker_sparse
 from sparse_torch import CSRMatrix3d
@@ -32,7 +32,7 @@ class GMDataset(Dataset):
         #                                       (idx % (cfg.BATCH_SIZE * len(self.classes))) // cfg.BATCH_SIZE)
         anno_pair, perm_mat = self.ds.get_pair(self.cls)
         # todo this operation may affect gradient
-        if perm_mat.size <= 2 * 2:
+        if perm_mat.size <= 2 * 2 or perm_mat.size >= cfg.PAIR.MAX_PROB_SIZE > 0:
             return self.__getitem__(idx)
 
         cls = [anno['cls'] for anno in anno_pair]
@@ -47,7 +47,14 @@ class GMDataset(Dataset):
         #P1 = P2 = make_grids((0, 0), cfg.PAIR.RESCALE, cfg.PAIR.CANDIDATE_SHAPE)
         #n1 = n2 = P1.shape[0]
         G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
-        G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
+        if cfg.PAIR.REF_GRAPH_CONSTRUCT == 'same':
+            G2_gt = perm_mat.transpose().dot(G1_gt)
+            H2_gt = perm_mat.transpose().dot(H1_gt)
+            e2_gt= e1_gt
+        else:
+            G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
+
+
         #G2_gt = np.dot(perm_mat.transpose(), G1_gt)
         #H2_gt = np.dot(perm_mat.transpose(), H1_gt)
         #e2_gt = e1_gt
@@ -166,7 +173,7 @@ def worker_init_rand(worker_id):
 
 def get_dataloader(dataset, fix_seed=True):
     return torch.utils.data.DataLoader(
-        dataset, batch_size=cfg.BATCH_SIZE, shuffle=False, num_workers=cfg.BATCH_SIZE, collate_fn=collate_fn,
+        dataset, batch_size=cfg.BATCH_SIZE, shuffle=False, num_workers=cfg.DATALOADER_NUM, collate_fn=collate_fn,
         worker_init_fn=worker_init_fix if fix_seed else worker_init_rand
     )
 

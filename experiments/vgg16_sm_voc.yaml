@@ -7,7 +7,10 @@ DATASET_FULL_NAME: PascalVOC
 
 MODULE: GMN.model
 
+BACKBONE: VGG16_bn
+
 BATCH_SIZE: 8
+DATALOADER_NUM: 2
 
 RANDOM_SEED: 123
 
@@ -26,6 +29,7 @@ PAIR:
     - 16
   GT_GRAPH_CONSTRUCT: tri
   REF_GRAPH_CONSTRUCT: fc
+  #MAX_PROB_SIZE: 225
 
 # Training settings
 TRAIN:
@@ -39,9 +43,10 @@ TRAIN:
   LR: 1.0e-4
   MOMENTUM: 0.9
   LR_DECAY: 0.1
-  LR_STEP: 5  # (in epochs)
+  LR_STEP:  # (in epochs)
+    - 5
 
-  EPOCH_ITERS: 10000  # iterations per epoch
+  EPOCH_ITERS: 2000  # iterations per epoch
 
   CLASS: none
 

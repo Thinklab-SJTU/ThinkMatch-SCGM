@@ -29,6 +29,7 @@ __C.PAIR.CANDIDATE_SHAPE = (16, 16)  # shape of candidates
 __C.PAIR.CANDIDATE_LENGTH = np.cumprod(__C.PAIR.CANDIDATE_SHAPE)[-1]
 __C.PAIR.GT_GRAPH_CONSTRUCT = 'tri'
 __C.PAIR.REF_GRAPH_CONSTRUCT = 'fc'
+__C.PAIR.MAX_PROB_SIZE = -1
 
 # VOC2011-Keypoint Dataset
 __C.VOC2011 = edict()
@@ -52,9 +53,11 @@ __C.SYNTHETIC = edict()
 __C.SYNTHETIC.DIM = 1024
 __C.SYNTHETIC.TRAIN_NUM = 100  # training graphs
 __C.SYNTHETIC.TEST_NUM = 100  # testing graphs
+__C.SYNTHETIC.MIXED_DATA_NUM = 10  # num of samples in mixed synthetic test
 __C.SYNTHETIC.RANDOM_EXP_ID = 0  # id of random experiment
 __C.SYNTHETIC.EDGE_DENSITY = 0.3  # edge_num = X * node_num^2 / 4
-__C.SYNTHETIC.KPT_NUM = 10  # number of nodes
+__C.SYNTHETIC.KPT_NUM = 10  # number of nodes (inliers)
+__C.SYNTHETIC.OUT_NUM = 0 # number of outliers
 __C.SYNTHETIC.FEAT_GT_UNIFORM = 1.  # reference node features in uniform(-X, X) for each dimension
 __C.SYNTHETIC.FEAT_NOISE_STD = 0.1  # corresponding node features add a random noise ~ N(0, X^2)
 __C.SYNTHETIC.POS_GT_UNIFORM = 256.  # reference keypoint position in image: uniform(0, X)
@@ -91,7 +94,15 @@ __C.GNNQAP.BS_EPSILON = 1e-10
 __C.GNNQAP.VOTING_ALPHA = 200.
 __C.GNNQAP.GNN_FEAT = 256
 __C.GNNQAP.GNN_LAYER = 3
-
+__C.GNNQAP.GAUSSIAN_SIGMA = 1.
+__C.GNNQAP.SIGMA3 = 1.
+__C.GNNQAP.WEIGHT2 = 1.
+__C.GNNQAP.WEIGHT3 = 1.
+__C.GNNQAP.EDGE_FEATURE = 'cat' # 'cat' or 'geo'
+__C.GNNQAP.ORDER3_FEATURE = 'cat' # 'cat' or 'geo'
+__C.GNNQAP.OUTP_SCORE = True
+__C.GNNQAP.FIRST_ORDER = True
+__C.GNNQAP.SK_EMB = True
 
 #
 # Training options
@@ -115,7 +126,7 @@ __C.TRAIN.LR = 0.01
 __C.TRAIN.LR_DECAY = 0.1
 
 # Learning rate decay step (in epochs)
-__C.TRAIN.LR_STEP = 10
+__C.TRAIN.LR_STEP = [10, 20]
 
 # SGD momentum
 __C.TRAIN.MOMENTUM = 0.9
@@ -173,8 +184,14 @@ __C.VISUAL.CLASS = 'none'
 # MISC
 #
 
+# name of backbone net
+__C.BACKBONE = 'VGG16_bn'
+
 # Parallel GPU indices ([0] for single GPU)
 __C.GPUS = [0]
+
+# num of dataloader processes
+__C.DATALOADER_NUM = __C.BATCH_SIZE
 
 # Mean and std to normalize images
 __C.NORM_MEANS = [0.485, 0.456, 0.406]

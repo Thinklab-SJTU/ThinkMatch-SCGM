@@ -16,6 +16,7 @@ from utils.evaluation_metric import pck as eval_pck, matching_accuracy
 from parallel import DataParallel
 from utils.model_sl import load_model, save_model
 from eval import eval_model
+from utils.hungarian import hungarian
 
 from utils.config import cfg
 
@@ -33,7 +34,7 @@ def train_eval_model(model,
     since = time.time()
     dataset_size = len(dataloader['train'].dataset)
     displacement = Displacement()
-    lap_solver = BiStochastic(max_iter=20)
+    lap_solver = hungarian
 
     device = next(model.parameters()).device
     print('model on device: {}'.format(device))
@@ -54,19 +55,19 @@ def train_eval_model(model,
         print('Loading optimizer state from {}'.format(optim_path))
         optimizer.load_state_dict(torch.load(optim_path))
 
-    scheduler = optim.lr_scheduler.StepLR(optimizer,
-                                          step_size=cfg.TRAIN.LR_STEP,
-                                          gamma=cfg.TRAIN.LR_DECAY,
-                                          last_epoch=cfg.TRAIN.START_EPOCH - 1)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
+                                               milestones=cfg.TRAIN.LR_STEP,
+                                               gamma=cfg.TRAIN.LR_DECAY,
+                                               last_epoch=cfg.TRAIN.START_EPOCH - 1)
 
     for epoch in range(start_epoch, num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
-        print('lr = ' + ', '.join(['{:.2e}'.format(x['lr']) for x in optimizer.param_groups]))
-
         scheduler.step()
         model.train()  # Set model to training mode
+
+        print('lr = ' + ', '.join(['{:.2e}'.format(x['lr']) for x in optimizer.param_groups]))
 
         epoch_loss = 0.0
         running_loss = 0.0
@@ -98,8 +99,13 @@ def train_eval_model(model,
 
             with torch.set_grad_enabled(True):
                 # forward
-                s_pred, d_pred = \
+                pred = \
                     model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
+                if len(pred) == 2:
+                    s_pred, d_pred = pred
+                    s_pred_score = s_pred
+                else:
+                    s_pred_score, s_pred, d_pred = pred
 
                 multi_loss = []
                 if cfg.TRAIN.LOSS_FUNC == 'offset':
@@ -117,19 +123,26 @@ def train_eval_model(model,
                 else:
                     raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-                if type(s_pred) is list:
-                    s_pred = s_pred[-1]
+                if type(s_pred_score) is list:
+                    s_pred_score = s_pred_score[-1]
 
                 # backward + optimize
                 loss.backward()
                 optimizer.step()
+
+                if cfg.MODULE == 'GNNQAP.hypermodel':
+                    tfboard_writer.add_scalars(
+                        'weight',
+                        {'w2': model.module.weight2, 'w3': model.module.weight3},
+                        epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
+                    )
 
                 # training accuracy statistic
                 thres = torch.empty(perm_mat.size(0), len(alphas)).cuda()
                 for b in range(perm_mat.size(0)):
                     thres[b] = alphas * cfg.EVAL.PCK_L
                 #pck, _, __ = eval_pck(P2, P2_gt, s_pred, thres, n1_gt)
-                acc, _, __ = matching_accuracy(lap_solver(s_pred, n1_gt, n2_gt, exp=True), perm_mat, n1_gt)
+                acc, _, __ = matching_accuracy(lap_solver(s_pred_score, n1_gt, n2_gt), perm_mat, n1_gt)
 
                 # tfboard writer
                 loss_dict = {'loss_{}'.format(i): l.item() for i, l in enumerate(multi_loss)}
@@ -170,7 +183,7 @@ def train_eval_model(model,
 
         # Eval in each epoch
         accs = eval_model(model, alphas, dataloader['test'])
-        acc_dict = {cls: single_acc for cls, single_acc in zip(dataloader['train'].dataset.classes, accs)}
+        acc_dict = {"{}".format(cls): single_acc for cls, single_acc in zip(dataloader['train'].dataset.classes, accs)}
         acc_dict['average'] = torch.mean(accs)
         tfboard_writer.add_scalars(
             'Eval acc',
@@ -223,13 +236,13 @@ if __name__ == '__main__':
     else:
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-    optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM)
+    optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM, nesterov=True)
 
     if not Path(cfg.OUTPUT_PATH).exists():
         Path(cfg.OUTPUT_PATH).mkdir(parents=True)
 
     now_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    tfboardwriter = SummaryWriter(log_dir=str(Path(cfg.OUTPUT_PATH) / 'tensorboard' / 'training_{}'.format(now_time)))
+    tfboardwriter = SummaryWriter(logdir=str(Path(cfg.OUTPUT_PATH) / 'tensorboard' / 'training_{}'.format(now_time)))
 
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('train_log_' + now_time + '.log'))) as _:
         print_easydict(cfg)

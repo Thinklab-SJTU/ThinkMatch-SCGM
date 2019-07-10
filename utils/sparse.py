@@ -14,6 +14,19 @@ bilinear_diag = load(name='bilinear_diag', sources=['extension/bilinear_diag/bil
                      )
 
 
+def to_sparse(x, dense_dim=1):
+    """ converts dense tensor x to sparse format """
+    x_typename = torch.typename(x).split('.')[-1]
+    sparse_tensortype = getattr(torch.sparse, x_typename)
+
+    indices = torch.nonzero(x)[:, :len(x.shape) - dense_dim + 1]
+    if len(indices.shape) == 0:  # if all elements are zeros
+        return sparse_tensortype(*x.shape)
+    indices = indices.t()
+    values = x[tuple(indices[i] for i in range(indices.shape[0]))]
+    return sparse_tensortype(indices, values)
+
+
 def sbmm(t1, t2):
     """
     Perform bmm (Batch Matrix Matrix) for sparse x dense -> dense.
