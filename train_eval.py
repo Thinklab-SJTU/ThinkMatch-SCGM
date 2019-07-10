@@ -130,7 +130,7 @@ def train_eval_model(model,
                 loss.backward()
                 optimizer.step()
 
-                if cfg.MODULE == 'GNNQAP.hypermodel':
+                if cfg.MODULE == 'NGM.hypermodel':
                     tfboard_writer.add_scalars(
                         'weight',
                         {'w2': model.module.weight2, 'w3': model.module.weight3},

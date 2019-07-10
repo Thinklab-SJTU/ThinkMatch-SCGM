@@ -7,8 +7,8 @@ from GMN.bi_stochastic import BiStochastic
 from GMN.voting_layer import Voting
 from GMN.displacement_layer import Displacement
 from utils.feature_align import feature_align
-from GMGNN.gconv import Siamese_Gconv
-from GMGNN.affinity_layer import Affinity
+from PCA.gconv import Siamese_Gconv
+from PCA.affinity_layer import Affinity
 
 from utils.config import cfg
 
@@ -16,20 +16,20 @@ from utils.config import cfg
 class Net(VGG16):
     def __init__(self):
         super(Net, self).__init__()
-        self.bi_stochastic = BiStochastic(max_iter=cfg.GMGNN.BS_ITER_NUM, epsilon=cfg.GMGNN.BS_EPSILON)
-        self.voting_layer = Voting(alpha=cfg.GMGNN.VOTING_ALPHA)
+        self.bi_stochastic = BiStochastic(max_iter=cfg.PCA.BS_ITER_NUM, epsilon=cfg.PCA.BS_EPSILON)
+        self.voting_layer = Voting(alpha=cfg.PCA.VOTING_ALPHA)
         self.displacement_layer = Displacement()
-        self.l2norm = nn.LocalResponseNorm(cfg.GMGNN.FEATURE_CHANNEL * 2, alpha=cfg.GMGNN.FEATURE_CHANNEL * 2, beta=0.5, k=0)
-        self.gnn_layer = cfg.GMGNN.GNN_LAYER
+        self.l2norm = nn.LocalResponseNorm(cfg.PCA.FEATURE_CHANNEL * 2, alpha=cfg.PCA.FEATURE_CHANNEL * 2, beta=0.5, k=0)
+        self.gnn_layer = cfg.PCA.GNN_LAYER
         for i in range(self.gnn_layer):
             if i == 0:
-                gnn_layer = Siamese_Gconv(cfg.GMGNN.FEATURE_CHANNEL * 2, cfg.GMGNN.GNN_FEAT)
+                gnn_layer = Siamese_Gconv(cfg.PCA.FEATURE_CHANNEL * 2, cfg.PCA.GNN_FEAT)
             else:
-                gnn_layer = Siamese_Gconv(cfg.GMGNN.GNN_FEAT, cfg.GMGNN.GNN_FEAT)
+                gnn_layer = Siamese_Gconv(cfg.PCA.GNN_FEAT, cfg.PCA.GNN_FEAT)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
-            self.add_module('affinity_{}'.format(i), Affinity(cfg.GMGNN.GNN_FEAT))
+            self.add_module('affinity_{}'.format(i), Affinity(cfg.PCA.GNN_FEAT))
             if i == self.gnn_layer - 2:  # only second last layer will have cross-graph module
-                self.add_module('cross_graph_{}'.format(i), nn.Linear(cfg.GMGNN.GNN_FEAT * 2, cfg.GMGNN.GNN_FEAT))
+                self.add_module('cross_graph_{}'.format(i), nn.Linear(cfg.PCA.GNN_FEAT * 2, cfg.PCA.GNN_FEAT))
 
     def forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, ns_src, ns_tgt, K_G, K_H, type='img'):
         if type == 'img' or type == 'image':

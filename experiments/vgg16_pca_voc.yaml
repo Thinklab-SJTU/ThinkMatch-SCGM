@@ -5,7 +5,7 @@ DATASET_NAME: voc
 
 DATASET_FULL_NAME: PascalVOC
 
-MODULE: GMGNN.model
+MODULE: PCA.model
 
 BATCH_SIZE: 8
 DATALOADER_NUM: 2
@@ -65,7 +65,7 @@ VISUAL:
   SAVE: True  # save images as files, else plot images via matplotlib
   NUM_IMGS: 100  # number of images to be visualized
 
-# GMGNN model parameters
+# PCA model parameters
 GMGNN:
   FEATURE_CHANNEL: 512
   BS_ITER_NUM: 20

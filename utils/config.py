@@ -76,33 +76,33 @@ __C.GMN.BS_ITER_NUM = 10
 __C.GMN.BS_EPSILON = 1e-10
 __C.GMN.VOTING_ALPHA = 2e8
 
-# GMGNN model options
-__C.GMGNN = edict()
-__C.GMGNN.FEATURE_CHANNEL = 512
-__C.GMGNN.BS_ITER_NUM = 20
-__C.GMGNN.BS_EPSILON = 1.0e-10
-__C.GMGNN.VOTING_ALPHA = 200.
-__C.GMGNN.GNN_LAYER = 5
-__C.GMGNN.GNN_FEAT = 1024
-__C.GMGNN.LOSS_WEIGHTS = [0., 1.]  # [cross-module loss, final prediction loss]
+# PCA model options
+__C.PCA = edict()
+__C.PCA.FEATURE_CHANNEL = 512
+__C.PCA.BS_ITER_NUM = 20
+__C.PCA.BS_EPSILON = 1.0e-10
+__C.PCA.VOTING_ALPHA = 200.
+__C.PCA.GNN_LAYER = 5
+__C.PCA.GNN_FEAT = 1024
+__C.PCA.LOSS_WEIGHTS = [0., 1.]  # [cross-module loss, final prediction loss]
 
-# GNNQAP model options
-__C.GNNQAP = edict()
-__C.GNNQAP.FEATURE_CHANNEL = 512
-__C.GNNQAP.BS_ITER_NUM = 10
-__C.GNNQAP.BS_EPSILON = 1e-10
-__C.GNNQAP.VOTING_ALPHA = 200.
-__C.GNNQAP.GNN_FEAT = 256
-__C.GNNQAP.GNN_LAYER = 3
-__C.GNNQAP.GAUSSIAN_SIGMA = 1.
-__C.GNNQAP.SIGMA3 = 1.
-__C.GNNQAP.WEIGHT2 = 1.
-__C.GNNQAP.WEIGHT3 = 1.
-__C.GNNQAP.EDGE_FEATURE = 'cat' # 'cat' or 'geo'
-__C.GNNQAP.ORDER3_FEATURE = 'cat' # 'cat' or 'geo'
-__C.GNNQAP.OUTP_SCORE = True
-__C.GNNQAP.FIRST_ORDER = True
-__C.GNNQAP.SK_EMB = True
+# NGM model options
+__C.NGM = edict()
+__C.NGM.FEATURE_CHANNEL = 512
+__C.NGM.BS_ITER_NUM = 10
+__C.NGM.BS_EPSILON = 1e-10
+__C.NGM.VOTING_ALPHA = 200.
+__C.NGM.GNN_FEAT = 256
+__C.NGM.GNN_LAYER = 3
+__C.NGM.GAUSSIAN_SIGMA = 1.
+__C.NGM.SIGMA3 = 1.
+__C.NGM.WEIGHT2 = 1.
+__C.NGM.WEIGHT3 = 1.
+__C.NGM.EDGE_FEATURE = 'cat' # 'cat' or 'geo'
+__C.NGM.ORDER3_FEATURE = 'cat' # 'cat' or 'geo'
+__C.NGM.OUTP_SCORE = True
+__C.NGM.FIRST_ORDER = True
+__C.NGM.SK_EMB = True
 
 #
 # Training options
