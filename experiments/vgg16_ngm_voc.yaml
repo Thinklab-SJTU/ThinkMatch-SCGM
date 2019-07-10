@@ -1,6 +1,6 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_gnnqap
+MODEL_NAME: vgg16_ngm
 DATASET_NAME: voc
 
 DATASET_FULL_NAME: PascalVOC
@@ -68,7 +68,7 @@ VISUAL:
   NUM_IMGS: 100  # number of images to be visualized
 
 # model parameters
-GNNQAP:
+NGM:
   EDGE_FEATURE: cat
   FEATURE_CHANNEL: 512
   BS_ITER_NUM: 20

@@ -65,7 +65,7 @@ VISUAL:
   NUM_IMGS: 20  # number of images to be visualized
 
 # PCA model parameters
-GMGNN:
+PCA:
   FEATURE_CHANNEL: 512
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
