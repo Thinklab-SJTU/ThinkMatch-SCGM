@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 
-from GMN.backbone import VGG16
-
 from GMN.bi_stochastic import BiStochastic
 from GMN.voting_layer import Voting
 from GMN.displacement_layer import Displacement
@@ -12,8 +10,11 @@ from PCA.affinity_layer import Affinity
 
 from utils.config import cfg
 
+import GMN.backbone
+CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
 
-class Net(VGG16):
+
+class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
         self.bi_stochastic = BiStochastic(max_iter=cfg.PCA.BS_ITER_NUM, epsilon=cfg.PCA.BS_EPSILON)

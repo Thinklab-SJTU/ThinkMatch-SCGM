@@ -114,7 +114,7 @@ def train_eval_model(model,
                 elif cfg.TRAIN.LOSS_FUNC == 'perm':
                     loss = torch.zeros(1).cuda()
                     if type(s_pred) is list:
-                        for _s_pred, weight in zip(s_pred, cfg.GMGNN.LOSS_WEIGHTS):
+                        for _s_pred, weight in zip(s_pred, cfg.PCA.LOSS_WEIGHTS):
                             l = criterion(_s_pred, perm_mat, n1_gt, n2_gt)
                             multi_loss.append(l)
                             loss += l * weight

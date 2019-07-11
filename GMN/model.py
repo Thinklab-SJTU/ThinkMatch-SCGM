@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
-from GMN.backbone import VGG16
-
 from GMN.affinity_layer import InnerpAffinity as Affinity
 from GMN.power_iteration import PowerIteration
 from GMN.bi_stochastic import BiStochastic
@@ -16,8 +14,11 @@ from utils.fgm import construct_m
 
 from utils.config import cfg
 
+import GMN.backbone
+CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
 
-class Net(VGG16):
+
+class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
         self.affinity_layer = Affinity(cfg.GMN.FEATURE_CHANNEL)
