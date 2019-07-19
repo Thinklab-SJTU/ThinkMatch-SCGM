@@ -7,13 +7,15 @@ import scipy.sparse as ssp
 import numpy as np
 
 
-def construct_m(Me: Tensor, Mp: Tensor, KG: CSRMatrix3d, KH: CSCMatrix3d):
+def construct_m(Me: Tensor, Mp: Tensor, KG: CSRMatrix3d, KH: CSCMatrix3d, KGt: CSRMatrix3d=None, KHt: CSCMatrix3d=None):
     """
     Construct full affinity matrix M with edge matrix Me, point matrix Mp and graph structures G1, H1, G2, H2
     :param Me: edge affinity matrix
     :param Mp: point affinity matrix
     :param KG: kronecker product of G2, G1
     :param KH: kronecker product of H2, H1
+    :param KGt: transpose of KG (should be CSR, optional)
+    :param KHt: transpose of KH (should be CSC, optional)
     :return: M
     """
     '''
@@ -23,7 +25,7 @@ def construct_m(Me: Tensor, Mp: Tensor, KG: CSRMatrix3d, KH: CSCMatrix3d):
     feat_size = G1.shape[1] * G2.shape[1]
     '''
 
-    M = RebuildFGM.apply(Me, Mp, KG, KH)
+    M = RebuildFGM.apply(Me, Mp, KG, KH, KGt, KHt)
 
     '''
         K1 = kronecker_torch(G2, G1).to(device)
@@ -77,9 +79,12 @@ class RebuildFGM(Function):
     Rebuild sparse affinity matrix in the formula of CVPR12's paper "Factorized Graph Matching"
     """
     @staticmethod
-    def forward(ctx, Me: Tensor, Mp: Tensor, K1: CSRMatrix3d, K2: CSCMatrix3d):
+    def forward(ctx, Me: Tensor, Mp: Tensor, K1: CSRMatrix3d, K2: CSCMatrix3d, K1t: CSRMatrix3d=None, K2t: CSCMatrix3d=None):
         ctx.save_for_backward(Me, Mp)
-        ctx.K = K1, K2
+        if K1t is not None and K2t is not None:
+            ctx.K = K1t, K2t
+        else:
+            ctx.K = K1.transpose(keep_type=True), K2.transpose(keep_type=True)
         batch_num = Me.shape[0]
 
         #print('rebuild fgm')
@@ -122,10 +127,10 @@ class RebuildFGM(Function):
     def backward(ctx, dM):
         device = dM.device
         Me, Mp = ctx.saved_tensors
-        K1, K2 = ctx.K
+        K1t, K2t = ctx.K
         dMe = dMp = None
         if ctx.needs_input_grad[0]:
-            dMe = bilinear_diag_torch(K1.transpose(keep_type=True), dM.contiguous(), K2.transpose(keep_type=True))
+            dMe = bilinear_diag_torch(K1t, dM.contiguous(), K2t)
             dMe = dMe.view(Me.shape[0], Me.shape[2], Me.shape[1]).transpose(1, 2)
         if ctx.needs_input_grad[1]:
             dMp = torch.diagonal(dM, dim1=-2, dim2=-1)

@@ -218,6 +218,8 @@ __C.STATISTIC_STEP = 100
 # random seed used for data loading
 __C.RANDOM_SEED = 123
 
+# enable fp16 instead of fp32 in the model (via nvidia/apex)
+__C.FP16 = False
 
 def lcm(x, y):
     """

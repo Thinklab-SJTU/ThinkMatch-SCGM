@@ -35,10 +35,10 @@ class CSXMatrix3d:
             for b in range(batch_num):
                 if sptype == 'csc':
                     inp_s[b].eliminate_zeros()
-                    sp = inp_s[b].tocsc()
+                    sp = inp_s[b].tocsc().astype(dtype=inp_s[b].dtype)
                 elif sptype == 'csr':
                     inp_s[b].eliminate_zeros()
-                    sp = inp_s[b].tocsr()
+                    sp = inp_s[b].tocsr().astype(dtype=inp_s[b].dtype)
                 else:
                     raise ValueError('Sparse type not understood {}'.format(sptype))
 
@@ -74,7 +74,7 @@ class CSXMatrix3d:
             else:
                 indptr_t = torch.tensor(indp, dtype=torch.int64, device=device)
             if type(data) is torch.Tensor:
-                data_t = data.to(device)
+                data_t = data.to(dtype=data.dtype).to(device)
             else:
                 data_t = torch.tensor(data, device=device)
 
@@ -198,7 +198,7 @@ class CSXMatrix3d:
             construct_func = ssp.csr_matrix if self.sptype == 'csr' else ssp.csc_matrix
             ret.append(
                 construct_func(
-                    (data.cpu().numpy(),
+                    (data.cpu().to(dtype=data.dtype).numpy(),
                      indice.cpu().numpy(),
                      indptr.cpu().numpy()),
                     shape=self.shape[1:3]
@@ -276,7 +276,7 @@ class CSCMatrix3d(CSXMatrix3d):
         else:
             coo = []
             for sp in self.as_ssp():
-                coo.append(sp.transpose().tocoo())
+                coo.append(sp.transpose().tocoo().astype(sp.dtype))
             return CSCMatrix3d(coo, device=self.device)
 
     def Tdot(self, other, *args, **kwargs):
@@ -328,7 +328,7 @@ class CSRMatrix3d(CSXMatrix3d):
         else:
             coo = []
             for sp in self.as_ssp():
-                coo.append(sp.transpose().tocoo())
+                coo.append(sp.transpose().tocoo().astype(sp.dtype))
             return CSRMatrix3d(coo, device=self.device)
 
     def dot(self, other, *args, **kwargs):

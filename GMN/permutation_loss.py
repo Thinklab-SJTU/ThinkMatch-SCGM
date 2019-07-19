@@ -13,6 +13,8 @@ class CrossEntropyLoss(nn.Module):
     def forward(self, pred_perm, gt_perm, pred_ns, gt_ns):
         batch_num = pred_perm.shape[0]
 
+        pred_perm = pred_perm.to(dtype=torch.float32)
+
         assert torch.all((pred_perm >= 0) * (pred_perm <= 1))
         assert torch.all((gt_perm >= 0) * (gt_perm <= 1))
 

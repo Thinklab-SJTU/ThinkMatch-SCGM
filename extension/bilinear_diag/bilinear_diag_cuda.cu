@@ -61,7 +61,7 @@ at::Tensor bilinear_diag_csc_cuda(
     const int threads = 1024;
     const dim3 blocks((xlen + threads - 1) / threads, batch_size);
 
-    AT_DISPATCH_FLOATING_TYPES(t2.type(), "bilinear_diag_csc_cuda", ([&] {
+    AT_DISPATCH_FLOATING_TYPES_AND_HALF(t2.type(), "bilinear_diag_csc_cuda", ([&] {
     bilinear_diag_csc_cuda_kernel<scalar_t><<<blocks, threads>>>(
         t1_indices.data<int64_t>(),
         t1_indptr.data<int64_t>(),

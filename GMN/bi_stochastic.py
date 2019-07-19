@@ -15,8 +15,10 @@ class BiStochastic(nn.Module):
         self.max_iter = max_iter
         self.epsilon = epsilon
 
-    def forward(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20, dummy_row=False):
+    def forward(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20, dummy_row=False, dtype=torch.float32):
         batch_size = s.shape[0]
+
+        #s = s.to(dtype=dtype)
 
         if dummy_row:
             dummy_shape = list(s.shape)

@@ -127,7 +127,11 @@ def train_eval_model(model,
                     s_pred_score = s_pred_score[-1]
 
                 # backward + optimize
-                loss.backward()
+                if cfg.FP16:
+                    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                else:
+                    loss.backward()
                 optimizer.step()
 
                 if cfg.MODULE == 'NGM.hypermodel':
@@ -227,7 +231,6 @@ if __name__ == '__main__':
 
     model = Net()
     model = model.cuda()
-    model = DataParallel(model, device_ids=cfg.GPUS)
 
     if cfg.TRAIN.LOSS_FUNC == 'offset':
         criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
@@ -237,6 +240,15 @@ if __name__ == '__main__':
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
     optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM, nesterov=True)
+
+    if cfg.FP16:
+        try:
+            from apex import amp
+        except ImportError:
+            raise ImportError("Please install apex from https://www.github.com/nvidia/apex to enable FP16.")
+        model, optimizer = amp.initialize(model, optimizer)
+
+    model = DataParallel(model, device_ids=cfg.GPUS)
 
     if not Path(cfg.OUTPUT_PATH).exists():
         Path(cfg.OUTPUT_PATH).mkdir(parents=True)

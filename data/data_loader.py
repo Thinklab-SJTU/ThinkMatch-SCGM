@@ -144,12 +144,16 @@ def collate_fn(data: list):
     if 'Gs' in ret and 'Hs' in ret:
         G1_gt, G2_gt = ret['Gs']
         H1_gt, H2_gt = ret['Hs']
-        K1G = [kronecker_sparse(x, y) for x, y in zip(G2_gt, G1_gt)]  # 1 as source graph, 2 as target graph
-        K1H = [kronecker_sparse(x, y) for x, y in zip(H2_gt, H1_gt)]
+        if cfg.FP16:
+            sparse_dtype = np.float16
+        else:
+            sparse_dtype = np.float32
+        K1G = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(G2_gt, G1_gt)]  # 1 as source graph, 2 as target graph
+        K1H = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(H2_gt, H1_gt)]
         K1G = CSRMatrix3d(K1G)
         K1H = CSRMatrix3d(K1H).transpose()
 
-        ret['Ks'] = K1G, K1H
+        ret['Ks'] = K1G, K1H, K1G.transpose(keep_type=True), K1H.transpose(keep_type=True)
 
     return ret
 
@@ -174,7 +178,7 @@ def worker_init_rand(worker_id):
 def get_dataloader(dataset, fix_seed=True):
     return torch.utils.data.DataLoader(
         dataset, batch_size=cfg.BATCH_SIZE, shuffle=False, num_workers=cfg.DATALOADER_NUM, collate_fn=collate_fn,
-        worker_init_fn=worker_init_fix if fix_seed else worker_init_rand
+        pin_memory=True, worker_init_fn=worker_init_fix if fix_seed else worker_init_rand
     )
 
 
