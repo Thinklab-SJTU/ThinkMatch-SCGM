@@ -37,6 +37,7 @@ class AffinityLR(nn.Module):
         self.d = d
         self.k = k
         self.A = Parameter(Tensor(self.d, self.k))
+        self.relu = nn.ReLU()
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -49,7 +50,31 @@ class AffinityLR(nn.Module):
         M = torch.matmul(X, M)
         M = torch.matmul(M, Y.transpose(1, 2))
 
-        return M
+        return self.relu(M.squeeze())
+
+class AffinityMah(nn.Module):
+    def __init__(self, d, k=100):
+        super(AffinityMah, self).__init__()
+        self.d = d
+        self.k = k
+        self.A = Parameter(Tensor(self.d, self.k))
+        self.relu = nn.ReLU()
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.d)
+        self.A.data.uniform_(-stdv, stdv)
+
+    def forward(self, X, Y):
+        assert X.shape[2] == Y.shape[2] == self.d
+        X = X.unsqueeze(1)
+        Y = Y.unsqueeze(2)
+        dxy = X - Y
+        M = torch.matmul(self.A, self.A.transpose(0, 1))
+        M = torch.matmul(dxy.unsqueeze(-2), M)
+        M = torch.matmul(M, dxy.unsqueeze(-1))
+
+        return self.relu(M.squeeze())
 
 
 class AffinityFC(nn.Module):
