@@ -153,7 +153,7 @@ def collate_fn(data: list):
         K1G = CSRMatrix3d(K1G)
         K1H = CSRMatrix3d(K1H).transpose()
 
-        ret['Ks'] = K1G, K1H, K1G.transpose(keep_type=True), K1H.transpose(keep_type=True)
+        ret['Ks'] = K1G, K1H #, K1G.transpose(keep_type=True), K1H.transpose(keep_type=True)
 
     return ret
 
