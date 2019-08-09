@@ -64,7 +64,6 @@ def train_eval_model(model,
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
-        scheduler.step()
         model.train()  # Set model to training mode
 
         print('lr = ' + ', '.join(['{:.2e}'.format(x['lr']) for x in optimizer.param_groups]))
@@ -194,6 +193,8 @@ def train_eval_model(model,
             acc_dict,
             (epoch + 1) * cfg.TRAIN.EPOCH_ITERS
         )
+
+        scheduler.step()
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}h {:.0f}m {:.0f}s'
