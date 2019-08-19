@@ -14,7 +14,7 @@ Quadratic Assignment Problem."
 1. Install python packages: ``pip install tensorboardX scipy easydict pyyaml``
 1. If you want to run experiment on Pascal VOC Keypoint dataset:
     1. Download VOC2011 and make sure it looks like ``data/PascalVOC/VOC2011``
-    1. Download keypoint annotation from [this link](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/shape/poselets/voc2011_keypoints_Feb2012.tgz) and make sure it looks like ``/data/PascalVOC/annotations``
+    1. Download keypoint annotation from [this link](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/shape/poselets/voc2011_keypoints_Feb2012.tgz) and make sure it looks like ``data/PascalVOC/annotations``
     
 ## Training
 
