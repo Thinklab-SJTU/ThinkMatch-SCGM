@@ -44,14 +44,21 @@ def matching_accuracy(pmat_pred, pmat_gt, ns):
     device = pmat_pred.device
     batch_num = pmat_pred.shape[0]
 
-    indices_pred = torch.argmax(pmat_pred, dim=-1)
-    indices_gt = torch.argmax(pmat_gt, dim=-1)
+    pmat_gt = pmat_gt.to(device)
 
-    matched = (indices_gt == indices_pred).type(pmat_pred.dtype)
+    assert torch.all((pmat_pred == 0) + (pmat_pred == 1)), 'pmat_pred can noly contain 0/1 elements.'
+    assert torch.all((pmat_gt == 0) + (pmat_gt == 1)), 'pmat_gt should noly contain 0/1 elements.'
+
+    #indices_pred = torch.argmax(pmat_pred, dim=-1)
+    #indices_gt = torch.argmax(pmat_gt, dim=-1)
+
+    #matched = (indices_gt == indices_pred).type(pmat_pred.dtype)
     match_num = 0
     total_num = 0
     for b in range(batch_num):
-        match_num += torch.sum(matched[b, :ns[b]])
-        total_num += ns[b].item()
+        #match_num += torch.sum(matched[b, :ns[b]])
+        #total_num += ns[b].item()
+        match_num += torch.sum(pmat_pred[b, :ns[b]] * pmat_gt[b, :ns[b]])
+        total_num += torch.sum(pmat_gt[b, :ns[b]])
 
     return match_num / total_num, match_num, total_num
