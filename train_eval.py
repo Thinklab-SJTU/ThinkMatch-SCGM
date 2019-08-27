@@ -12,6 +12,7 @@ from GMN.displacement_layer import Displacement
 from GMN.bi_stochastic import BiStochastic
 from GMN.robust_loss import RobustLoss
 from GMN.permutation_loss import CrossEntropyLoss
+from GMN.focal_loss import FocalLoss
 from utils.evaluation_metric import pck as eval_pck, matching_accuracy
 from parallel import DataParallel
 from utils.model_sl import load_model, save_model
@@ -110,7 +111,7 @@ def train_eval_model(model,
                 if cfg.TRAIN.LOSS_FUNC == 'offset':
                     d_gt, grad_mask = displacement(perm_mat, P1_gt, P2_gt, n1_gt)
                     loss = criterion(d_pred, d_gt, grad_mask)
-                elif cfg.TRAIN.LOSS_FUNC == 'perm':
+                elif cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'focal':
                     loss = torch.zeros(1).cuda()
                     if type(s_pred) is list:
                         for _s_pred, weight in zip(s_pred, cfg.PCA.LOSS_WEIGHTS):
@@ -237,6 +238,8 @@ if __name__ == '__main__':
         criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
     elif cfg.TRAIN.LOSS_FUNC == 'perm':
         criterion = CrossEntropyLoss()
+    elif cfg.TRAIN.LOSS_FUNC == 'focal':
+        criterion = FocalLoss(alpha=.5, gamma=0.)
     else:
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
