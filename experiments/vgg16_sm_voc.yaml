@@ -35,16 +35,16 @@ PAIR:
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 10
+  NUM_EPOCHS: 15
 
   LOSS_FUNC: offset
 
   # learning rate
-  LR: 1.0e-4
+  LR: 2.0e-4
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
-    - 5
+    - 10
 
   EPOCH_ITERS: 2000  # iterations per epoch
 
