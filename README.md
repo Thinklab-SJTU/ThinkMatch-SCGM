@@ -9,7 +9,7 @@ Quadratic Assignment Problem."
 
 ## Get started
 
-1. Install and configure pytorch 1.0+ (with GPU support)
+1. Install and configure pytorch 1.1+ (with GPU support)
 1. Install ninja-build: ``apt-get install ninja-build``
 1. Install python packages: ``pip install tensorboardX scipy easydict pyyaml``
 1. If you want to run experiment on Pascal VOC Keypoint dataset:
