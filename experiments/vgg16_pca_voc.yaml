@@ -29,7 +29,7 @@ PAIR:
     - 16
   GT_GRAPH_CONSTRUCT: tri
   REF_GRAPH_CONSTRUCT: tri
-  MAX_PROB_SIZE: 225
+  #MAX_PROB_SIZE: 225
 
 # Training settings
 TRAIN:
