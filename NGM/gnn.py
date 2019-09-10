@@ -46,6 +46,18 @@ class GNNLayer(nn.Module):
         return W_new, x_new
 '''
 
+def dsnorm(W, eps=1e-8):
+    """
+    Doubly-stochastic norm on edge embedding tensor W.
+    :param W: edge feature tensor (b x n x n x feat_dim)
+    :param eps: a small value designed for numerical stability
+    :return: normalized edge embedding tensor
+    """
+    wave = W / torch.sum(W + eps, dim=2, keepdim=True)
+    ret = torch.matmul((wave / torch.sum(wave + eps, dim=1, keepdim=True)).permute(0, 3, 1, 2), wave.permute(0, 3, 2, 1))
+    return ret.permute(0, 2, 3, 1)
+
+
 class GNNLayer(nn.Module):
     def __init__(self, in_node_features, in_edge_features, out_node_features, out_edge_features,
                  sk_channel=False, sk_iter=20, voting_alpha=20):
@@ -55,12 +67,14 @@ class GNNLayer(nn.Module):
         self.out_efeat = out_edge_features
         if sk_channel:
             assert out_node_features == out_edge_features + 1
+            #assert out_node_features % out_edge_features == 1 or out_edge_features == 1
             self.out_nfeat = out_node_features - 1
             self.sk = BiStochastic(sk_iter)
             self.classifier = nn.Linear(self.out_nfeat, 1)
             self.voting_layer = Voting(voting_alpha)
         else:
             assert out_node_features == out_edge_features
+            #assert out_node_features % out_edge_features == 0
             self.out_nfeat = out_node_features
             self.sk = self.classifier = self.voting_layer = None
 
@@ -72,6 +86,15 @@ class GNNLayer(nn.Module):
         )
 
         self.n_func = nn.Sequential(
+            nn.Linear(self.in_nfeat, self.out_nfeat),
+            #nn.Linear(self.in_nfeat, self.out_nfeat // self.out_efeat),
+            nn.ReLU(),
+            nn.Linear(self.out_nfeat, self.out_nfeat),
+            #nn.Linear(self.out_nfeat // self.out_efeat, self.out_nfeat // self.out_efeat),
+            nn.ReLU()
+        )
+
+        self.n_self_func = nn.Sequential(
             nn.Linear(self.in_nfeat, self.out_nfeat),
             nn.ReLU(),
             nn.Linear(self.out_nfeat, self.out_nfeat),
@@ -96,8 +119,12 @@ class GNNLayer(nn.Module):
         #x_new = self.n_func(x3)
         #W_norm = F.normalize(W_new, p=1, dim=2)
         x1 = self.n_func(x)
-        x2 = torch.sum(torch.mul(torch.mul(A.unsqueeze(-1), W_new), x1.unsqueeze(1)), dim=2)
-        #x_new += self.n_self_func(x)
+        #x2 = torch.sum(torch.mul(torch.mul(A.unsqueeze(-1), W_new), x1.unsqueeze(1)), dim=2) + self.n_self_func(x)
+        x2 = torch.matmul((A.unsqueeze(-1) * W_new).permute(0, 3, 1, 2), x1.unsqueeze(2).permute(0, 3, 1, 2)).squeeze().transpose(1, 2)
+        x2 += self.n_self_func(x)
+        #x2 = [torch.sum(dsnorm(A * W_new[:, :, :, f]).unsqueeze(-1) * x1.unsqueeze(1), dim=2)
+        #      for f in range(W_new.shape[-1])]
+        #x2 = torch.cat(x2, dim=-1) + self.n_self_func(x)
 
         if self.classifier is not None:
             assert n1.max() * n2.max() == x.shape[1]

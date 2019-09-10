@@ -27,8 +27,10 @@ class FocalLoss(nn.Module):
             x = pred_perm[b, :pred_ns[b], :gt_ns[b]]
             y = gt_perm[b, :pred_ns[b], :gt_ns[b]]
             loss += torch.sum(
-                - self.alpha * (1 - x) ** self.gamma * y * torch.log(x + self.eps)
-                - (1 - self.alpha) * x ** self.gamma * (1 - y) * torch.log(1 - x + self.eps)
+                #- self.alpha * (1 - x) ** self.gamma * y * torch.log(x + self.eps)
+                #- (1 - self.alpha) * x ** self.gamma * (1 - y) * torch.log(1 - x + self.eps)
+                - (1 - x) ** self.gamma * y * torch.log(x + self.eps)
+                - x ** self.gamma * (1 - y) * torch.log(1 - x + self.eps)
             )
             n_sum += pred_ns[b].to(n_sum.dtype).to(pred_perm.device)
 

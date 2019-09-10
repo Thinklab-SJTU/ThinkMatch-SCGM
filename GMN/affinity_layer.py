@@ -36,8 +36,8 @@ class InnerpAffinity(nn.Module):
 
     def forward(self, X, Y, Ux, Uy, w1=1, w2=1):
         assert X.shape[1] == Y.shape[1] == 2 * self.d
-        lambda1 = self.relu(self.lambda1) * w1
-        lambda2 = self.relu(self.lambda2) * w2
+        lambda1 = self.relu(self.lambda1 + self.lambda1.transpose(0, 1)) * w1
+        lambda2 = self.relu(self.lambda2 + self.lambda2.transpose(0, 1)) * w2
         weight = torch.cat((torch.cat((lambda1, lambda2)),
                             torch.cat((lambda2, lambda1))), 1)
         Me = torch.matmul(X.transpose(1, 2), weight)
