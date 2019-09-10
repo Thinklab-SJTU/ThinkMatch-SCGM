@@ -32,7 +32,7 @@ class Affinity(nn.Module):
 
 
 class AffinityLR(nn.Module):
-    def __init__(self, d, k=100):
+    def __init__(self, d, k=512):
         super(AffinityLR, self).__init__()
         self.d = d
         self.k = k

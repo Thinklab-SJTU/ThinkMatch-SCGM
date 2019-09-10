@@ -67,6 +67,10 @@ __C.SYNTHETIC.POS_AFFINE_S_HIGH = 1.2
 __C.SYNTHETIC.POS_AFFINE_DTHETA = 60.  # corresponding position after affine transform: theta ~ uniform(-X, X)
 __C.SYNTHETIC.POS_NOISE_STD = 10.  # corresponding position add a random noise ~ N(0, X^2) after affine transform
 
+# QAPLIB dataset
+__C.QAPLIB = edict()
+__C.QAPLIB.DIR = 'data/qapdata'
+
 # GMN model options
 __C.GMN = edict()
 __C.GMN.FEATURE_CHANNEL = 512
@@ -92,7 +96,7 @@ __C.NGM.FEATURE_CHANNEL = 512
 __C.NGM.BS_ITER_NUM = 10
 __C.NGM.BS_EPSILON = 1e-10
 __C.NGM.VOTING_ALPHA = 200.
-__C.NGM.GNN_FEAT = 256
+__C.NGM.GNN_FEAT = [16, 16, 16]
 __C.NGM.GNN_LAYER = 3
 __C.NGM.GAUSSIAN_SIGMA = 1.
 __C.NGM.SIGMA3 = 1.
@@ -100,7 +104,7 @@ __C.NGM.WEIGHT2 = 1.
 __C.NGM.WEIGHT3 = 1.
 __C.NGM.EDGE_FEATURE = 'cat' # 'cat' or 'geo'
 __C.NGM.ORDER3_FEATURE = 'cat' # 'cat' or 'geo'
-__C.NGM.OUTP_SCORE = True
+__C.NGM.OUTP_SCORE = True # output the scoring matrix as prediction in testing (no Sinkhorn applied in testing)
 __C.NGM.FIRST_ORDER = True
 __C.NGM.SK_EMB = True
 

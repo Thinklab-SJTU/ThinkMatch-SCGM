@@ -48,6 +48,8 @@ def matching_accuracy(pmat_pred, pmat_gt, ns):
 
     assert torch.all((pmat_pred == 0) + (pmat_pred == 1)), 'pmat_pred can noly contain 0/1 elements.'
     assert torch.all((pmat_gt == 0) + (pmat_gt == 1)), 'pmat_gt should noly contain 0/1 elements.'
+    assert torch.all(torch.sum(pmat_pred, dim=-1) <= 1) and torch.all(torch.sum(pmat_pred, dim=-2) <= 1)
+    assert torch.all(torch.sum(pmat_gt, dim=-1) <= 1) and torch.all(torch.sum(pmat_gt, dim=-2) <= 1)
 
     #indices_pred = torch.argmax(pmat_pred, dim=-1)
     #indices_gt = torch.argmax(pmat_gt, dim=-1)
@@ -62,3 +64,19 @@ def matching_accuracy(pmat_pred, pmat_gt, ns):
         total_num += torch.sum(pmat_gt[b, :ns[b]])
 
     return match_num / total_num, match_num, total_num
+
+
+def objective_score(pmat_pred, affmtx, ns):
+    """
+    Objective score given predicted permutation matrix and affinity matrix from the problem.
+    :param pmat_pred: predicted permutation matrix
+    :param affmtx: affinity matrix from the problem
+    :param ns: number of exact pairs
+    :return: objective scores
+    """
+    batch_num = pmat_pred.shape[0]
+
+    p_vec = pmat_pred.transpose(1, 2).contiguous().view(batch_num, -1, 1)
+    obj_score = torch.matmul(torch.matmul(p_vec.transpose(1, 2), affmtx), p_vec).view(-1)
+
+    return obj_score

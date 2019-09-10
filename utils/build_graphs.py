@@ -1,6 +1,7 @@
 import torch
 from torch import Tensor
 from scipy.spatial import Delaunay
+from scipy.spatial.qhull import QhullError
 
 import itertools
 import numpy as np
@@ -63,12 +64,18 @@ def delaunay_triangulate(P: np.ndarray):
     if n < 3:
         A = fully_connect(P)
     else:
-        d = Delaunay(P)
-        #assert d.coplanar.size == 0, 'Delaunay triangulation omits points.'
-        A = np.zeros((n, n))
-        for simplex in d.simplices:
-            for pair in itertools.permutations(simplex, 2):
-                A[pair] = 1
+        try:
+            d = Delaunay(P)
+            #assert d.coplanar.size == 0, 'Delaunay triangulation omits points.'
+            A = np.zeros((n, n))
+            for simplex in d.simplices:
+                for pair in itertools.permutations(simplex, 2):
+                    A[pair] = 1
+        except QhullError as err:
+            print('Delaunay triangulation error detected. Return fully-connected graph.')
+            print('Traceback:')
+            print(err)
+            A = fully_connect(P)
     return A
 
 

@@ -7,7 +7,7 @@ class FocalLoss(nn.Module):
     """
     Focal loss between two permutations.
     """
-    def __init__(self, alpha=1., gamma=0., eps=1e-6):
+    def __init__(self, alpha=1., gamma=0., eps=1e-15):
         super(FocalLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma

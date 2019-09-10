@@ -75,7 +75,11 @@ NGM:
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
   VOTING_ALPHA: 20. #200.
-  GNN_FEAT: 16
+  GNN_FEAT:
+    - 16
+    - 16
+    - 16
   GNN_LAYER: 3
   GAUSSIAN_SIGMA: 1.
   SK_EMB: True
+  FIRST_ORDER: True

@@ -92,6 +92,8 @@ class PascalVOC:
         self.classes = cfg.VOC2011.CLASSES
         self.kpt_len = [len(KPT_NAMES[_]) for _ in cfg.VOC2011.CLASSES]
 
+        self.classes_kpts = {cls: len(KPT_NAMES[cls]) for cls in self.classes}
+
         self.anno_path = Path(anno_path)
         self.img_path = Path(img_path)
         self.ori_anno_path = Path(ori_anno_path)
@@ -198,6 +200,104 @@ class PascalVOC:
 
         return anno_pair, perm_mat
 
+    def get_multi(self, cls=None, num=2, shuffle=True):
+        """
+        Randomly get multiple objects from VOC-Berkeley keypoints dataset for multi-matching
+        :param cls: None for random class, or specify for a certain set
+        :param num: number of objects to be got
+        :param shuffle: random shuffle the keypoints
+        :return: (list of data, list of permutation matrices)
+        """
+        if cls is None:
+            cls = random.randrange(0, len(self.classes))
+        elif type(cls) == str:
+            cls = self.classes.index(cls)
+        assert type(cls) == int and 0 <= cls < len(self.classes)
+
+        anno_list = []
+        for xml_name in random.sample(self.xml_list[cls], num):
+            anno_dict = self.__get_anno_dict(xml_name, cls)
+            if shuffle:
+                random.shuffle(anno_dict['keypoints'])
+            anno_list.append(anno_dict)
+
+        perm_mat = [np.zeros([len(anno_list[0]['keypoints']), len(x['keypoints'])], dtype=np.float32) for x in anno_list]
+        row_list = []
+        col_lists = []
+        for i in range(num):
+            col_lists.append([])
+        for i, keypoint in enumerate(anno_list[0]['keypoints']):
+            kpt_in = []
+            kpt_idx = []
+            for anno_dict in anno_list:
+                kpt_name_list = [x['name'] for x in anno_dict['keypoints']]
+                if keypoint['name'] in kpt_name_list:
+                    kpt_in.append(True)
+                    kpt_idx.append(kpt_name_list.index(keypoint['name']))
+                else:
+                    kpt_in.append(False)
+                    kpt_idx.append(-1)
+                    break
+            if all(kpt_in):
+                row_list.append(i)
+                for k in range(num):
+                    j = kpt_idx[k]
+                    col_lists[k].append(j)
+                    perm_mat[k][i, j] = 1
+
+        row_list.sort()
+        for col_list in col_lists:
+            col_list.sort()
+
+        for k in range(num):
+            perm_mat[k] = perm_mat[k][row_list, :]
+            perm_mat[k] = perm_mat[k][:, col_lists[k]]
+            anno_list[k]['keypoints'] = [anno_list[k]['keypoints'][j] for j in col_lists[k]]
+
+        return anno_list, perm_mat
+
+    def get_single_to_ref(self, idx, cls, shuffle=True):
+        """
+        Get a single image, against a reference model containing all ground truth keypoints.
+        :param idx: index in this class
+        :param cls: specify for a certain class
+        :param shuffle: random shuffle the keypoints
+        :return: (data, groundtruth permutation matrix)
+        """
+        if cls is None:
+            cls = random.randrange(0, len(self.classes))
+        elif type(cls) == str:
+            cls = self.classes.index(cls)
+        else:
+            cls = cls
+        assert type(cls) == int and 0 <= cls < len(self.classes)
+
+        xml_name = self.xml_list[cls][idx]
+        anno_dict = self.__get_anno_dict(xml_name, cls)
+        if shuffle:
+            random.shuffle(anno_dict['keypoints'])
+
+        ref = self.__get_ref_model(cls)
+
+        perm_mat = np.zeros((len(anno_dict['keypoints']), len(ref['keypoints'])), dtype=np.float32)
+        for i, keypoint in enumerate(anno_dict['keypoints']):
+            for j, _keypoint in enumerate(ref['keypoints']):
+                if keypoint['name'] == _keypoint['name']:
+                    perm_mat[i, j] = 1
+
+        return anno_dict, perm_mat
+
+    def __get_ref_model(self, cls):
+        """
+        Get a reference model for a certain class. The reference model contains all ground truth keypoints
+        :param cls: specify a certain class (by integer ID)
+        :return: annotation dict
+        """
+        anno_dict = dict()
+        anno_dict['keypoints'] = [{'name': x} for x in KPT_NAMES[self.classes[cls]]]
+        anno_dict['cls'] = self.classes[cls]
+        return anno_dict
+
     def __get_anno_dict(self, xml_name, cls):
         """
         Get an annotation dict from xml file
@@ -231,9 +331,19 @@ class PascalVOC:
         anno_dict['keypoints'] = keypoint_list
         anno_dict['bounds'] = xmin, ymin, w, h
         anno_dict['ori_sizes'] = ori_sizes
-        anno_dict['cls'] = cls
+        anno_dict['cls'] = self.classes[cls]
 
         return anno_dict
+
+    @property
+    def length(self):
+        l = 0
+        for cls in self.classes:
+            l += len(self.xml_list[self.classes.index(cls)])
+        return l
+
+    def length_of(self, cls):
+        return len(self.xml_list[self.classes.index(cls)])
 
 
 if __name__ == '__main__':

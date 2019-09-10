@@ -57,7 +57,7 @@ class GNNLayer(nn.Module):
             assert out_node_features == out_edge_features + 1
             self.out_nfeat = out_node_features - 1
             self.sk = BiStochastic(sk_iter)
-            self.classifier = nn.Linear(self.out_efeat, 1)
+            self.classifier = nn.Linear(self.out_nfeat, 1)
             self.voting_layer = Voting(voting_alpha)
         else:
             assert out_node_features == out_edge_features
@@ -145,6 +145,13 @@ class HyperGNNLayer(nn.Module):
             nn.ReLU()
         )
 
+        self.n_self_func = nn.Sequential(
+            nn.Linear(self.in_nfeat, self.out_nfeat),
+            nn.ReLU(),
+            nn.Linear(self.out_nfeat, self.out_nfeat),
+            nn.ReLU()
+        )
+
     def forward(self, A, W, x, n1=None, n2=None, norm=True):
         """wrapper function of forward (support dense/sparse)"""
         if not isinstance(A, Iterable):
@@ -154,7 +161,7 @@ class HyperGNNLayer(nn.Module):
         W_new = []
         for _A, _W in zip(A, W):
             if type(_W) is tuple or (type(_W) is torch.Tensor and _W.is_sparse):
-                _W_new, _x = self.forward_sparse(_A, _W, x, norm=False)
+                _W_new, _x = self.forward_sparse(_A, _W, x, norm)
             else:
                 _W_new, _x = self.forward_dense(_A, _W, x, norm)
             try:
@@ -196,7 +203,6 @@ class HyperGNNLayer(nn.Module):
         W_new_val = self.e_func(
             #torch.cat((W_val, torch.zeros(1, 1, device=W_val.device).expand(W_val.shape[0], self.in_nfeat)), dim=-1)
             torch.cat((W_val, x_agg / (order - 1)), dim=-1)
-
         )
         if norm is True:
             A_sum = torch.sum(A, dim=tuple(range(2, order + 1)), keepdim=True) + self.eps
@@ -220,7 +226,7 @@ class HyperGNNLayer(nn.Module):
         x_new = torch.zeros_like(x1)
         x_new.index_put_((W_ind[0, :], W_ind[1, :]), tp_val, True)
 
-        #x_new += self.n_self_func(x)
+        x_new += self.n_self_func(x)
 
         return (W_ind, W_new_val), x_new
 

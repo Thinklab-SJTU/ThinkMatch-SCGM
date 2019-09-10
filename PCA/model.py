@@ -29,6 +29,7 @@ class Net(CNN):
                 gnn_layer = Siamese_Gconv(cfg.PCA.GNN_FEAT, cfg.PCA.GNN_FEAT)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
             self.add_module('affinity_{}'.format(i), Affinity(cfg.PCA.GNN_FEAT))
+            #self.add_module('affinity_{}'.format(i), AffinityLR(cfg.PCA.GNN_FEAT, 512))
             if i == self.gnn_layer - 2:  # only second last layer will have cross-graph module
                 self.add_module('cross_graph_{}'.format(i), nn.Linear(cfg.PCA.GNN_FEAT * 2, cfg.PCA.GNN_FEAT))
 
@@ -80,7 +81,7 @@ class Net(CNN):
                 cross_graph = getattr(self, 'cross_graph_{}'.format(i))
                 emb1 = cross_graph(torch.cat((emb1, torch.bmm(s, emb2)), dim=-1))
                 emb2 = cross_graph(torch.cat((emb2, torch.bmm(s.transpose(1, 2), emb1)), dim=-1))
-        '''
+
         s = None
         for x in range(6):
             for i in range(self.gnn_layer):
@@ -101,7 +102,6 @@ class Net(CNN):
                     s = self.voting_layer(s, ns_src, ns_tgt)
                     s = self.bi_stochastic(s, ns_src, ns_tgt)
                     ss.append(s)
-        '''
 
         d, _ = self.displacement_layer(s, P_src, P_tgt)
         return ss, d

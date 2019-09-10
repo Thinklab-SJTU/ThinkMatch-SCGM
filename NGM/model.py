@@ -11,6 +11,7 @@ from PCA.gconv import Gconv
 from NGM.gnn import GNNLayer
 from NGM.geo_edge_feature import geo_edge_feature
 from GMN.affinity_layer import InnerpAffinity, GaussianAffinity
+import math
 
 from utils.config import cfg
 
@@ -39,16 +40,16 @@ class Net(CNN):
             alpha = cfg.NGM.VOTING_ALPHA
             if i == 0:
                 #gnn_layer = Gconv(1, cfg.NGM.GNN_FEAT)
-                gnn_layer = GNNLayer(1, 1, cfg.NGM.GNN_FEAT + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT,
+                gnn_layer = GNNLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
                                      sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
             else:
                 #gnn_layer = Gconv(cfg.NGM.GNN_FEAT, cfg.NGM.GNN_FEAT)
-                gnn_layer = GNNLayer(cfg.NGM.GNN_FEAT + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT,
-                                     cfg.NGM.GNN_FEAT + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT,
+                gnn_layer = GNNLayer(cfg.NGM.GNN_FEAT[i - 1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i - 1],
+                                     cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
                                      sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
 
-        self.classifier = nn.Linear(cfg.NGM.GNN_FEAT + (1 if cfg.NGM.SK_EMB else 0), 1)
+        self.classifier = nn.Linear(cfg.NGM.GNN_FEAT[-1] + (1 if cfg.NGM.SK_EMB else 0), 1)
 
     def forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, ns_src, ns_tgt, K_G, K_H, type='img'):
         if type == 'img' or type == 'image':
@@ -74,53 +75,67 @@ class Net(CNN):
             F_src = src[:, src.shape[1] // 2:, :]
             U_tgt = tgt[:, :tgt.shape[1] // 2, :]
             F_tgt = tgt[:, tgt.shape[1] // 2:, :]
+        elif type == 'affmat':
+            pass
         else:
             raise ValueError('unknown type string {}'.format(type))
 
-        if cfg.NGM.EDGE_FEATURE == 'cat':
-            X = reshape_edge_feature(F_src, G_src, H_src)
-            Y = reshape_edge_feature(F_tgt, G_tgt, H_tgt)
-        elif cfg.NGM.EDGE_FEATURE == 'geo':
-            X = geo_edge_feature(P_src, G_src, H_src)[:, :1, :]
-            Y = geo_edge_feature(P_tgt, G_tgt, H_tgt)[:, :1, :]
+        if type != 'affmat':
+            tgt_len = P_tgt.shape[1]
+            if cfg.NGM.EDGE_FEATURE == 'cat':
+                X = reshape_edge_feature(F_src, G_src, H_src)
+                Y = reshape_edge_feature(F_tgt, G_tgt, H_tgt)
+            elif cfg.NGM.EDGE_FEATURE == 'geo':
+                X = geo_edge_feature(P_src, G_src, H_src)[:, :1, :]
+                Y = geo_edge_feature(P_tgt, G_tgt, H_tgt)[:, :1, :]
+            else:
+                raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
+
+            # affinity layer
+            #Me1, Mp1 = self.affinity_layer1(X1, Y1, U_src, U_tgt)
+            Me, Mp = self.affinity_layer(X, Y, U_src, U_tgt)
+
+            #M = construct_m(Me1, torch.zeros_like(Mp1), K_G, K_H)
+            M = construct_m(Me, torch.zeros_like(Mp), K_G, K_H)
+            #M = construct_m(Me, torch.zeros_like(Mp), K_G[0], K_H[0], K_G[1], K_H[1])
+
+            A = (M > 0).to(M.dtype)
+
+            #d = torch.sum(M, dim=-1)
+            #d_max = torch.max(d, dim=-1)[0]
+            #M_prime = torch.zeros_like(M)
+            #for b in range(M.shape[0]):
+            #    M_prime[b] = M[b] / d_max[b]
+            #M = M_prime
+
+            if cfg.NGM.FIRST_ORDER:
+                emb = Mp.transpose(1, 2).contiguous().view(Mp.shape[0], -1, 1)
+            else:
+                emb = torch.ones(M.shape[0], M.shape[1], 1, device=M.device)
         else:
-            raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
-
-        # affinity layer
-        #Me1, Mp1 = self.affinity_layer1(X1, Y1, U_src, U_tgt)
-        Me, Mp = self.affinity_layer(X, Y, U_src, U_tgt)
-
-        #M = construct_m(Me1, torch.zeros_like(Mp1), K_G, K_H)
-        M = construct_m(Me, torch.zeros_like(Mp), K_G, K_H)
-
-        A = (M > 0).to(M.dtype)
-
-        #d = torch.sum(M, dim=-1)
-        #d_max = torch.max(d, dim=-1)[0]
-        #M_prime = torch.zeros_like(M)
-        #for b in range(M.shape[0]):
-        #    M_prime[b] = M[b] / d_max[b]
-        #M = M_prime
-
-        if cfg.NGM.FIRST_ORDER:
-            emb = Mp.transpose(1, 2).contiguous().view(Mp.shape[0], -1, 1)
-        else:
+            tgt_len = int(math.sqrt(src.shape[2]))
+            M = src
+            A = (M > 0).to(M.dtype)
             emb = torch.ones(M.shape[0], M.shape[1], 1, device=M.device)
 
-        M = M.unsqueeze(-1)
+        emb_M = M.unsqueeze(-1)
 
         for i in range(self.gnn_layer):
             gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
-            M, emb = gnn_layer(A, M, emb, ns_src, ns_tgt) #, norm=False)
+            emb_M, emb = gnn_layer(A, emb_M, emb, ns_src, ns_tgt) #, norm=False)
             #emb = gnn_layer(M, emb)
 
         v = self.classifier(emb)
-        s = v.view(v.shape[0], P_tgt.shape[1], -1).transpose(1, 2)
+        s = v.view(v.shape[0], tgt_len, -1).transpose(1, 2)
 
         ss = self.voting_layer(s, ns_src, ns_tgt)
         ss = self.bi_stochastic(ss, ns_src, ns_tgt)#, dummy_row=True)
 
-        d, _ = self.displacement_layer(ss, P_src, P_tgt)
+        if type != 'affmat':
+            d, _ = self.displacement_layer(ss, P_src, P_tgt)
+        else:
+            vv = ss.transpose(1, 2).contiguous().view(v.shape[0], -1, 1)
+            d = torch.matmul(torch.matmul(vv.transpose(1, 2), M), vv).view(-1)
 
         if cfg.NGM.OUTP_SCORE:
             return s, ss, d
