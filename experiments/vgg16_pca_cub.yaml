@@ -1,9 +1,9 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_pca_atten
-DATASET_NAME: voc
+MODEL_NAME: vgg16_pca
+DATASET_NAME: cub
 
-DATASET_FULL_NAME: PascalVOC
+DATASET_FULL_NAME: CUB2011
 
 MODULE: PCA.model
 

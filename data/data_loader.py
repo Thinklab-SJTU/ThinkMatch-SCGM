@@ -4,10 +4,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 import numpy as np
 import random
-from data.pascal_voc import PascalVOC
-from data.willow_obj import WillowObject
-from data.synthetic import SyntheticDataset, MixedSyntheticDataset
-from data.qaplib import QAPLIB
+from data import *
 from utils.build_graphs import build_graphs, make_grids
 from utils.fgm import kronecker_sparse
 from sparse_torch import CSRMatrix3d

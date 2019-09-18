@@ -71,6 +71,10 @@ __C.SYNTHETIC.POS_NOISE_STD = 10.  # corresponding position add a random noise ~
 __C.QAPLIB = edict()
 __C.QAPLIB.DIR = 'data/qapdata'
 
+# CUB2011 dataset
+__C.CUB2011 = edict()
+__C.CUB2011.ROOT_PATH = 'data/CUB_200_2011'
+
 # GMN model options
 __C.GMN = edict()
 __C.GMN.FEATURE_CHANNEL = 512
