@@ -31,6 +31,9 @@ PAIR:
   REF_GRAPH_CONSTRUCT: tri
   #MAX_PROB_SIZE: 225
 
+CUB2011:
+  CROSS_CATEGORY_MATCHING: True
+
 # Training settings
 TRAIN:
   # start, end epochs
@@ -57,7 +60,7 @@ EVAL:
     - 0.10
   PCK_L: 256. # 362.03867
   EPOCH: 30  # epoch to be tested
-  SAMPLES: 1000  # number of tested pairs for each class
+  SAMPLES: 100  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:

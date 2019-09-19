@@ -74,6 +74,7 @@ __C.QAPLIB.DIR = 'data/qapdata'
 # CUB2011 dataset
 __C.CUB2011 = edict()
 __C.CUB2011.ROOT_PATH = 'data/CUB_200_2011'
+__C.CUB2011.CROSS_CATEGORY_MATCHING = False
 
 # GMN model options
 __C.GMN = edict()

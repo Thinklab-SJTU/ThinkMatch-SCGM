@@ -43,17 +43,32 @@ class CUB2011(BaseDataset):
             bboxes = [l.rstrip('\n').split() for l in f.readlines()]
             ii, x, y, w, h = map(list, zip(*bboxes))
             self.im2bbox = dict(zip(ii, zip(x, y, w, h)))
-        for class_idx in sorted(classes):
-            self.classes.append(classes[class_idx])
-            train_set = []
-            test_set = []
-            for img_idx in class2img[class_idx]:
-                if train_split[img_idx] == '1':
-                    train_set.append(img_idx)
-                else:
-                    test_set.append(img_idx)
-            self.set_data['train'].append(train_set)
-            self.set_data['test'].append(test_set)
+        if cfg.CUB2011.CROSS_CATEGORY_MATCHING:
+            for class_idx in sorted(classes):
+                self.classes.append(classes[class_idx])
+                train_set = []
+                test_set = []
+                for img_idx in class2img[class_idx]:
+                    if train_split[img_idx] == '1':
+                        train_set.append(img_idx)
+                    else:
+                        test_set.append(img_idx)
+                self.set_data['train'].append(train_set)
+                self.set_data['test'].append(test_set)
+        else:
+            self.classes.append('cub2011')
+            self.set_data['train'].append([])
+            self.set_data['test'].append([])
+            for class_idx in sorted(classes):
+                train_set = []
+                test_set = []
+                for img_idx in class2img[class_idx]:
+                    if train_split[img_idx] == '1':
+                        train_set.append(img_idx)
+                    else:
+                        test_set.append(img_idx)
+                self.set_data['train'][0] += train_set
+                self.set_data['test'][0] += test_set
         self.sets = sets
         self.obj_resize = obj_resize
 
