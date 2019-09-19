@@ -17,13 +17,13 @@ class CUB2011(BaseDataset):
 
     This function is modified from UCN implementation of CUB2011.
     """
-    set_data = {'train': [], 'test': []}
-    classes = []
-
-    _set_pairs = {}
-    _set_mask = {}
-
     def __init__(self, sets, obj_resize):
+        self.set_data = {'train': [], 'test': []}
+        self.classes = []
+
+        self._set_pairs = {}
+        self._set_mask = {}
+
         rootpath = cfg.CUB2011.ROOT_PATH
         with open(os.path.join(rootpath, 'images.txt')) as f:
             self.im2fn = dict(l.rstrip('\n').split() for l in f.readlines())
