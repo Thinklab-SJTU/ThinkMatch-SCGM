@@ -43,7 +43,7 @@ class CUB2011(BaseDataset):
             bboxes = [l.rstrip('\n').split() for l in f.readlines()]
             ii, x, y, w, h = map(list, zip(*bboxes))
             self.im2bbox = dict(zip(ii, zip(x, y, w, h)))
-        if cfg.CUB2011.CROSS_CATEGORY_MATCHING:
+        if not cfg.CUB2011.CROSS_CATEGORY_MATCHING:
             for class_idx in sorted(classes):
                 self.classes.append(classes[class_idx])
                 train_set = []

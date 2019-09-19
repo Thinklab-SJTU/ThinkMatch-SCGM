@@ -60,7 +60,7 @@ EVAL:
     - 0.10
   PCK_L: 256. # 362.03867
   EPOCH: 30  # epoch to be tested
-  SAMPLES: 100  # number of tested pairs for each class
+  SAMPLES: 10000  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:
