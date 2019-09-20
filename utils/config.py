@@ -30,6 +30,7 @@ __C.PAIR.CANDIDATE_LENGTH = np.cumprod(__C.PAIR.CANDIDATE_SHAPE)[-1]
 __C.PAIR.GT_GRAPH_CONSTRUCT = 'tri'
 __C.PAIR.REF_GRAPH_CONSTRUCT = 'fc'
 __C.PAIR.MAX_PROB_SIZE = -1
+__C.PAIR.REF_OUTLIER = False  # allow outlier in reference graph
 
 # VOC2011-Keypoint Dataset
 __C.VOC2011 = edict()
@@ -94,6 +95,8 @@ __C.PCA.VOTING_ALPHA = 200.
 __C.PCA.GNN_LAYER = 5
 __C.PCA.GNN_FEAT = 1024
 __C.PCA.LOSS_WEIGHTS = [0., 1.]  # [cross-module loss, final prediction loss]
+__C.PCA.CROSS_ITER = False
+__C.PCA.CROSS_ITER_NUM = 1
 
 # NGM model options
 __C.NGM = edict()

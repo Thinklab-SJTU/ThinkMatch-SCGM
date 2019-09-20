@@ -26,10 +26,10 @@ class BiStochastic(nn.Module):
             #s = torch.cat((s, torch.full(dummy_shape, self.epsilon * 10).to(s.device)), dim=1)
             #nrows = nrows + dummy_shape[1] # non in-place
             s = torch.cat((s, torch.full(dummy_shape, 0.).to(s.device)), dim=1)
-            new_nrows = ncols
+            ori_nrows = nrows
+            nrows = ncols
             for b in range(batch_size):
-                s[b, nrows[b]:new_nrows[b], :ncols[b]] = self.epsilon
-            nrows = new_nrows
+                s[b, ori_nrows[b]:nrows[b], :ncols[b]] = self.epsilon
 
         row_norm_ones = torch.zeros(batch_size, s.shape[1], s.shape[1], device=s.device)  # size: row x row
         col_norm_ones = torch.zeros(batch_size, s.shape[2], s.shape[2], device=s.device)  # size: col x col
@@ -67,6 +67,8 @@ class BiStochastic(nn.Module):
 
         if dummy_row and dummy_shape[1] > 0:
             s = s[:, :-dummy_shape[1]]
+            for b in range(batch_size):
+                s[b, ori_nrows[b]:nrows[b], :ncols[b]] = 0
 
         return s
 

@@ -86,7 +86,7 @@ class CUB2011(BaseDataset):
         bbox = np.array(self.im2bbox[data]).astype(float)
         return keypts, visible, bbox
 
-    def get_pair(self, cls=None, shuffle=True):
+    def get_pair(self, cls=None, shuffle=True, tgt_outlier=None):
         """
         Randomly get a pair of objects from CUB-2011
         :param cls: None for random class, or specify for a certain set

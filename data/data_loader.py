@@ -35,9 +35,9 @@ class GMDataset(Dataset):
     def get_pair(self, idx):
         #anno_pair, perm_mat = self.ds.get_pair(self.cls if self.cls is not None else
         #                                       (idx % (cfg.BATCH_SIZE * len(self.classes))) // cfg.BATCH_SIZE)
-        anno_pair, perm_mat = self.ds.get_pair(self.cls)
+        anno_pair, perm_mat = self.ds.get_pair(self.cls, tgt_outlier=cfg.PAIR.REF_OUTLIER)
         # todo this operation may affect gradient
-        if perm_mat.size <= 2 * 2 or perm_mat.size >= cfg.PAIR.MAX_PROB_SIZE > 0:
+        if perm_mat.shape[0] <= 2 or perm_mat.size >= cfg.PAIR.MAX_PROB_SIZE > 0:
             return self.__getitem__(idx)
 
         cls = [anno['cls'] for anno in anno_pair]
