@@ -29,7 +29,6 @@ class Net(CNN):
                 gnn_layer = Siamese_Gconv(cfg.PCA.GNN_FEAT, cfg.PCA.GNN_FEAT)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
             self.add_module('affinity_{}'.format(i), Affinity(cfg.PCA.GNN_FEAT))
-            #self.add_module('affinity_{}'.format(i), AffinityLR(cfg.PCA.GNN_FEAT, 512))
             if i == self.gnn_layer - 2:  # only second last layer will have cross-graph module
                 self.add_module('cross_graph_{}'.format(i), nn.Linear(cfg.PCA.GNN_FEAT * 2, cfg.PCA.GNN_FEAT))
 
@@ -67,41 +66,42 @@ class Net(CNN):
         emb1, emb2 = torch.cat((U_src, F_src), dim=1).transpose(1, 2), torch.cat((U_tgt, F_tgt), dim=1).transpose(1, 2)
         ss = []
 
-        for i in range(self.gnn_layer):
-            gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
-            emb1, emb2 = gnn_layer([A_src, emb1], [A_tgt, emb2])
-            affinity = getattr(self, 'affinity_{}'.format(i))
-            s = affinity(emb1, emb2)
-            #s = torch.bmm(emb1, emb2.transpose(1, 2))
-            s = self.voting_layer(s, ns_src, ns_tgt)
-            s = self.bi_stochastic(s, ns_src, ns_tgt)
-            ss.append(s)
-
-            if i == self.gnn_layer - 2:
-                cross_graph = getattr(self, 'cross_graph_{}'.format(i))
-                emb1 = cross_graph(torch.cat((emb1, torch.bmm(s, emb2)), dim=-1))
-                emb2 = cross_graph(torch.cat((emb2, torch.bmm(s.transpose(1, 2), emb1)), dim=-1))
-
-        s = None
-        for x in range(6):
+        if not cfg.PCA.CROSS_ITER:
             for i in range(self.gnn_layer):
-                if i == 0:
-                    if s is None:
-                        gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
-                        emb1_0, emb2_0 = gnn_layer([A_src, emb1], [A_tgt, emb2])
-                        s = torch.zeros(emb1.shape[0], emb1.shape[1], emb2.shape[1]).cuda()
+                gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
+                emb1, emb2 = gnn_layer([A_src, emb1], [A_tgt, emb2])
+                affinity = getattr(self, 'affinity_{}'.format(i))
+                s = affinity(emb1, emb2)
+                #s = torch.bmm(emb1, emb2.transpose(1, 2))
+                s = self.voting_layer(s, ns_src, ns_tgt)
+                s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+                ss.append(s)
 
+                if i == self.gnn_layer - 2:
                     cross_graph = getattr(self, 'cross_graph_{}'.format(i))
-                    emb1 = cross_graph(torch.cat((emb1_0, torch.bmm(s, emb2_0)), dim=-1))
-                    emb2 = cross_graph(torch.cat((emb2_0, torch.bmm(s.transpose(1, 2), emb1_0)), dim=-1))
-                if i==1:
-                    gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
-                    emb1, emb2 = gnn_layer([A_src, emb1], [A_tgt, emb2])
-                    affinity = getattr(self, 'affinity_{}'.format(i))
-                    s = affinity(emb1, emb2)
-                    s = self.voting_layer(s, ns_src, ns_tgt)
-                    s = self.bi_stochastic(s, ns_src, ns_tgt)
-                    ss.append(s)
+                    emb1 = cross_graph(torch.cat((emb1, torch.bmm(s, emb2)), dim=-1))
+                    emb2 = cross_graph(torch.cat((emb2, torch.bmm(s.transpose(1, 2), emb1)), dim=-1))
+        else:
+            s = None
+            for x in range(cfg.PCA.CROSS_ITER_NUM):
+                for i in range(self.gnn_layer):
+                    if i == 0:
+                        if s is None:
+                            gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
+                            emb1_0, emb2_0 = gnn_layer([A_src, emb1], [A_tgt, emb2])
+                            s = torch.zeros(emb1.shape[0], emb1.shape[1], emb2.shape[1]).cuda()
+
+                        cross_graph = getattr(self, 'cross_graph_{}'.format(i))
+                        emb1 = cross_graph(torch.cat((emb1_0, torch.bmm(s, emb2_0)), dim=-1))
+                        emb2 = cross_graph(torch.cat((emb2_0, torch.bmm(s.transpose(1, 2), emb1_0)), dim=-1))
+                    if i==1:
+                        gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
+                        emb1, emb2 = gnn_layer([A_src, emb1], [A_tgt, emb2])
+                        affinity = getattr(self, 'affinity_{}'.format(i))
+                        s = affinity(emb1, emb2)
+                        s = self.voting_layer(s, ns_src, ns_tgt)
+                        s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+                        ss.append(s)
 
         d, _ = self.displacement_layer(s, P_src, P_tgt)
         return ss, d
