@@ -9,6 +9,9 @@ class RRWM(nn.Module):
     RRWM solver for graph matching (QAP), implemented by power iteration with Sinkhorn reweighted jumps.
     Parameter: maximum iteration max_iter
     Input: input matrix M
+           maximum size of source graph num_src
+           sizes of source graph in batch ns_src
+           sizes of target graph in batch ns_tgt
            (optional) initialization vector v0. If not specified, v0 will be initialized with all 1.
     Output: computed eigenvector v
     """
