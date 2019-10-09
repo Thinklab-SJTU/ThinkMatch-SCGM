@@ -31,8 +31,8 @@ class BiStochastic(nn.Module):
             for b in range(batch_size):
                 s[b, ori_nrows[b]:nrows[b], :ncols[b]] = self.epsilon
 
-        row_norm_ones = torch.zeros(batch_size, s.shape[1], s.shape[1], device=s.device)  # size: row x row
-        col_norm_ones = torch.zeros(batch_size, s.shape[2], s.shape[2], device=s.device)  # size: col x col
+        row_norm_ones = torch.zeros(batch_size, s.shape[1], s.shape[1], device=s.device, dtype=s.dtype)  # size: row x row
+        col_norm_ones = torch.zeros(batch_size, s.shape[2], s.shape[2], device=s.device, dtype=s.dtype)  # size: col x col
         for b in range(batch_size):
             row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
             col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])

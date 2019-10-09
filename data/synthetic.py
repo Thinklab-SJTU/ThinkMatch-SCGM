@@ -23,14 +23,14 @@ class MixedSyntheticDataset(BaseDataset):
 
 
 class SyntheticDataset(BaseDataset):
-    def __init__(self, sets, obj_resize, exp_id=cfg.SYNTHETIC.RANDOM_EXP_ID):
+    def __init__(self, sets, obj_resize, exp_id=None):
         super(SyntheticDataset, self).__init__()
         self.classes = ['synthetic']
         self.obj_resize = obj_resize
 
         self.train_num = cfg.SYNTHETIC.TRAIN_NUM
         self.test_num = cfg.SYNTHETIC.TEST_NUM
-        self.exp_id = exp_id
+        self.exp_id = exp_id if exp_id is not None else cfg.SYNTHETIC.RANDOM_EXP_ID
 
         self.inlier_num = cfg.SYNTHETIC.KPT_NUM
         self.outlier_num = cfg.SYNTHETIC.OUT_NUM
@@ -52,7 +52,7 @@ class SyntheticDataset(BaseDataset):
         self.cache_name = 'synthetic_train{}_test{}_in{}_out{}_dim{}_feat{:.2f}n{:.2f}_pos{:.2f}n{:.2f}_id{}.pkl'.format(
             self.train_num, self.test_num, self.inlier_num, self.outlier_num, self.dimension,
             self.gt_feat_high, self.feat_noise, self.gt_pos_high, self.pos_noise,
-           self.exp_id
+            self.exp_id
         )
         self.cache_path = Path(cfg.CACHE_PATH) / 'synthetic' / self.cache_name
 

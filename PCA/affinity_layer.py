@@ -26,8 +26,8 @@ class Affinity(nn.Module):
 
     def forward(self, X, Y):
         assert X.shape[2] == Y.shape[2] == self.d
-        #M = torch.matmul(X, self.A)
-        M = torch.matmul(X, (self.A + self.A.transpose(0, 1)) / 2)
+        M = torch.matmul(X, self.A)
+        #M = torch.matmul(X, (self.A + self.A.transpose(0, 1)) / 2)
         M = torch.matmul(M, Y.transpose(1, 2))
         return M
 

@@ -3,19 +3,19 @@ from datetime import datetime
 from utils.print_easydict import print_easydict_str
 from copy import deepcopy
 
-repeat_times = 1
+repeat_times = 10
 
 #environments = 'CUDA_VISIBLE_DEVICES=3,4 CXX=/opt/rh/devtoolset-3/root/usr/bin/gcc'
 #environments = 'CUDA_VISIBLE_DEVICES=1 CUDA_HOME=/usr/local/cuda-10.0 LD_LIBRARY_PATH=/usr/local/cuda-10.0/lib64/:$LD_LIBRARY_PATH PATH=/usr/local/cuda-10.0/bin/:$PATH CXX=gcc'
 environments = 'CXX=g++'
 python_path = '~/dl-of-gm/venv/bin/python'
-cfg_file = 'experiments/nhgm_em_synthetic.yaml'
-#cfg_file = 'experiments/sm_pl_synthetic.yaml'
-script = 'train_eval.py'
+#cfg_file = 'experiments/nhgm_em_synthetic.yaml'
+cfg_file = 'experiments/sm_pl_synthetic.yaml'
+#script = 'train_eval.py'
 #script = 'cache_m.py'
-#script = 'eval.py --epoch 0'
+script = 'eval.py --epoch 0'
 
-ori_cfg_dict = {
+ori_cfg_dict_nips19 = {
     'SYNTHETIC':
         {
             'RANDOM_EXP_ID': 0,
@@ -34,6 +34,28 @@ ori_cfg_dict = {
             'POS_NOISE_STD': 0.02
          }
 }
+
+ori_cfg_dict_iccv19 = {
+    'SYNTHETIC':
+        {
+            'RANDOM_EXP_ID': 0,
+            'TRAIN_NUM': 200,
+            'TEST_NUM': 100,
+            'DIM': 1024,
+            'KPT_NUM': 20,  # keypoint num
+            'OUT_NUM': 0,   # outlier num
+            'FEAT_GT_UNIFORM': 1.,  # feature vector ~ uniform(-X, X)
+            'FEAT_NOISE_STD': 1.5,  # feature noise ~ N(0, X^2)
+            'POS_GT_UNIFORM': 256.,  # keypoint position ~ uniform(0, X)
+            'POS_AFFINE_DXY': 50.,  # t_x, t_y ~ uniform(-X, X)
+            'POS_AFFINE_S_LOW': 0.8,  # s ~ uniform(S_LOW, S_HIGH)
+            'POS_AFFINE_S_HIGH': 1.2,
+            'POS_AFFINE_DTHETA': 60.,  # theta ~ uniform(-X, X)
+            'POS_NOISE_STD': 10.
+         }
+}
+
+ori_cfg_dict = ori_cfg_dict_iccv19
 
 def edit_cfg(cfg_name: str, edit_pairs: dict, suffix=''):
     """
@@ -56,17 +78,21 @@ def test_once(cfg_dict, init_t=0):
         new_cfg_file = edit_cfg(cfg_file, cfg_dict, str(t))
         cmd = '{} {} {} --cfg {}'.format(environments, python_path, script, new_cfg_file)
 
-        stdout = os.popen(cmd)
-        acc = 0
-        for line in  stdout.readlines():
-            x = line.split("average = ")
-            if len(x) == 2:
-                _acc = float(x[-1])
-                if _acc > acc:
-                    acc = _acc
-        os.system('rm {}'.format(new_cfg_file))
-        print('test {} accuracy = {:.4f}'.format(t, acc), flush=True)
-        acc_sum += acc
+        try:
+            stdout = os.popen(cmd)
+            acc = 0
+            for line in stdout.readlines():
+                x = line.split("average = ")
+                if len(x) == 2:
+                    _acc = float(x[-1])
+                    if _acc > acc:
+                        acc = _acc
+            os.system('rm {}'.format(new_cfg_file))
+            print('test {} accuracy = {:.4f}'.format(t, acc), flush=True)
+            acc_sum += acc
+        except KeyboardInterrupt as err:
+            os.system('rm {}'.format(new_cfg_file))
+            raise err
     return acc_sum / repeat_times
 
 '''
@@ -94,7 +120,7 @@ for idx, kpt_num in enumerate(kpt_list):
 
 print('-' * 10)
 print('OUT_NUM', flush=True)
-out_list = list(range(2, 20, 2))
+out_list = list(range(0, 50, 5))
 for idx, out_num in enumerate(out_list):
     cfg_dict = deepcopy(ori_cfg_dict)
     cfg_dict['SYNTHETIC']['OUT_NUM'] = out_num

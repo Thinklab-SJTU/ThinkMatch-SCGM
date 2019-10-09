@@ -66,7 +66,7 @@ class Net(CNN):
         emb1, emb2 = torch.cat((U_src, F_src), dim=1).transpose(1, 2), torch.cat((U_tgt, F_tgt), dim=1).transpose(1, 2)
         ss = []
 
-        if not cfg.PCA.CROSS_ITER:
+        if not self.cross_iter:
             for i in range(self.gnn_layer):
                 gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
                 emb1, emb2 = gnn_layer([A_src, emb1], [A_tgt, emb2])
@@ -87,17 +87,17 @@ class Net(CNN):
                     emb2 = new_emb2
         else:
             s = None
-            for x in range(cfg.PCA.CROSS_ITER_NUM):
+            for x in range(self.cross_iter_num):
                 for i in range(self.gnn_layer):
                     if i == 0:
                         if s is None:
                             gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
                             emb1_0, emb2_0 = gnn_layer([A_src, emb1], [A_tgt, emb2])
-                            #s = torch.zeros(emb1.shape[0], emb1.shape[1], emb2.shape[1]).cuda()
-                            affinity = getattr(self, 'affinity_{}'.format(i))
-                            s = affinity(emb1_0, emb2_0)
-                            s = self.voting_layer(s, ns_src, ns_tgt)
-                            s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+                            s = torch.zeros(emb1.shape[0], emb1.shape[1], emb2.shape[1]).cuda()
+                            #affinity = getattr(self, 'affinity_{}'.format(i))
+                            #s = affinity(emb1_0, emb2_0)
+                            #s = self.voting_layer(s, ns_src, ns_tgt)
+                            #s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
 
                         cross_graph = getattr(self, 'cross_graph_{}'.format(i))
                         emb1 = cross_graph(torch.cat((emb1_0, torch.bmm(s, emb2_0)), dim=-1))
@@ -112,4 +112,4 @@ class Net(CNN):
                         ss.append(s)
 
         d, _ = self.displacement_layer(s, P_src, P_tgt)
-        return ss, d
+        return s, d

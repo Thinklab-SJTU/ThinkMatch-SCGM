@@ -15,8 +15,12 @@ class CrossEntropyLoss(nn.Module):
 
         pred_perm = pred_perm.to(dtype=torch.float32)
 
-        assert torch.all((pred_perm >= 0) * (pred_perm <= 1))
-        assert torch.all((gt_perm >= 0) * (gt_perm <= 1))
+        try:
+            assert torch.all((pred_perm >= 0) * (pred_perm <= 1))
+            assert torch.all((gt_perm >= 0) * (gt_perm <= 1))
+        except AssertionError as err:
+            print(pred_perm)
+            raise err
 
         loss = torch.tensor(0.).to(pred_perm.device)
         n_sum = torch.zeros_like(loss)
