@@ -49,7 +49,7 @@ class BiStochastic(nn.Module):
         for i in range(self.max_iter):
             if exp:
                 s = torch.exp(exp_alpha * s)
-            if i % 2 == 1:
+            if i % 2 == 0:
                 # column norm
                 #ones = torch.ones(batch_size, s.shape[1], s.shape[1], device=s.device)
                 sum = torch.sum(torch.mul(s.unsqueeze(3), col_norm_ones.unsqueeze(1)), dim=2)
