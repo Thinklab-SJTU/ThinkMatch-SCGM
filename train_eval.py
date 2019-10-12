@@ -177,6 +177,12 @@ def train_eval_model(model,
                     running_loss = 0.0
                     running_since = time.time()
 
+                tfboard_writer.add_scalars(
+                    'learning rate',
+                    {'lr_{}'.format(i): x['lr'] for i, x in enumerate(optimizer.param_groups)},
+                    epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
+                )
+
         epoch_loss = epoch_loss / dataset_size
 
         save_model(model, str(checkpoint_path / 'params_{:04}.pt'.format(epoch + 1)))
