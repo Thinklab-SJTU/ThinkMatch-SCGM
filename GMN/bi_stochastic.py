@@ -123,7 +123,7 @@ class GumbelSinkhorn(nn.Module):
         super(GumbelSinkhorn, self).__init__()
         self.sinkhorn = BiStochastic(max_iter, tau, epsilon)
 
-    def forward(self, s, nrows=None, ncols=None, sample_num=5, exp=False, exp_alpha=20, dummy_row=False, dtype=torch.float32):
+    def forward(self, s, nrows=None, ncols=None, sample_num=5, dummy_row=False, dtype=torch.float32):
         def sample_gumbel(t_like, eps=1e-20):
             """
             randomly sample standard gumbel variables
@@ -135,7 +135,7 @@ class GumbelSinkhorn(nn.Module):
         s_rep = s_rep + sample_gumbel(s_rep)
         nrows_rep = torch.repeat_interleave(nrows, sample_num, dim=0)
         ncols_rep = torch.repeat_interleave(ncols, sample_num, dim=0)
-        s_rep = self.sinkhorn(s_rep, nrows_rep, ncols_rep, exp, exp_alpha, dummy_row, dtype)
+        s_rep = self.sinkhorn(s_rep, nrows_rep, ncols_rep, dummy_row, dtype)
         #s_rep = torch.reshape(s_rep, (-1, sample_num, s_rep.shape[1], s_rep.shape[2]))
         return s_rep
 
