@@ -16,10 +16,10 @@ class BiStochastic(nn.Module):
         self.tau = tau
         self.epsilon = epsilon
 
-    def forward(self, *input):
-        return self.forward_log(*input)
+    def forward(self, *input, **kwinput):
+        return self.forward_log(*input, **kwinput)
 
-    def forward_ori(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20, dummy_row=False, dtype=torch.float32):
+    def forward_ori(self, s, nrows=None, ncols=None, dummy_row=False, dtype=torch.float32):
         batch_size = s.shape[0]
 
         #s = s.to(dtype=dtype)
@@ -51,8 +51,6 @@ class BiStochastic(nn.Module):
         s += self.epsilon
 
         for i in range(self.max_iter):
-            if exp:
-                s = torch.exp(exp_alpha * s)
             if i % 2 == 0:
                 # column norm
                 #ones = torch.ones(batch_size, s.shape[1], s.shape[1], device=s.device)
@@ -76,7 +74,7 @@ class BiStochastic(nn.Module):
 
         return s
 
-    def forward_log(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20, dummy_row=False, dtype=torch.float32):
+    def forward_log(self, s, nrows=None, ncols=None, dummy_row=False, dtype=torch.float32):
         batch_size = s.shape[0]
 
         # operations are performed on log_s
