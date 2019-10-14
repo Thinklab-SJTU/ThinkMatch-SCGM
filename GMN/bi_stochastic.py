@@ -10,12 +10,16 @@ class BiStochastic(nn.Module):
     Input: input matrix s
     Output: bi-stochastic matrix s
     """
-    def __init__(self, max_iter=10, epsilon=1e-4):
+    def __init__(self, max_iter=10, tau=1., epsilon=1e-4):
         super(BiStochastic, self).__init__()
         self.max_iter = max_iter
+        self.tau = tau
         self.epsilon = epsilon
 
-    def forward(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20, dummy_row=False, dtype=torch.float32):
+    def forward(self, *input):
+        return self.forward_log(*input)
+
+    def forward_ori(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20, dummy_row=False, dtype=torch.float32):
         batch_size = s.shape[0]
 
         #s = s.to(dtype=dtype)
@@ -71,6 +75,71 @@ class BiStochastic(nn.Module):
                 s[b, ori_nrows[b]:nrows[b], :ncols[b]] = 0
 
         return s
+
+    def forward_log(self, s, nrows=None, ncols=None, exp=False, exp_alpha=20, dummy_row=False, dtype=torch.float32):
+        batch_size = s.shape[0]
+
+        # operations are performed on log_s
+        s = s / self.tau
+
+        if dummy_row:
+            dummy_shape = list(s.shape)
+            dummy_shape[1] = s.shape[2] - s.shape[1]
+            ori_nrows = nrows
+            nrows = ncols
+
+        ret_log_s = torch.full((batch_size, s.shape[1], s.shape[2]), -float('inf'), device=s.device, dtype=s.dtype)
+
+        for b in range(batch_size):
+            row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
+            col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
+            log_s = s[b, row_slice, col_slice]
+
+            for i in range(self.max_iter):
+                if i % 2 == 0:
+                    log_sum = torch.logsumexp(log_s, 1, keepdim=True)
+                    log_s = log_s - log_sum
+                else:
+                    log_sum = torch.logsumexp(log_s, 0, keepdim=True)
+                    log_s = log_s - log_sum
+
+            ret_log_s[b, row_slice, col_slice] = log_s
+
+        if dummy_row and dummy_shape[1] > 0:
+            log_s = log_s[:, :-dummy_shape[1]]
+            for b in range(batch_size):
+                log_s[b, ori_nrows[b]:nrows[b], :ncols[b]] = -float('inf')
+
+        return torch.exp(ret_log_s)
+
+
+class GumbelSinkhorn(nn.Module):
+    """
+    GumbelSinkhorn Layer turns the input matrix into a bi-stochastic matrix.
+    Parameter: maximum iterations max_iter
+               a small number for numerical stability epsilon
+    Input: input matrix s
+    Output: bi-stochastic matrix s
+    """
+    def __init__(self, max_iter=10, tau=1., epsilon=1e-4):
+        super(GumbelSinkhorn, self).__init__()
+        self.sinkhorn = BiStochastic(max_iter, tau, epsilon)
+
+    def forward(self, s, nrows=None, ncols=None, sample_num=5, exp=False, exp_alpha=20, dummy_row=False, dtype=torch.float32):
+        def sample_gumbel(t_like, eps=1e-20):
+            """
+            randomly sample standard gumbel variables
+            """
+            u = torch.empty_like(t_like).uniform_()
+            return -torch.log(-torch.log(u + eps) + eps)
+
+        s_rep = torch.repeat_interleave(s, sample_num, dim=0)
+        s_rep = s_rep + sample_gumbel(s_rep)
+        nrows_rep = torch.repeat_interleave(nrows, sample_num, dim=0)
+        ncols_rep = torch.repeat_interleave(ncols, sample_num, dim=0)
+        s_rep = self.sinkhorn(s_rep, nrows_rep, ncols_rep, exp, exp_alpha, dummy_row, dtype)
+        #s_rep = torch.reshape(s_rep, (-1, sample_num, s_rep.shape[1], s_rep.shape[2]))
+        return s_rep
 
 
 if __name__ == '__main__':
