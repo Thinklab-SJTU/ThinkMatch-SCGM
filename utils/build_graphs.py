@@ -7,7 +7,7 @@ import itertools
 import numpy as np
 
 
-def build_graphs(P_np: np.ndarray, n: int, n_pad: int=None, edge_pad: int=None, stg: str='fc'):
+def build_graphs(P_np: np.ndarray, n: int, n_pad: int=None, edge_pad: int=None, stg: str='fc', directed=True):
     """
     Build graph matrix G,H from point set P. This function supports only cpu operations in numpy.
     G, H is constructed from adjacency matrix A: A = G * H^T
@@ -19,7 +19,8 @@ def build_graphs(P_np: np.ndarray, n: int, n_pad: int=None, edge_pad: int=None, 
                 'tri', apply Delaunay triangulation or not.
                 'near', fully-connected manner, but edges which are longer than max(w, h) is removed
                 'fc'(default), a fully-connected graph is constructed
-    :param device: device. If not specified, it will be the same as the input
+    :param directed: True for output directed graph, False for output undirected graph
+                     (A contains only the upper half. Note that A should be symmetric anyway)
     :return: G, H, edge_num
     """
 
@@ -45,7 +46,11 @@ def build_graphs(P_np: np.ndarray, n: int, n_pad: int=None, edge_pad: int=None, 
     H = np.zeros((n_pad, edge_pad), dtype=np.float32)
     edge_idx = 0
     for i in range(n):
-        for j in range(n):
+        if directed:
+            range_j = range(i, n)
+        else:
+            range_j = range(n)
+        for j in range_j:
             if A[i, j] == 1:
                 G[i, edge_idx] = 1
                 H[j, edge_idx] = 1

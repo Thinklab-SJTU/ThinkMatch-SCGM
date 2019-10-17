@@ -53,13 +53,13 @@ class GMDataset(Dataset):
 
         #P1 = P2 = make_grids((0, 0), cfg.PAIR.RESCALE, cfg.PAIR.CANDIDATE_SHAPE)
         #n1 = n2 = P1.shape[0]
-        G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
+        G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT, directed=cfg.PAIR.DIRECTED_GRAPH)
         if cfg.PAIR.REF_GRAPH_CONSTRUCT == 'same':
             G2_gt = perm_mat.transpose().dot(G1_gt)
             H2_gt = perm_mat.transpose().dot(H1_gt)
             e2_gt= e1_gt
         else:
-            G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
+            G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT, directed=cfg.PAIR.DIRECTED_GRAPH)
 
 
         #G2_gt = np.dot(perm_mat.transpose(), G1_gt)

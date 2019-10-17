@@ -31,6 +31,7 @@ __C.PAIR.GT_GRAPH_CONSTRUCT = 'tri'
 __C.PAIR.REF_GRAPH_CONSTRUCT = 'fc'
 __C.PAIR.MAX_PROB_SIZE = -1
 __C.PAIR.REF_OUTLIER = False  # allow outlier in reference graph
+__C.PAIR.DIRECTED_GRAPH = True # build a directed graph, else only upper right of adjacency matrix will be filled.
 
 # VOC2011-Keypoint Dataset
 __C.VOC2011 = edict()
