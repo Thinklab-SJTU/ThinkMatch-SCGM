@@ -24,7 +24,7 @@ def to_sparse(x, dense_dim=1):
         return sparse_tensortype(*x.shape)
     indices = indices.t()
     values = x[tuple(indices[i] for i in range(indices.shape[0]))]
-    return sparse_tensortype(indices, values)
+    return sparse_tensortype(indices, values, x.shape)
 
 
 def sbmm(t1, t2):
@@ -122,11 +122,11 @@ def sdd_bmm_torch(s_t1, d_t2):
     y = d_t2.shape[2]
     assert s_t1.shape[0] == d_t2.shape[0], 'Batch size mismatch.'
     assert s_t1.shape[2] == d_t2.shape[1], 'Matrix shape mismatch.'
-    #outp = torch.empty(batch_num, x, y, dtype=s_t1.dtype, device=device)
+    outp = torch.empty(batch_num, x, y, dtype=s_t1.dtype, device=device)
     for b in range(batch_num):
         _s_t1 = get_batches(s_t1, b)
-        outp = torch.mm(_s_t1, d_t2[b, :, :])#, out=outp[b, :, :])
-    return outp.view(1, x, y)
+        torch.mm(_s_t1, d_t2[b, :, :], out=outp[b, :, :])
+    return outp
 
 
 def sdd_bmm_diag_torch(t1, t2):
