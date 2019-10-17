@@ -30,7 +30,7 @@ PAIR:
   GT_GRAPH_CONSTRUCT: tri
   REF_GRAPH_CONSTRUCT: tri
 
-  REF_OUTLIER: True
+  REF_OUTLIER: False
 
 # Training settings
 TRAIN:
@@ -53,10 +53,6 @@ TRAIN:
 
 # Evaluation settings and PCK metric
 EVAL:
-  PCK_ALPHAS:
-    - 0.05
-    - 0.10
-  PCK_L: 256. # 362.03867
   EPOCH: 30  # epoch to be tested
   SAMPLES: 1000  # number of tested pairs for each class
 
@@ -66,7 +62,7 @@ VISUAL:
   WEIGHT_PATH: ''  # path to weight to be loaded. If you want to use this, VISUAL.EPOCH must be 0.
   CLASS: person  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 100  # number of images to be visualized
+  NUM_IMGS: 10  # number of images to be visualized
 
 # PCA model parameters
 PCA:
