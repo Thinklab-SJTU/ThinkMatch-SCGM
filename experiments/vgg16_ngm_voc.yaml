@@ -30,6 +30,7 @@ PAIR:
     - 16
   GT_GRAPH_CONSTRUCT: tri
   REF_GRAPH_CONSTRUCT: fc
+  SYM_ADJACENCY: True
   #MAX_PROB_SIZE: 225
 
 # Training settings
