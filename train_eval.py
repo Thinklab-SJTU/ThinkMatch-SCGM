@@ -92,6 +92,8 @@ def train_eval_model(model,
             KG, KH = [_.cuda() for _ in inputs['Ks']]
             perm_mat = inputs['gt_perm_mat'].cuda()
 
+            batch_num = perm_mat.size(0)
+
             iter_num = iter_num + 1
 
             # zero the parameter gradients
@@ -142,8 +144,8 @@ def train_eval_model(model,
                     )
 
                 # training accuracy statistic
-                thres = torch.empty(perm_mat.size(0), len(alphas)).cuda()
-                for b in range(perm_mat.size(0)):
+                thres = torch.empty(batch_num, len(alphas)).cuda()
+                for b in range(batch_num):
                     thres[b] = alphas * cfg.EVAL.PCK_L
                 #pck, _, __ = eval_pck(P2, P2_gt, s_pred, thres, n1_gt)
                 acc, _, __ = matching_accuracy(lap_solver(s_pred_score, n1_gt, n2_gt), perm_mat, n1_gt)
@@ -162,13 +164,13 @@ def train_eval_model(model,
                 )
 
                 # statistics
-                running_loss += loss.item() * perm_mat.size(0)
-                epoch_loss += loss.item() * perm_mat.size(0)
+                running_loss += loss.item() * batch_num
+                epoch_loss += loss.item() * batch_num
 
                 if iter_num % cfg.STATISTIC_STEP == 0:
-                    running_speed = cfg.STATISTIC_STEP * perm_mat.size(0) / (time.time() - running_since)
+                    running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)
                     print('Epoch {:<4} Iteration {:<4} {:>4.2f}sample/s Loss={:<8.4f}'
-                          .format(epoch, iter_num, running_speed, running_loss / cfg.STATISTIC_STEP / perm_mat.size(0)))
+                          .format(epoch, iter_num, running_speed, running_loss / cfg.STATISTIC_STEP / batch_num))
                     tfboard_writer.add_scalars(
                         'speed',
                         {'speed': running_speed},
