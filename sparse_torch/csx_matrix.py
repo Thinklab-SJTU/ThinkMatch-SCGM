@@ -206,6 +206,33 @@ class CSXMatrix3d:
             )
         return ret
 
+    def as_sparse_torch(self):
+        coo = torch.zeros(3, self.data.shape[0], dtype=torch.long, device=self.device)
+        for b in range(self.shape[0]):
+            if self.sptype == 'csr':
+                start_ptr = b * self.shape[1]
+                end_ptr = (b + 1) * self.shape[1] + 1
+                compressed_len = self.shape[1]
+                compressed_idx = 1
+            elif self.sptype == 'csc':
+                start_ptr = b * self.shape[2]
+                end_ptr = (b + 1) * self.shape[2] + 1
+                compressed_len = self.shape[2]
+                compressed_idx = 2
+            else:
+                raise ValueError('Data type not understood.')
+            indptr = self.indptr[start_ptr: end_ptr]
+            coo[0, indptr[0]:indptr[-1]] = b
+            for i in range(compressed_len):
+                coo[compressed_idx, indptr[i]:indptr[i+1]] = i
+
+        if self.sptype == 'csr':
+            coo[2, :] = self.indices
+        else:
+            coo[1, :] = self.indices
+
+        return torch.sparse.FloatTensor(coo, self.data, self.shape)
+
     def get_batch(self, item):
         """
         Get a certain batch in tuple (indices, indptr, data)
