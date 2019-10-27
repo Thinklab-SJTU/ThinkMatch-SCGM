@@ -13,10 +13,9 @@ class Affinity(nn.Module):
     Input: feature X, Y
     Output: affinity matrix M
     """
-    def __init__(self, d, alpha):
+    def __init__(self, d):
         super(Affinity, self).__init__()
         self.d = d
-        self.alpha = alpha
         self.A = Parameter(Tensor(self.d, self.d))
         self.reset_parameters()
 
@@ -30,7 +29,7 @@ class Affinity(nn.Module):
         M = torch.matmul(X, self.A)
         #M = torch.matmul(X, (self.A + self.A.transpose(0, 1)) / 2)
         M = torch.matmul(M, Y.transpose(1, 2))
-        return torch.exp(M * self.alpha)
+        return M
 
 
 class AffinityLR(nn.Module):

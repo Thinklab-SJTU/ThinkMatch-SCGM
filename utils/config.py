@@ -164,7 +164,7 @@ __C.EVAL = edict()
 __C.EVAL.EPOCH = 30
 
 # PCK metric
-__C.EVAL.PCK_ALPHAS = [0.05, 0.10]
+__C.EVAL.PCK_ALPHAS = []
 __C.EVAL.PCK_L = float(max(__C.PAIR.RESCALE))  # PCK reference.
 
 # Number of samples for testing. Stands for number of image pairs in each classes (VOC)

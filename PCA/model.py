@@ -17,8 +17,7 @@ CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
 class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
-        self.bi_stochastic = BiStochastic(max_iter=cfg.PCA.BS_ITER_NUM, epsilon=cfg.PCA.BS_EPSILON)
-        #self.voting_layer = Voting(alpha=cfg.PCA.VOTING_ALPHA)
+        self.bi_stochastic = BiStochastic(max_iter=cfg.PCA.BS_ITER_NUM, epsilon=cfg.PCA.BS_EPSILON, tau=1/cfg.PCA.VOTING_ALPHA)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.PCA.FEATURE_CHANNEL * 2, alpha=cfg.PCA.FEATURE_CHANNEL * 2, beta=0.5, k=0)
         self.gnn_layer = cfg.PCA.GNN_LAYER
@@ -31,6 +30,13 @@ class Net(CNN):
             self.add_module('affinity_{}'.format(i), Affinity(cfg.PCA.GNN_FEAT))
             if i == self.gnn_layer - 2:  # only second last layer will have cross-graph module
                 self.add_module('cross_graph_{}'.format(i), nn.Linear(cfg.PCA.GNN_FEAT * 2, cfg.PCA.GNN_FEAT))
+        self.cross_iter = cfg.PCA.CROSS_ITER
+        self.cross_iter_num = cfg.PCA.CROSS_ITER_NUM
+        #self.rrwm = RRWM()
+        #self.affinity_layer = InnerpAffinity(cfg.PCA.FEATURE_CHANNEL)
+
+    def reload_backbone(self):
+        self.node_layers, self.edge_layers = self.get_backbone(True)
 
     def forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, ns_src, ns_tgt, K_G, K_H, type='img'):
         if type == 'img' or type == 'image':
@@ -73,7 +79,6 @@ class Net(CNN):
                 affinity = getattr(self, 'affinity_{}'.format(i))
                 s = affinity(emb1, emb2)
                 #s = torch.bmm(emb1, emb2.transpose(1, 2))
-                #s = self.voting_layer(s, ns_src, ns_tgt)
                 s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
                 ss.append(s)
 
@@ -107,7 +112,6 @@ class Net(CNN):
                         emb1, emb2 = gnn_layer([A_src, emb1], [A_tgt, emb2])
                         affinity = getattr(self, 'affinity_{}'.format(i))
                         s = affinity(emb1, emb2)
-                        #s = self.voting_layer(s, ns_src, ns_tgt)
                         s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
                         ss.append(s)
 

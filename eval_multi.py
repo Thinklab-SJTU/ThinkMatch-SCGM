@@ -76,15 +76,11 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
             with torch.set_grad_enabled(False):
                 pred = model(data, Ps_gt, Gs_gt, Hs_gt, ns_gt, iter_times=2, type=inp_type)
-                s_pred, indices = pred
+                s_pred_list, indices = pred
 
-            for (pred_i, gt_i), (pred_j, gt_j) in itertools.combinations(enumerate(indices), 2):
+            for s_pred, gt_idx in zip(s_pred_list, indices):
                 _, _acc_match_num, _acc_total_num = \
-                    matching_accuracy(
-                        lap_solver(torch.matmul(s_pred[pred_i], s_pred[pred_j].transpose(1, 2)), ns_gt[gt_i], ns_gt[gt_j]),
-                        torch.matmul(perm_mats[gt_i].transpose(1, 2), perm_mats[gt_j]),
-                        ns_gt[gt_i]
-                    )
+                    matching_accuracy(lap_solver(s_pred, ns_gt[gt_idx], ns_gt[0]), perm_mats[gt_idx], ns_gt[gt_idx])
 
                 acc_match_num += _acc_match_num
                 acc_total_num += _acc_total_num

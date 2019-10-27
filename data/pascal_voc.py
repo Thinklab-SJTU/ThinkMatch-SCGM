@@ -204,9 +204,10 @@ class PascalVOC:
 
     def get_multi(self, cls=None, num=2, shuffle=True):
         """
-        Randomly get multiple objects from VOC-Berkeley keypoints dataset for multi-matching
+        Randomly get multiple objects from VOC-Berkeley keypoints dataset for multi-matching.
+        The first image is fetched with all appeared keypoints, and the rest images are fetched with only inliers.
         :param cls: None for random class, or specify for a certain set
-        :param num: number of objects to be got
+        :param num: number of objects to be fetched
         :param shuffle: random shuffle the keypoints
         :return: (list of data, list of permutation matrices)
         """
@@ -229,21 +230,17 @@ class PascalVOC:
         for i in range(num):
             col_lists.append([])
         for i, keypoint in enumerate(anno_list[0]['keypoints']):
-            kpt_in = []
             kpt_idx = []
             for anno_dict in anno_list:
                 kpt_name_list = [x['name'] for x in anno_dict['keypoints']]
                 if keypoint['name'] in kpt_name_list:
-                    kpt_in.append(True)
                     kpt_idx.append(kpt_name_list.index(keypoint['name']))
                 else:
-                    kpt_in.append(False)
                     kpt_idx.append(-1)
-                    break
-            if all(kpt_in):
-                row_list.append(i)
-                for k in range(num):
-                    j = kpt_idx[k]
+            row_list.append(i)
+            for k in range(num):
+                j = kpt_idx[k]
+                if j != -1:
                     col_lists[k].append(j)
                     perm_mat[k][i, j] = 1
 
@@ -255,6 +252,7 @@ class PascalVOC:
             perm_mat[k] = perm_mat[k][row_list, :]
             perm_mat[k] = perm_mat[k][:, col_lists[k]]
             anno_list[k]['keypoints'] = [anno_list[k]['keypoints'][j] for j in col_lists[k]]
+            perm_mat[k] = perm_mat[k].transpose()
 
         return anno_list, perm_mat
 

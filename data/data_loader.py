@@ -93,11 +93,15 @@ class GMDataset(Dataset):
         return ret_dict
 
     def get_multi(self, idx):
-        anno_list, perm_mat = self.ds.get_multi(self.cls, num=3)
-        if perm_mat[0].size <= 2 * 2 or perm_mat[0].size >= cfg.PAIR.MAX_PROB_SIZE > 0:
+        anno_list, perm_mat_list = self.ds.get_multi(self.cls, num=3)
+        assert isinstance(perm_mat_list, list)
+        refetch = False
+        for pm in perm_mat_list:
+            if pm.shape[0] <= 2 or pm.shape[1] <= 2 or pm.size >= cfg.PAIR.MAX_PROB_SIZE > 0:
+                refetch = True
+                break
+        if refetch:
             return self.__getitem__(idx)
-
-        assert isinstance(perm_mat, list)
 
         cls = [anno['cls'] for anno in anno_list]
         Ps_gt = [[(kp['x'], kp['y']) for kp in anno_dict['keypoints']] for anno_dict in anno_list]
@@ -120,7 +124,7 @@ class GMDataset(Dataset):
         ret_dict = {'Ps': [torch.Tensor(x) for x in Ps_gt],
                     'ns': [torch.tensor(x) for x in ns_gt],
                     'es': [torch.tensor(x) for x in es_gt],
-                    'gt_perm_mat': perm_mat,
+                    'gt_perm_mat': perm_mat_list,
                     'Gs': [torch.Tensor(x) for x in Gs_gt],
                     'Hs': [torch.Tensor(x) for x in Hs_gt]}
 

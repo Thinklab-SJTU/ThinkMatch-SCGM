@@ -85,12 +85,15 @@ class BiStochastic(nn.Module):
             dummy_shape[1] = s.shape[2] - s.shape[1]
             ori_nrows = nrows
             nrows = ncols
+            s = torch.cat((s, torch.full(dummy_shape, -float('inf')).to(s.device)), dim=1)
+            for b in range(batch_size):
+                s[b, ori_nrows[b]:nrows[b], :ncols[b]] = -1e5
 
         ret_log_s = torch.full((batch_size, s.shape[1], s.shape[2]), -float('inf'), device=s.device, dtype=s.dtype)
 
         for b in range(batch_size):
-            row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
-            col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
+            row_slice = slice(0, nrows[b] if nrows is not None else s.shape[1])
+            col_slice = slice(0, ncols[b] if ncols is not None else s.shape[2])
             log_s = s[b, row_slice, col_slice]
 
             for i in range(self.max_iter):
@@ -104,9 +107,9 @@ class BiStochastic(nn.Module):
             ret_log_s[b, row_slice, col_slice] = log_s
 
         if dummy_row and dummy_shape[1] > 0:
-            log_s = log_s[:, :-dummy_shape[1]]
+            ret_log_s = ret_log_s[:, :-dummy_shape[1]]
             for b in range(batch_size):
-                log_s[b, ori_nrows[b]:nrows[b], :ncols[b]] = -float('inf')
+                ret_log_s[b, ori_nrows[b]:nrows[b], :ncols[b]] = -float('inf')
 
         return torch.exp(ret_log_s)
 

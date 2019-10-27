@@ -98,15 +98,13 @@ def train_eval_model(model,
             with torch.set_grad_enabled(True):
                 # forward
                 pred = model(data, Ps_gt, Gs_gt, Hs_gt, ns_gt, iter_times=2, type=inp_type)
-                s_pred, indices = pred
+                s_pred_list, indices = pred
 
                 if cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'focal':
                     loss = torch.zeros(1).cuda()
-                    assert type(s_pred) is list
-                    for (pred_i, gt_i), (pred_j, gt_j) in itertools.combinations(enumerate(indices), 2):
-                        l = criterion(torch.matmul(s_pred[pred_i], s_pred[pred_j].transpose(1, 2)),
-                                      torch.matmul(perm_mats[gt_i].transpose(1, 2), perm_mats[gt_j]),
-                                      ns_gt[gt_i], ns_gt[gt_j])
+                    assert type(s_pred_list) is list
+                    for s_pred, gt_idx in zip(s_pred_list, indices):
+                        l = criterion(s_pred, perm_mats[gt_idx], ns_gt[gt_idx], ns_gt[0])
                         loss += l
                 else:
                     raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
@@ -122,11 +120,9 @@ def train_eval_model(model,
                 # training accuracy statistic
                 matched_num = 0
                 total_num = 0
-                for (pred_i, gt_i), (pred_j, gt_j) in itertools.combinations(enumerate(indices), 2):
+                for s_pred, gt_idx in zip(s_pred_list, indices):
                     _, mn, tn = \
-                        matching_accuracy(
-                            lap_solver(torch.matmul(s_pred[pred_i], s_pred[pred_j].transpose(1, 2)), ns_gt[gt_i], ns_gt[gt_j]),
-                            torch.matmul(perm_mats[gt_i].transpose(1, 2), perm_mats[gt_j]), ns_gt[gt_i])
+                        matching_accuracy(lap_solver(s_pred, ns_gt[gt_idx], ns_gt[0]), perm_mats[gt_idx], ns_gt[gt_idx])
                     matched_num += mn
                     total_num += tn
                 acc = matched_num / total_num
