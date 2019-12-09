@@ -72,6 +72,8 @@ __C.SYNTHETIC.POS_NOISE_STD = 10.  # corresponding position add a random noise ~
 # QAPLIB dataset
 __C.QAPLIB = edict()
 __C.QAPLIB.DIR = 'data/qapdata'
+__C.QAPLIB.FEED_TYPE = 'affmat' # 'affmat' (affinity matrix) or 'adj' (adjacency matrix)
+__C.QAPLIB.ONLINE_REPO = 'http://coral.ise.lehigh.edu/data-sets/qaplib/qaplib-problem-instances-and-solutions/'
 
 # CUB2011 dataset
 __C.CUB2011 = edict()
