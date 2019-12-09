@@ -161,11 +161,12 @@ class PascalVOC:
             for x in to_del:
                 self.xml_list[cls_id].remove(x)
 
-    def get_pair(self, cls=None, shuffle=True, tgt_outlier=False):
+    def get_pair(self, cls=None, shuffle=True, tgt_outlier=False, src_outlier=False):
         """
         Randomly get a pair of objects from VOC-Berkeley keypoints dataset
         :param cls: None for random class, or specify for a certain set
         :param shuffle: random shuffle the keypoints
+        :param src_outlier: allow outlier in the source graph (first graph)
         :param tgt_outlier: allow outlier in the target graph (second graph)
         :return: (pair of data, groundtruth permutation matrix)
         """
@@ -194,8 +195,9 @@ class PascalVOC:
                     break
         row_list.sort()
         col_list.sort()
-        perm_mat = perm_mat[row_list, :]
-        anno_pair[0]['keypoints'] = [anno_pair[0]['keypoints'][i] for i in row_list]
+        if not src_outlier:
+            perm_mat = perm_mat[row_list, :]
+            anno_pair[0]['keypoints'] = [anno_pair[0]['keypoints'][i] for i in row_list]
         if not tgt_outlier:
             perm_mat = perm_mat[:, col_list]
             anno_pair[1]['keypoints'] = [anno_pair[1]['keypoints'][j] for j in col_list]
