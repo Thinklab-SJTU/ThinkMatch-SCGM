@@ -6,10 +6,12 @@ import numpy as np
 import random
 from data import *
 from utils.build_graphs import build_graphs, make_grids
-from utils.fgm import kronecker_sparse
+from utils.fgm import kronecker_sparse, kronecker_torch
 from sparse_torch import CSRMatrix3d
 
 from utils.config import cfg
+
+from itertools import combinations
 
 
 class GMDataset(Dataset):
@@ -93,7 +95,7 @@ class GMDataset(Dataset):
         return ret_dict
 
     def get_multi(self, idx):
-        anno_list, perm_mat_list = self.ds.get_multi(self.cls, num=3)
+        anno_list, perm_mat_list = self.ds.get_multi(self.cls, num=cfg.PAIR.NUM_GRAPHS)
         assert isinstance(perm_mat_list, list)
         refetch = False
         for pm in perm_mat_list:
@@ -114,19 +116,25 @@ class GMDataset(Dataset):
         # n1 = n2 = P1.shape[0]
         Gs_gt = []
         Hs_gt = []
+        Gs_ref = []
+        Hs_ref = []
         es_gt = []
         for P_gt, n_gt in zip(Ps_gt, ns_gt):
-            G_gt, H_gt, e_gt = build_graphs(P_gt, n_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
+            G_gt, H_gt, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
+            G_ref, H_ref, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
             Gs_gt.append(G_gt)
             Hs_gt.append(H_gt)
-            es_gt.append(e_gt)
+            Gs_ref.append(G_ref)
+            Hs_ref.append(H_ref)
 
         ret_dict = {'Ps': [torch.Tensor(x) for x in Ps_gt],
                     'ns': [torch.tensor(x) for x in ns_gt],
                     'es': [torch.tensor(x) for x in es_gt],
                     'gt_perm_mat': perm_mat_list,
                     'Gs': [torch.Tensor(x) for x in Gs_gt],
-                    'Hs': [torch.Tensor(x) for x in Hs_gt]}
+                    'Hs': [torch.Tensor(x) for x in Hs_gt],
+                    'Gs_ref': [torch.Tensor(x) for x in Gs_ref],
+                    'Hs_ref': [torch.Tensor(x) for x in Hs_ref]}
 
         imgs = [anno['image'] for anno in anno_list]
         if imgs[0] is not None:
@@ -280,18 +288,17 @@ class QAPDataset(Dataset):
         return self.length
 
     def __getitem__(self, idx):
-        #ori_aff_mat, perm_mat, sol, name = self.ds.get_pair(idx)
-        ori_aff_mat, perm_mat, sol, name = self.ds.get_pair(idx % len(self.ds.data_list))
+        Fi, Fj, perm_mat, sol, name = self.ds.get_pair(idx % len(self.ds.data_list))
         if perm_mat.size <= 2 * 2 or perm_mat.size >= cfg.PAIR.MAX_PROB_SIZE > 0:
             return self.__getitem__(random.randint(0, len(self) - 1))
 
-        if np.max(ori_aff_mat) > 0:
-            norm_aff_mat = ori_aff_mat / np.mean(ori_aff_mat)
-        else:
-            norm_aff_mat = ori_aff_mat
+        #if np.max(ori_aff_mat) > 0:
+        #    norm_aff_mat = ori_aff_mat / np.mean(ori_aff_mat)
+        #else:
+        #    norm_aff_mat = ori_aff_mat
 
-        ret_dict = {'affmat': norm_aff_mat,
-                    'ori_affmat': ori_aff_mat,
+        ret_dict = {'Fi': Fi,
+                    'Fj': Fj,
                     'gt_perm_mat': perm_mat,
                     'ns': [torch.tensor(x) for x in perm_mat.shape],
                     'solution': torch.tensor(sol),
@@ -358,7 +365,7 @@ def collate_fn(data: list):
 
     # compute CPU-intensive matrix K1, K2 here to leverage multi-processing nature of dataloader
     if 'Gs' in ret and 'Hs' in ret:
-        try:
+        if len(ret['Gs']) == 2:
             G1_gt, G2_gt = ret['Gs']
             H1_gt, H2_gt = ret['Hs']
             if cfg.FP16:
@@ -371,8 +378,37 @@ def collate_fn(data: list):
             K1H = CSRMatrix3d(K1H).transpose()
 
             ret['Ks'] = K1G, K1H #, K1G.transpose(keep_type=True), K1H.transpose(keep_type=True)
-        except ValueError:
-            pass
+        elif 'Gs_ref' in ret and 'Hs_ref' in ret:
+            ret['KGs'] = dict()
+            ret['KHs'] = dict()
+            for idx_gt, idx_ref in combinations(range(len(ret['Gs'])), 2):
+                if idx_gt > idx_ref:
+                    idx_gt, idx_ref = idx_ref, idx_gt
+                G1_gt = ret['Gs'][idx_gt]
+                H1_gt = ret['Hs'][idx_gt]
+                G2_gt = ret['Gs_ref'][idx_ref]
+                H2_gt = ret['Hs_ref'][idx_ref]
+                if cfg.FP16:
+                    sparse_dtype = np.float16
+                else:
+                    sparse_dtype = np.float32
+                KG = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in
+                       zip(G2_gt, G1_gt)]  # 1 as source graph, 2 as target graph
+                KH = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(H2_gt, H1_gt)]
+                KG = CSRMatrix3d(KG)
+                KH = CSRMatrix3d(KH).transpose()
+                ret['KGs']['{},{}'.format(idx_gt, idx_ref)] = KG
+                ret['KHs']['{},{}'.format(idx_gt, idx_ref)] = KH
+        else:
+            raise ValueError('Data type not understood.')
+
+    if 'Fi' in ret and 'Fj' in ret:
+        Fi = ret['Fi']
+        Fj = ret['Fj']
+        aff_mat = kronecker_torch(Fj, Fi)
+        ret['ori_affmat'] = aff_mat
+        dmax = (torch.max(torch.sum(aff_mat, dim=2, keepdim=True), dim=1, keepdim=True).values + 1e-5)
+        ret['affmat'] = aff_mat / dmax * 1000
 
     return ret
 
