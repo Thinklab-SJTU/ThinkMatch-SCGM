@@ -88,6 +88,60 @@ class WillowObject(BaseDataset):
         anno_pair[1]['keypoints'] = [anno_pair[1]['keypoints'][j] for j in col_list]
 
         return anno_pair, perm_mat
+
+    def get_multi(self, cls=None, num=2, shuffle=True):
+        """
+        Randomly get multiple objects from Willow Object Class dataset for multi-matching.
+        :param cls: None for random class, or specify for a certain set
+        :param num: number of objects to be fetched
+        :param shuffle: random shuffle the keypoints
+        :return: (list of data, list of permutation matrices)
+        """
+        if cls is None:
+            cls = random.randrange(0, len(self.classes))
+        elif type(cls) == str:
+            cls = self.classes.index(cls)
+        assert type(cls) == int and 0 <= cls < len(self.classes)
+
+        anno_list = []
+        for mat_name in random.sample(self.mat_list[cls], num):
+            anno_dict = self.__get_anno_dict(mat_name, cls)
+            if shuffle:
+                random.shuffle(anno_dict['keypoints'])
+            anno_list.append(anno_dict)
+
+        perm_mat = [np.zeros([len(anno_list[0]['keypoints']), len(x['keypoints'])], dtype=np.float32) for x in
+                    anno_list]
+        row_list = []
+        col_lists = []
+        for i in range(num):
+            col_lists.append([])
+        for i, keypoint in enumerate(anno_list[0]['keypoints']):
+            kpt_idx = []
+            for anno_dict in anno_list:
+                kpt_name_list = [x['name'] for x in anno_dict['keypoints']]
+                if keypoint['name'] in kpt_name_list:
+                    kpt_idx.append(kpt_name_list.index(keypoint['name']))
+                else:
+                    kpt_idx.append(-1)
+            row_list.append(i)
+            for k in range(num):
+                j = kpt_idx[k]
+                if j != -1:
+                    col_lists[k].append(j)
+                    perm_mat[k][i, j] = 1
+
+        row_list.sort()
+        for col_list in col_lists:
+            col_list.sort()
+
+        for k in range(num):
+            perm_mat[k] = perm_mat[k][row_list, :]
+            perm_mat[k] = perm_mat[k][:, col_lists[k]]
+            anno_list[k]['keypoints'] = [anno_list[k]['keypoints'][j] for j in col_lists[k]]
+            perm_mat[k] = perm_mat[k].transpose()
+
+        return anno_list, perm_mat
     
     def __get_anno_dict(self, mat_file, cls):
         """

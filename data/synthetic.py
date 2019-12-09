@@ -21,6 +21,11 @@ class MixedSyntheticDataset(BaseDataset):
             cls = random.choice(self.classes)
         return self.data_list[cls].get_pair(shuffle=shuffle)
 
+    def get_multi(self, cls=None, num=2, shuffle=True):
+        if cls is None:
+            cls = random.choice(self.classes)
+        return self.data_list[cls].get_multi(num=num, shuffle=shuffle)
+
 
 class SyntheticDataset(BaseDataset):
     def __init__(self, sets, obj_resize, exp_id=None):
@@ -49,9 +54,11 @@ class SyntheticDataset(BaseDataset):
         self.affine_theta_low = - cfg.SYNTHETIC.POS_AFFINE_DTHETA
         self.pos_noise = cfg.SYNTHETIC.POS_NOISE_STD
 
-        self.cache_name = 'synthetic_train{}_test{}_in{}_out{}_dim{}_feat{:.2f}n{:.2f}_pos{:.2f}n{:.2f}_id{}.pkl'.format(
-            self.train_num, self.test_num, self.inlier_num, self.outlier_num, self.dimension,
-            self.gt_feat_high, self.feat_noise, self.gt_pos_high, self.pos_noise,
+        self.cache_name = 'synthetic_train{}_test{}_in{}_out{}_dim{}_feat{:.2f}n{:.2f}_xy{:.2f},{:.2f}_s{:.2f},{:.2f}_theta{:.0f},{:.0f}_pos{:.2f}n{:.2f}_id{}.pkl'.format(
+            self.train_num, self.test_num, self.inlier_num, self.outlier_num,
+            self.dimension, self.gt_feat_high, self.feat_noise,
+            self.affine_dxy_high, self.affine_dxy_low, self.affine_s_high, self.affine_s_low, self.affine_theta_high, self.affine_theta_low,
+            self.gt_pos_high, self.pos_noise,
             self.exp_id
         )
         self.cache_path = Path(cfg.CACHE_PATH) / 'synthetic' / self.cache_name
@@ -175,3 +182,51 @@ class SyntheticDataset(BaseDataset):
         anno_pair[1]['keypoints'] = [anno_pair[1]['keypoints'][j] for j in col_list]
 
         return anno_pair, perm_mat
+
+    def get_multi(self, cls=None, num=2, shuffle=True):
+        """
+        Randomly get multiple objects from synthetic dataset for multi-matching.
+        The first data is fetched with all appeared keypoints, and the rest images are fetched with only inliers.
+        :param cls: None for random class, or specify for a certain set
+        :param num: number of objects to be fetched
+        :param shuffle: random shuffle the keypoints
+        :return: (list of data, list of permutation matrices)
+        """
+        anno_list = []
+        for anno_dict in random.sample(self.data_list, num):
+            anno_dict = deepcopy(anno_dict)
+            if shuffle:
+                random.shuffle(anno_dict['keypoints'])
+            anno_list.append(anno_dict)
+
+        perm_mat = [np.zeros([len(anno_list[0]['keypoints']), len(x['keypoints'])], dtype=np.float32) for x in anno_list]
+        row_list = []
+        col_lists = []
+        for i in range(num):
+            col_lists.append([])
+        for i, keypoint in enumerate(anno_list[0]['keypoints']):
+            kpt_idx = []
+            for anno_dict in anno_list:
+                kpt_name_list = [x['name'] for x in anno_dict['keypoints']]
+                if keypoint['name'] in kpt_name_list:
+                    kpt_idx.append(kpt_name_list.index(keypoint['name']))
+                else:
+                    kpt_idx.append(-1)
+            row_list.append(i)
+            for k in range(num):
+                j = kpt_idx[k]
+                if j != -1:
+                    col_lists[k].append(j)
+                    perm_mat[k][i, j] = 1
+
+        row_list.sort()
+        for col_list in col_lists:
+            col_list.sort()
+
+        for k in range(num):
+            perm_mat[k] = perm_mat[k][row_list, :]
+            perm_mat[k] = perm_mat[k][:, col_lists[k]]
+            anno_list[k]['keypoints'] = [anno_list[k]['keypoints'][j] for j in col_lists[k]]
+            perm_mat[k] = perm_mat[k].transpose()
+
+        return anno_list, perm_mat
