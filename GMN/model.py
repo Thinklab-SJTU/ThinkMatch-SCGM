@@ -3,7 +3,9 @@ import torch.nn as nn
 from torchvision import models
 
 from GMN.affinity_layer import InnerpAffinity as Affinity
+#from GMN.affinity_layer import GaussianAffinity
 from GMN.power_iteration import PowerIteration
+from GMN.rrwm import RRWM
 from GMN.bi_stochastic import BiStochastic
 from GMN.voting_layer import Voting
 from GMN.displacement_layer import Displacement
@@ -22,8 +24,12 @@ class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
         self.affinity_layer = Affinity(cfg.GMN.FEATURE_CHANNEL)
-        self.power_iteration = PowerIteration(max_iter=cfg.GMN.PI_ITER_NUM, stop_thresh=cfg.GMN.PI_STOP_THRESH)
-        self.bi_stochastic = BiStochastic(max_iter=cfg.GMN.BS_ITER_NUM, epsilon=cfg.GMN.BS_EPSILON)
+        #self.affinity_layer = GaussianAffinity(1, 5.e-7)
+        if cfg.GMN.GM_SOLVER == 'SM':
+            self.gm_solver = PowerIteration(max_iter=cfg.GMN.PI_ITER_NUM, stop_thresh=cfg.GMN.PI_STOP_THRESH)
+        elif cfg.GMN.GM_SOLVER == 'RRWM':
+            self.gm_solver = RRWM()
+        self.bi_stochastic = BiStochastic(max_iter=cfg.GMN.BS_ITER_NUM, epsilon=cfg.GMN.BS_EPSILON, log_forward=False)
         self.voting_layer = Voting(alpha=cfg.GMN.VOTING_ALPHA)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.GMN.FEATURE_CHANNEL * 2, alpha=cfg.GMN.FEATURE_CHANNEL * 2, beta=0.5, k=0)
@@ -64,17 +70,19 @@ class Net(CNN):
 
         X = reshape_edge_feature(F_src, G_src, H_src)
         Y = reshape_edge_feature(F_tgt, G_tgt, H_tgt)
+        #X = geo_edge_feature(P_src, G_src, H_src)[:, :1, :]
+        #Y = geo_edge_feature(P_tgt, G_tgt, H_tgt)[:, :1, :]
 
         # affinity layer
         Me, Mp = self.affinity_layer(X, Y, U_src, U_tgt)
 
         M = construct_m(Me, Mp, K_G, K_H)
 
-        v = self.power_iteration(M)
+        v = self.gm_solver(M, num_src=P_src.shape[1], ns_src=ns_src, ns_tgt=ns_tgt)
         s = v.view(v.shape[0], P_tgt.shape[1], -1).transpose(1, 2)
 
         s = self.voting_layer(s, ns_src, ns_tgt)
         s = self.bi_stochastic(s, ns_src, ns_tgt)
 
         d, _ = self.displacement_layer(s, P_src, P_tgt)
-        return s, d
+        return s, d, M
