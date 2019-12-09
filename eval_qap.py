@@ -52,49 +52,58 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         rel_sum = torch.zeros(1, device=device)
         rel_num = torch.zeros(1, device=device)
         for inputs in dataloader:
-            if 'affmat' in inputs:
-                data = inputs['affmat'].cuda()
-                ori_affmtx = inputs['ori_affmat'].cuda()
-                solution = inputs['solution'].cuda()
-                name = inputs['name']
+            if cfg.QAPLIB.FEED_TYPE == 'affmat' and 'affmat' in inputs:
+                data1 = inputs['affmat'].cuda()
+                data2 = None
                 inp_type = 'affmat'
+            elif cfg.QAPLIB.FEED_TYPE == 'adj':
+                data1 = inputs['Fi'].cuda()
+                data2 = inputs['Fj'].cuda()
+                inp_type = 'adj'
             else:
                 raise ValueError('no valid data key found from dataloader!')
+            ori_affmtx = inputs['ori_affmat'].cuda()
+            solution = inputs['solution'].cuda()
+            name = inputs['name']
             n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
             perm_mat = inputs['gt_perm_mat'].cuda()
 
-            batch_num = data.size(0)
+            batch_num = data1.size(0)
 
             iter_num = iter_num + 1
 
             with torch.set_grad_enabled(False):
                 _ = None
                 pred = \
-                    model(data, _, _, _, _, _, _, _, n1_gt, n2_gt, _, _, inp_type)
+                    model(data1, data2, _, _, _, _, _, _, n1_gt, n2_gt, _, _, inp_type)
                 if len(pred) == 2:
-                    s_pred_score, d_pred = pred
+                    s_pred, d_pred = pred
                 else:
-                    s_pred_score, _, d_pred = pred
+                    s_pred, d_pred, affmtx = pred
 
-            if type(s_pred_score) is list:
-                s_pred_score = s_pred_score[-1]
-            s_pred_perm = lap_solver(s_pred_score, n1_gt, n2_gt)
+            #repeat = lambda x: torch.repeat_interleave(x, 5, dim=0)
+            repeat = lambda x : x
 
-            _, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_perm, perm_mat, n1_gt)
+            if type(s_pred) is list:
+                s_pred = s_pred[-1]
+            s_pred_perm = lap_solver(s_pred, repeat(n1_gt), repeat(n2_gt))
+
+            _, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_perm, repeat(perm_mat), repeat(n1_gt))
             acc_match_num += _acc_match_num
             acc_total_num += _acc_total_num
 
-            obj_score = objective_score(s_pred_perm, ori_affmtx, n1_gt)
+            obj_score = objective_score(s_pred_perm, repeat(ori_affmtx), repeat(n1_gt))
+            #obj_score = obj_score.view(obj_score.shape[0] // 5, 5).mean(dim=-1)
             opt_obj_score = objective_score(perm_mat, ori_affmtx, n1_gt)
             ori_obj_score = solution
 
             for n, x, y, z in zip(name, obj_score, opt_obj_score, ori_obj_score):
-                rel = (x - y) / y
-                print('{} - Solved: {:.0f}, Opt: {:.0f}, Ori: {:.0f}, Gap: {:.0f}, Rel: {:.4f}'.
+                rel = (x - y) / x
+                print('{} - Solved: {:.0f}, Feas: {:.0f}, Opt/Bnd: {:.0f}, Gap: {:.0f}, Rel: {:.4f}'.
                       format(n, x, y, z, x - y, rel))
                 if not torch.isnan(rel):
                     rel_sum += rel
-                rel_num += 1
+                #rel_num += 1
 
             if iter_num % cfg.STATISTIC_STEP == 0 and verbose:
                 running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)

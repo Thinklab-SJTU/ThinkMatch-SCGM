@@ -1,17 +1,19 @@
 import torch
 import torch.nn as nn
 
-from GMN.bi_stochastic import BiStochastic
+from GMN.bi_stochastic import BiStochastic, GumbelSinkhorn
 from GMN.voting_layer import Voting
 from GMN.displacement_layer import Displacement
 from utils.build_graphs import reshape_edge_feature
 from utils.feature_align import feature_align
 from utils.fgm import construct_m
 from PCA.gconv import Gconv
-from NGM.gnn import GNNLayer
+from NGM.gnn import GNNLayer, HyperConvLayer
 from NGM.geo_edge_feature import geo_edge_feature
 from GMN.affinity_layer import InnerpAffinity, GaussianAffinity
 import math
+
+from GMN.rrwm import RRWM
 
 from utils.config import cfg
 
@@ -28,7 +30,10 @@ class Net(CNN):
             self.affinity_layer = GaussianAffinity(1, cfg.NGM.GAUSSIAN_SIGMA)
         else:
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
-        self.bi_stochastic = BiStochastic(max_iter=cfg.NGM.BS_ITER_NUM, epsilon=cfg.NGM.BS_EPSILON)
+        self.tau = 1 / cfg.NGM.VOTING_ALPHA #nn.Parameter(torch.Tensor([1 / cfg.NGM.VOTING_ALPHA]))
+        self.bi_stochastic = BiStochastic(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
+        self.bi_stochastic_g = GumbelSinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
+        self.rrwm = RRWM()
         self.voting_layer = Voting(alpha=cfg.NGM.VOTING_ALPHA)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
@@ -41,12 +46,17 @@ class Net(CNN):
             if i == 0:
                 #gnn_layer = Gconv(1, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
+                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha, edge_emb=cfg.NGM.EDGE_EMB)
+                #gnn_layer = HyperConvLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
+                #                           sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
             else:
                 #gnn_layer = Gconv(cfg.NGM.GNN_FEAT, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(cfg.NGM.GNN_FEAT[i - 1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i - 1],
                                      cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
+                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha, edge_emb=cfg.NGM.EDGE_EMB)
+                #gnn_layer = HyperConvLayer(cfg.NGM.GNN_FEAT[i-1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i-1],
+                #                           cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
+                #                           sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
 
         self.classifier = nn.Linear(cfg.NGM.GNN_FEAT[-1] + (1 if cfg.NGM.SK_EMB else 0), 1)
@@ -92,21 +102,11 @@ class Net(CNN):
                 raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
 
             # affinity layer
-            #Me1, Mp1 = self.affinity_layer1(X1, Y1, U_src, U_tgt)
             Me, Mp = self.affinity_layer(X, Y, U_src, U_tgt)
 
-            #M = construct_m(Me1, torch.zeros_like(Mp1), K_G, K_H)
             M = construct_m(Me, torch.zeros_like(Mp), K_G, K_H)
-            #M = construct_m(Me, torch.zeros_like(Mp), K_G[0], K_H[0], K_G[1], K_H[1])
 
             A = (M > 0).to(M.dtype)
-
-            #d = torch.sum(M, dim=-1)
-            #d_max = torch.max(d, dim=-1)[0]
-            #M_prime = torch.zeros_like(M)
-            #for b in range(M.shape[0]):
-            #    M_prime[b] = M[b] / d_max[b]
-            #M = M_prime
 
             if cfg.NGM.FIRST_ORDER:
                 emb = Mp.transpose(1, 2).contiguous().view(Mp.shape[0], -1, 1)
@@ -123,21 +123,19 @@ class Net(CNN):
         for i in range(self.gnn_layer):
             gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
             emb_M, emb = gnn_layer(A, emb_M, emb, ns_src, ns_tgt) #, norm=False)
-            #emb = gnn_layer(M, emb)
 
         v = self.classifier(emb)
         s = v.view(v.shape[0], tgt_len, -1).transpose(1, 2)
 
-        ss = self.voting_layer(s, ns_src, ns_tgt)
-        ss = self.bi_stochastic(ss, ns_src, ns_tgt)#, dummy_row=True)
+        if True:
+            ss = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+        else:
+            ss = self.bi_stochastic_g(s, ns_src, ns_tgt, sample_num=5, dummy_row=True)
+            M = torch.repeat_interleave(M, 5, dim=0)
 
         if type != 'affmat':
             d, _ = self.displacement_layer(ss, P_src, P_tgt)
         else:
-            vv = ss.transpose(1, 2).contiguous().view(v.shape[0], -1, 1)
-            d = torch.matmul(torch.matmul(vv.transpose(1, 2), M), vv).view(-1)
+            d = None
 
-        if cfg.NGM.OUTP_SCORE:
-            return s, ss, d
-        else:
-            return ss, d
+        return ss, d, M

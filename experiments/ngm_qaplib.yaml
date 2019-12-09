@@ -1,7 +1,7 @@
 # VGG16 model with Pascal VOC dataset
 
 MODEL_NAME: ngm
-DATASET_NAME: qaplib_tho
+DATASET_NAME: qaplib
 
 DATASET_FULL_NAME: QAPLIB
 
@@ -9,8 +9,8 @@ MODULE: NGM.model
 
 BACKBONE: NoBackbone
 
-BATCH_SIZE: 1
-DATALOADER_NUM: 1
+BATCH_SIZE: 8
+DATALOADER_NUM: 2
 
 RANDOM_SEED: 123
 
@@ -25,19 +25,20 @@ TRAIN:
   START_EPOCH: 0
   NUM_EPOCHS: 500
 
-  LOSS_FUNC: obj
+  LOSS_FUNC: obj # perm
 
   # learning rate
-  LR: 2.0e-4 #2.0e-4
+  LR: 1.0e-4 #1.0e-3
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
-    - 10
-    - 30 #30 #50
-    - 40 #100 #30
-    - 90
+    #- 1
+    - 150
+    - 300 #30 #50
+    #- 40 #100 #30
+    #- 90
 
-  EPOCH_ITERS: 100  # iterations per epoch
+  EPOCH_ITERS: 1000  # iterations per epoch
 
   CLASS: tho
 
@@ -60,13 +61,13 @@ VISUAL:
 
 # model parameters
 NGM:
-  OUTP_SCORE: False
   FEATURE_CHANNEL: 1
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 20. #200.
+  VOTING_ALPHA: 20.
   GNN_FEAT:
     - 16
     - 16
     - 16
   GNN_LAYER: 3
+  SK_EMB: True

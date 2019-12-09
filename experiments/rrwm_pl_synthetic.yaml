@@ -1,9 +1,9 @@
 # GNN model with synthetic dataset
 
-MODEL_NAME: sm_ol
+MODEL_NAME: rrwm_pl
 DATASET_NAME: synthetic
 
-DATASET_FULL_NAME: SyntheticDataset
+DATASET_FULL_NAME: MixedSyntheticDataset
 
 MODULE: GMN.model
 
@@ -29,20 +29,20 @@ PAIR:
 
 # Synthetic dataset settings
 SYNTHETIC:
-  RANDOM_EXP_ID: 1
-  DIM: 1024  # synthetic feature dimension
+  MIXED_DATA_NUM: 10
+  DIM: 2  # synthetic feature dimension
   TRAIN_NUM: 200  # number of training samples
   TEST_NUM: 100  # number of testing samples
-  KPT_NUM: 20  # keypoint num
-  OUT_NUM: 30
+  KPT_NUM: 10  # keypoint num
+  OUT_NUM: 10
   FEAT_GT_UNIFORM: 1.  # feature vector ~ uniform(-X, X)
-  FEAT_NOISE_STD: 1.5  # feature noise ~ N(0, X^2)
-  POS_GT_UNIFORM: 256.  # keypoint position ~ uniform(0, X)
-  POS_AFFINE_DXY: 50.  # t_x, t_y ~ uniform(-X, X)
-  POS_AFFINE_S_LOW: 0.8  # s ~ uniform(S_LOW, S_HIGH)
-  POS_AFFINE_S_HIGH: 1.2
-  POS_AFFINE_DTHETA: 60.  # theta ~ uniform(-X, X)
-  POS_NOISE_STD: 10.  # position noise ~ N(0, X^2)
+  FEAT_NOISE_STD: 1.  # feature noise ~ N(0, X^2)
+  POS_GT_UNIFORM: 1.  # keypoint position ~ uniform(0, X)
+  POS_AFFINE_DXY: 0. #50.  # t_x, t_y ~ uniform(-X, X)
+  POS_AFFINE_S_LOW: .9 #0.8  # s ~ uniform(S_LOW, S_HIGH)
+  POS_AFFINE_S_HIGH: 1.1 #1.2
+  POS_AFFINE_DTHETA: 0. #60.  # theta ~ uniform(-X, X)
+  POS_NOISE_STD: 0.01  # position noise ~ N(0, X^2)
 
 # Training settings
 TRAIN:
@@ -50,10 +50,10 @@ TRAIN:
   START_EPOCH: 0
   NUM_EPOCHS: 5
 
-  LOSS_FUNC: offset
+  LOSS_FUNC: perm
 
   # learning rate
-  LR: 1.0e-4
+  LR: 1.0e-2
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
@@ -76,9 +76,10 @@ VISUAL:
 
 # GMN model parameters
 GMN:
-  FEATURE_CHANNEL: 512
+  FEATURE_CHANNEL: 1
   PI_ITER_NUM: 25
   PI_STOP_THRESH: 0.
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 200.
+  VOTING_ALPHA: 20.
+  GM_SOLVER: RRWM

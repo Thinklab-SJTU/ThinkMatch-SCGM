@@ -1,13 +1,16 @@
-# GNN model with synthetic dataset
+# VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: sm_ol
+MODEL_NAME: ngm_em
 DATASET_NAME: synthetic
 
-DATASET_FULL_NAME: SyntheticDataset
+DATASET_FULL_NAME: MixedSyntheticDataset
 
-MODULE: GMN.model
+MODULE: NGM.model
+
+BACKBONE: NoBackbone
 
 BATCH_SIZE: 8
+DATALOADER_NUM: 2
 
 RANDOM_SEED: 123
 
@@ -29,37 +32,40 @@ PAIR:
 
 # Synthetic dataset settings
 SYNTHETIC:
-  RANDOM_EXP_ID: 1
-  DIM: 1024  # synthetic feature dimension
+  MIXED_DATA_NUM: 10
+  DIM: 2  # synthetic feature dimension
   TRAIN_NUM: 200  # number of training samples
   TEST_NUM: 100  # number of testing samples
-  KPT_NUM: 20  # keypoint num
-  OUT_NUM: 30
+  KPT_NUM: 10  # keypoint num
+  OUT_NUM: 0
   FEAT_GT_UNIFORM: 1.  # feature vector ~ uniform(-X, X)
   FEAT_NOISE_STD: 1.5  # feature noise ~ N(0, X^2)
-  POS_GT_UNIFORM: 256.  # keypoint position ~ uniform(0, X)
-  POS_AFFINE_DXY: 50.  # t_x, t_y ~ uniform(-X, X)
-  POS_AFFINE_S_LOW: 0.8  # s ~ uniform(S_LOW, S_HIGH)
-  POS_AFFINE_S_HIGH: 1.2
-  POS_AFFINE_DTHETA: 60.  # theta ~ uniform(-X, X)
-  POS_NOISE_STD: 10.  # position noise ~ N(0, X^2)
+  POS_GT_UNIFORM: 1.  # keypoint position ~ uniform(0, X)
+  POS_AFFINE_DXY: 0. #50.  # t_x, t_y ~ uniform(-X, X)
+  POS_AFFINE_S_LOW: .9 #0.8  # s ~ uniform(S_LOW, S_HIGH)
+  POS_AFFINE_S_HIGH: 1.1 #1.2
+  POS_AFFINE_DTHETA: 0. #60.  # theta ~ uniform(-X, X)
+  POS_NOISE_STD: 0.01  # position noise ~ N(0, X^2)
 
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 5
+  NUM_EPOCHS: 10
 
-  LOSS_FUNC: offset
+  LOSS_FUNC: perm
 
   # learning rate
-  LR: 1.0e-4
+  LR: 1.0e-2
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
-    - 20
+    #- 3
+    - 5
 
-  EPOCH_ITERS: 2000  # iterations per epoch
+  EPOCH_ITERS: 1000  # iterations per epoch
+
+  CLASS: none
 
 # Evaluation settings and PCK metric
 EVAL:
@@ -70,15 +76,24 @@ EVAL:
 VISUAL:
   EPOCH: 0  # epoch to be visualized
   WEIGHT_PATH: ''  # path to weight to be loaded. If you want to use this, VISUAL.EPOCH must be 0.
-  CLASS: 'none'  # none for random choosing classes, else specify a class name
+  CLASS: person  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 20  # number of images to be visualized
+  NUM_IMGS: 100  # number of images to be visualized
 
-# GMN model parameters
-GMN:
-  FEATURE_CHANNEL: 512
-  PI_ITER_NUM: 25
-  PI_STOP_THRESH: 0.
+# model parameters
+NGM:
+  FIRST_ORDER: False
+  SK_EMB: True
+
+  EDGE_FEATURE: geo
+
+  FEATURE_CHANNEL: 1
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 200.
+  VOTING_ALPHA: 20.
+  GNN_FEAT:
+    - 16
+    - 16
+    - 16
+  GNN_LAYER: 3
+  GAUSSIAN_SIGMA: 5.e-7

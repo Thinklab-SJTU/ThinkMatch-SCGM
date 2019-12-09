@@ -29,11 +29,12 @@ PAIR:
 
 # Synthetic dataset settings
 SYNTHETIC:
-  RANDOM_EXP_ID: 5
+  RANDOM_EXP_ID: 0
   DIM: 1024  # synthetic feature dimension
   TRAIN_NUM: 200  # number of training samples
   TEST_NUM: 100  # number of testing samples
-  KPT_NUM: 25  # keypoint num
+  KPT_NUM: 20  # keypoint num
+  OUT_NUM: 40
   FEAT_GT_UNIFORM: 1.  # feature vector ~ uniform(-X, X)
   FEAT_NOISE_STD: 1.5  # feature noise ~ N(0, X^2)
   POS_GT_UNIFORM: 256.  # keypoint position ~ uniform(0, X)
@@ -55,7 +56,8 @@ TRAIN:
   LR: 1.0e-3
   MOMENTUM: 0.9
   LR_DECAY: 0.1
-  LR_STEP: 10  # (in epochs)
+  LR_STEP:  # (in epochs)
+    - 10
 
   EPOCH_ITERS: 2000  # iterations per epoch
 

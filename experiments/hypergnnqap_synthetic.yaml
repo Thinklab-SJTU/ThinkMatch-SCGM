@@ -1,13 +1,16 @@
-# GNN model with synthetic dataset
+# VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: sm_pl
+MODEL_NAME: hypergnnqap
 DATASET_NAME: synthetic
 
 DATASET_FULL_NAME: MixedSyntheticDataset
 
-MODULE: GMN.model
+MODULE: NGM.hypermodel
 
-BATCH_SIZE: 8
+BACKBONE: NoBackbone
+
+BATCH_SIZE: 1
+DATALOADER_NUM: 1
 
 RANDOM_SEED: 123
 
@@ -29,40 +32,50 @@ PAIR:
 
 # Synthetic dataset settings
 SYNTHETIC:
-  MIXED_DATA_NUM: 10
+  RANDOM_EXP_ID: 0
   DIM: 2  # synthetic feature dimension
   TRAIN_NUM: 200  # number of training samples
   TEST_NUM: 100  # number of testing samples
   KPT_NUM: 10  # keypoint num
-  OUT_NUM: 5
+  OUT_NUM: 10
   FEAT_GT_UNIFORM: 1.  # feature vector ~ uniform(-X, X)
-  FEAT_NOISE_STD: 1.  # feature noise ~ N(0, X^2)
+  FEAT_NOISE_STD: 1.5  # feature noise ~ N(0, X^2)
   POS_GT_UNIFORM: 1.  # keypoint position ~ uniform(0, X)
   POS_AFFINE_DXY: 0. #50.  # t_x, t_y ~ uniform(-X, X)
   POS_AFFINE_S_LOW: 1. #0.8  # s ~ uniform(S_LOW, S_HIGH)
   POS_AFFINE_S_HIGH: 1. #1.2
   POS_AFFINE_DTHETA: 0. #60.  # theta ~ uniform(-X, X)
-  POS_NOISE_STD: 0.1  # position noise ~ N(0, X^2)
+  POS_NOISE_STD: 0.02  # position noise ~ N(0, X^2)
+  MIXED_DATA_NUM: 10
 
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 5
+  NUM_EPOCHS: 30
 
   LOSS_FUNC: perm
 
   # learning rate
-  LR: 1.0e-2
+  LR: 1.0e-3 # 2.0e-3
   MOMENTUM: 0.9
   LR_DECAY: 0.1
-  LR_STEP:  # (in epochs)
+  LR_STEP:  # (in epochs)  2， 18 for noise=0
+    #- 1
+    #- 3
+    - 10
     - 20
 
-  EPOCH_ITERS: 2000  # iterations per epoch
+  EPOCH_ITERS: 1000  # iterations per epoch
+
+  CLASS: none
 
 # Evaluation settings and PCK metric
 EVAL:
+  PCK_ALPHAS:
+    - 0.05
+    - 0.10
+  PCK_L: 256.
   EPOCH: 30  # epoch to be tested
   SAMPLES: 100  # number of tested pairs for each class
 
@@ -70,15 +83,22 @@ EVAL:
 VISUAL:
   EPOCH: 0  # epoch to be visualized
   WEIGHT_PATH: ''  # path to weight to be loaded. If you want to use this, VISUAL.EPOCH must be 0.
-  CLASS: 'none'  # none for random choosing classes, else specify a class name
+  CLASS: person  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 20  # number of images to be visualized
+  NUM_IMGS: 100  # number of images to be visualized
 
-# GMN model parameters
-GMN:
+# model parameters
+GNNQAP:
+  EDGE_FEATURE: geo
+  ORDER3_FEATURE: geo
   FEATURE_CHANNEL: 1
-  PI_ITER_NUM: 25
-  PI_STOP_THRESH: 0.
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 20.
+  VOTING_ALPHA: 20. #20.
+  GNN_FEAT: 16
+  GNN_LAYER: 3
+  GAUSSIAN_SIGMA: 5.e-7 #5.e-6
+  SIGMA3: 1.e-4 #5.e-5
+  FIRST_ORDER: False
+  WEIGHT2: 12.
+  WEIGHT3: 8.

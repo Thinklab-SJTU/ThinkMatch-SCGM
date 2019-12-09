@@ -32,6 +32,7 @@ __C.PAIR.REF_GRAPH_CONSTRUCT = 'fc'
 __C.PAIR.MAX_PROB_SIZE = -1
 __C.PAIR.REF_OUTLIER = False  # allow outlier in reference graph
 __C.PAIR.SYM_ADJACENCY = True # build a symmetric adjacency matrix, else only upper right of adjacency matrix will be filled.
+__C.PAIR.NUM_GRAPHS = 3
 
 # VOC2011-Keypoint Dataset
 __C.VOC2011 = edict()
@@ -116,8 +117,9 @@ __C.NGM.WEIGHT2 = 1.
 __C.NGM.WEIGHT3 = 1.
 __C.NGM.EDGE_FEATURE = 'cat' # 'cat' or 'geo'
 __C.NGM.ORDER3_FEATURE = 'cat' # 'cat' or 'geo'
-__C.NGM.OUTP_SCORE = True # output the scoring matrix as prediction in testing (no Sinkhorn applied in testing)
+#__C.NGM.OUTP_SCORE = True # output the scoring matrix as prediction in testing (no Sinkhorn applied in testing)
 __C.NGM.FIRST_ORDER = True
+__C.NGM.EDGE_EMB = False
 __C.NGM.SK_EMB = True
 
 #

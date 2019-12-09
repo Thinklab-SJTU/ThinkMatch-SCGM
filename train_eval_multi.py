@@ -21,6 +21,9 @@ from utils.hungarian import hungarian
 
 from utils.config import cfg
 
+#import torch.multiprocessing
+#torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 def train_eval_model(model,
                      criterion,
@@ -72,6 +75,7 @@ def train_eval_model(model,
         running_loss = 0.0
         running_since = time.time()
         iter_num = 0
+        det_anomaly = False
 
         # Iterate over data.
         for inputs in dataloader['train']:
@@ -88,6 +92,10 @@ def train_eval_model(model,
             es_gt = [_.cuda() for _ in inputs['es']]
             Gs_gt = [_.cuda() for _ in inputs['Gs']]
             Hs_gt = [_.cuda() for _ in inputs['Hs']]
+            Gs_ref = [_.cuda() for _ in inputs['Gs_ref']]
+            Hs_ref = [_.cuda() for _ in inputs['Hs_ref']]
+            KGs = {_ : inputs['KGs'][_].cuda() for _ in inputs['KGs']}
+            KHs = {_ : inputs['KHs'][_].cuda() for _ in inputs['KHs']}
             perm_mats = [_.cuda() for _ in inputs['gt_perm_mat']]
 
             iter_num = iter_num + 1
@@ -96,65 +104,77 @@ def train_eval_model(model,
             optimizer.zero_grad()
 
             with torch.set_grad_enabled(True):
-                # forward
-                pred = model(data, Ps_gt, Gs_gt, Hs_gt, ns_gt, iter_times=2, type=inp_type)
-                s_pred_list, indices = pred
+                with torch.autograd.set_detect_anomaly(det_anomaly):
+                    # forward
+                    pred = model(data, Ps_gt, Gs_gt, Hs_gt, Gs_ref, Hs_ref, KGs, KHs, ns_gt, iter_times=2, type=inp_type)
+                    s_pred_list, indices = pred
 
-                if cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'focal':
-                    loss = torch.zeros(1).cuda()
-                    assert type(s_pred_list) is list
-                    for s_pred, gt_idx in zip(s_pred_list, indices):
-                        l = criterion(s_pred, perm_mats[gt_idx], ns_gt[gt_idx], ns_gt[0])
-                        loss += l
-                else:
-                    raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
+                    if cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'focal':
+                        loss = torch.zeros(1).cuda()
+                        assert type(s_pred_list) is list
+                        for s_pred, (gt_idx_src, gt_idx_tgt) in zip(s_pred_list, indices):
+                            gt_perm_mat = torch.bmm(perm_mats[gt_idx_src], perm_mats[gt_idx_tgt].transpose(1, 2))
+                            l = criterion(s_pred, gt_perm_mat, ns_gt[gt_idx_src], ns_gt[gt_idx_tgt])
+                            loss += l
+                        loss /= len(s_pred_list)
+                    else:
+                        raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-                # backward + optimize
-                if cfg.FP16:
-                    with amp.scale_loss(loss, optimizer) as scaled_loss:
-                        scaled_loss.backward()
-                else:
-                    loss.backward()
-                optimizer.step()
+                    # backward + optimize
+                    if cfg.FP16:
+                        with amp.scale_loss(loss, optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                    else:
+                        loss.backward()
 
-                # training accuracy statistic
-                matched_num = 0
-                total_num = 0
-                for s_pred, gt_idx in zip(s_pred_list, indices):
-                    _, mn, tn = \
-                        matching_accuracy(lap_solver(s_pred, ns_gt[gt_idx], ns_gt[0]), perm_mats[gt_idx], ns_gt[gt_idx])
-                    matched_num += mn
-                    total_num += tn
-                acc = matched_num / total_num
+                    det_anomaly = False
 
-                # tfboard writer
-                loss_dict = dict()
-                loss_dict['loss'] = loss.item()
-                tfboard_writer.add_scalars('loss', loss_dict, epoch * cfg.TRAIN.EPOCH_ITERS + iter_num)
-                #accdict = {'PCK@{:.2f}'.format(a): p for a, p in zip(alphas, pck)}
-                accdict = dict()
-                accdict['matching accuracy'] = acc
-                tfboard_writer.add_scalars(
-                    'training accuracy',
-                    accdict,
-                    epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
-                )
+                    for param in model.parameters():
+                        if param.requires_grad and torch.any(torch.isnan(param.grad)):
+                            det_anomaly = True
+                            break
+                    if not det_anomaly:
+                        optimizer.step()
 
-                # statistics
-                running_loss += loss.item() * perm_mats[0].size(0)
-                epoch_loss += loss.item() * perm_mats[0].size(0)
+                    # training accuracy statistic
+                    matched_num = 0
+                    total_num = 0
+                    for s_pred, (gt_idx_src, gt_idx_tgt) in zip(s_pred_list, indices):
+                        pred_perm_mat = lap_solver(s_pred, ns_gt[gt_idx_src], ns_gt[gt_idx_tgt])
+                        gt_perm_mat = torch.bmm(perm_mats[gt_idx_src], perm_mats[gt_idx_tgt].transpose(1, 2))
+                        _, mn, tn = matching_accuracy(pred_perm_mat, gt_perm_mat, ns_gt[gt_idx_src])
+                        matched_num += mn
+                        total_num += tn
+                    acc = matched_num / total_num
 
-                if iter_num % cfg.STATISTIC_STEP == 0:
-                    running_speed = cfg.STATISTIC_STEP * perm_mats[0].size(0) / (time.time() - running_since)
-                    print('Epoch {:<4} Iteration {:<4} {:>4.2f}sample/s Loss={:<8.4f}'
-                          .format(epoch, iter_num, running_speed, running_loss / cfg.STATISTIC_STEP / perm_mats[0].size(0)))
+                    # tfboard writer
+                    loss_dict = dict()
+                    loss_dict['loss'] = loss.item()
+                    tfboard_writer.add_scalars('loss', loss_dict, epoch * cfg.TRAIN.EPOCH_ITERS + iter_num)
+                    #accdict = {'PCK@{:.2f}'.format(a): p for a, p in zip(alphas, pck)}
+                    accdict = dict()
+                    accdict['matching accuracy'] = acc
                     tfboard_writer.add_scalars(
-                        'speed',
-                        {'speed': running_speed},
+                        'training accuracy',
+                        accdict,
                         epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
                     )
-                    running_loss = 0.0
-                    running_since = time.time()
+
+                    # statistics
+                    running_loss += loss.item() * perm_mats[0].size(0)
+                    epoch_loss += loss.item() * perm_mats[0].size(0)
+
+                    if iter_num % cfg.STATISTIC_STEP == 0:
+                        running_speed = cfg.STATISTIC_STEP * perm_mats[0].size(0) / (time.time() - running_since)
+                        print('Epoch {:<4} Iteration {:<4} {:>4.2f}sample/s Loss={:<8.4f}'
+                              .format(epoch, iter_num, running_speed, running_loss / cfg.STATISTIC_STEP / perm_mats[0].size(0)))
+                        tfboard_writer.add_scalars(
+                            'speed',
+                            {'speed': running_speed},
+                            epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
+                        )
+                        running_loss = 0.0
+                        running_since = time.time()
 
         epoch_loss = epoch_loss / dataset_size
 

@@ -15,12 +15,12 @@ class RRWM(nn.Module):
            (optional) initialization vector v0. If not specified, v0 will be initialized with all 1.
     Output: computed eigenvector v
     """
-    def __init__(self, max_iter=50, sk_iter=20, alpha=0.2, beta=20):
+    def __init__(self, max_iter=50, sk_iter=20, alpha=0.2, beta=30):
         super(RRWM, self).__init__()
         self.max_iter = max_iter
         self.alpha = alpha
         self.beta = beta
-        self.sk = Sinkhorn(max_iter=sk_iter)
+        self.sk = Sinkhorn(max_iter=sk_iter,log_forward=False)
 
     def forward(self, M, num_src, ns_src, ns_tgt, v0=None):
         d = M.sum(dim=2, keepdim=True)

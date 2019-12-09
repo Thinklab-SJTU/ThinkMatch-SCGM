@@ -1,11 +1,11 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_sm_ol
-DATASET_NAME: cub
+MODEL_NAME: vgg16_nhgm
+DATASET_NAME: voc
 
-DATASET_FULL_NAME: CUB2011
+DATASET_FULL_NAME: PascalVOC
 
-MODULE: GMN.model
+MODULE: NGM.hypermodel
 
 BACKBONE: VGG16_bn
 
@@ -29,51 +29,58 @@ PAIR:
     - 16
   GT_GRAPH_CONSTRUCT: tri
   REF_GRAPH_CONSTRUCT: fc
-
-CUB2011:
-  CROSS_CATEGORY_MATCHING: False
+  #MAX_PROB_SIZE: 330
 
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 15
+  NUM_EPOCHS: 20
 
-  LOSS_FUNC: perm #offset
+  LOSS_FUNC: perm
 
   # learning rate
-  LR: 2.0e-4
+  LR: 1.0e-2
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
-    - 10
+    #- 10
+    - 6
+    - 12
 
-  EPOCH_ITERS: 500  # iterations per epoch
+  EPOCH_ITERS: 2000  # iterations per epoch
 
   CLASS: none
 
 # Evaluation settings and PCK metric
 EVAL:
-  PCK_ALPHAS:
-    - 0.05
-    - 0.10
-  PCK_L: 256. # 362.03867
   EPOCH: 30  # epoch to be tested
-  SAMPLES: 500  # number of tested pairs for each class
+  SAMPLES: 1000  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:
   EPOCH: 0  # epoch to be visualized
   WEIGHT_PATH: ''  # path to weight to be loaded. If you want to use this, VISUAL.EPOCH must be 0.
-  CLASS: 'none'  # none for random choosing classes, else specify a class name
+  CLASS: person  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 20  # number of images to be visualized
+  NUM_IMGS: 100  # number of images to be visualized
 
-# GMN model parameters
-GMN:
+# model parameters
+NGM:
+  EDGE_FEATURE: cat
+  ORDER3_FEATURE: geo
+  SK_EMB: True
+  FIRST_ORDER: True
   FEATURE_CHANNEL: 512
-  PI_ITER_NUM: 25
-  PI_STOP_THRESH: 0. #2.0e-7
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 200.
+  VOTING_ALPHA: 20. #20.
+  GNN_FEAT:
+    - 16
+    - 16
+    - 16
+  GNN_LAYER: 3
+
+  SIGMA3: 1.e-4 #5.e-5
+  WEIGHT2: 1.
+  WEIGHT3: 1.5 #.333333 #0.66666667

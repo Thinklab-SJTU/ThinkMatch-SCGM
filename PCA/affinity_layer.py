@@ -91,6 +91,8 @@ class AffinityFC(nn.Module):
         self.d = d
         if hds is None:
             self.hds = [1024,]
+        else:
+            self.hds = hds
         self.hds.append(1)
         fc_lst = []
         last_hd = self.d * 2
@@ -103,11 +105,9 @@ class AffinityFC(nn.Module):
 
     def forward(self, X, Y):
         assert X.shape[2] == Y.shape[2] == self.d
-        result = torch.empty(X.shape[0], X.shape[1], Y.shape[1], device=X.device)
-        for i in range(X.shape[1]):
-            for j in range(Y.shape[1]):
-                cat_feat = torch.cat((X[:, i, :], Y[:, j, :]), dim=-1)
-                result[:, i, j] =  self.fc(cat_feat).squeeze()
+        cat_feat = torch.cat((X.unsqueeze(-2).expand(X.shape[0], X.shape[1], Y.shape[1], X.shape[2]),
+                              Y.unsqueeze(-3).expand(Y.shape[0], X.shape[1], Y.shape[1], Y.shape[2])), dim=-1)
+        result = self.fc(cat_feat).squeeze(-1)
         return result
 
 

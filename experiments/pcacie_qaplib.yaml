@@ -1,17 +1,16 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_ngm
-DATASET_NAME: voc
+MODEL_NAME: pcacie
+DATASET_NAME: qaplib
 
-DATASET_FULL_NAME: PascalVOC
+DATASET_FULL_NAME: QAPLIB
 
-MODULE: NGM.model
+MODULE: PCA.edgeconv_model
 
-BACKBONE: VGG16_bn
+BACKBONE: NoBackbone
 
 BATCH_SIZE: 8
 DATALOADER_NUM: 2
-FP16: False
 
 RANDOM_SEED: 123
 
@@ -20,43 +19,40 @@ GPUS:
   - 0
 #  - 1
 
-# Pairwise data configuration
-PAIR:
-  RESCALE:  # rescaled image size
-    - 256
-    - 256
-  CANDIDATE_SHAPE:  # target candidate grid
-    - 16
-    - 16
-  GT_GRAPH_CONSTRUCT: tri
-  REF_GRAPH_CONSTRUCT: fc
-  SYM_ADJACENCY: True
-  #MAX_PROB_SIZE: 225
-
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 20
+  NUM_EPOCHS: 500
 
-  LOSS_FUNC: perm
+  LOSS_FUNC: perm # perm
 
   # learning rate
-  LR: 1.0e-2
+  LR: 1.0e-3 #1.0e-3
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
-    - 5
-    #- 10
+    #- 1
+    - 150
+    - 300 #30 #50
+    #- 40 #100 #30
+    #- 90
 
-  EPOCH_ITERS: 2000  # iterations per epoch
+  EPOCH_ITERS: 1000  # iterations per epoch
 
-  CLASS: none
+  CLASS: bur
+
+QAPLIB:
+  FEED_TYPE: adj
 
 # Evaluation settings and PCK metric
 EVAL:
+  PCK_ALPHAS:
+    - 0.05
+    - 0.10
+  PCK_L: 256.
   EPOCH: 30  # epoch to be tested
-  SAMPLES: 1000  # number of tested pairs for each class
+  SAMPLES: 95  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:
@@ -66,18 +62,15 @@ VISUAL:
   SAVE: True  # save images as files, else plot images via matplotlib
   NUM_IMGS: 100  # number of images to be visualized
 
-# model parameters
-NGM:
-  EDGE_FEATURE: cat
-  FEATURE_CHANNEL: 512
+# PCA model parameters
+PCA:
+  FEATURE_CHANNEL: 1
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 20. #200.
-  GNN_FEAT:
-    - 16
-    - 16
-    - 16
-  GNN_LAYER: 3
-  GAUSSIAN_SIGMA: 1.
-  SK_EMB: True
-  FIRST_ORDER: True
+  VOTING_ALPHA: 200.
+  GNN_FEAT: 16
+  GNN_LAYER: 2
+  LOSS_WEIGHTS:
+    - 0.  # cross-module loss
+    - 1.  # final prediction loss
+

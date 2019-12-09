@@ -45,6 +45,70 @@ class Gconv(nn.Module):
 
         return x
 
+
+class GconvEdge(nn.Module):
+    def __init__(self, in_features, out_features, in_edges, out_edges=None):
+        super(GconvEdge, self).__init__()
+        if out_edges is None:
+            out_edges = out_features
+        self.in_features = in_features
+        self.out_features = out_features
+        self.out_edges = out_edges
+        # self.node_fc = nn.Linear(in_features, out_features // self.out_edges)
+        self.node_fc = nn.Linear(in_features, out_features)
+        self.node_sfc = nn.Linear(in_features, out_features)
+        self.edge_fc = nn.Linear(in_edges, self.out_edges)
+
+    def forward(self, A, emb_node, emb_edge, mode=1):
+        """
+        A: connectivity matrix {0,1}^(n*n)
+        emb_node: node embedding n*d
+        emb_edge: edge embedding n*n*d
+        """
+        # pdb.set_trace()
+        # mode = 1
+
+        if mode == 1:
+            node_x = self.node_fc(emb_node)
+            node_sx = self.node_sfc(emb_node)
+            edge_x = self.edge_fc(emb_edge)
+
+            A = A.unsqueeze(-1)
+            # pdb.set_trace()
+            A = torch.mul(A.expand_as(edge_x), edge_x)
+
+            node_x = torch.matmul(A.transpose(2, 3).transpose(1, 2),
+                                  node_x.unsqueeze(2).transpose(2, 3).transpose(1, 2))
+            # node_x = [torch.sum(dsnorm(A[:, :, :, f:f+1]) *  node_x.unsqueeze(1), dim=2)
+            #      for f in range(A.shape[-1])]
+            # node_x = torch.cat(node_x, dim=-1)
+            node_x = node_x.squeeze(-1).transpose(1, 2)
+            node_x = F.relu(node_x) + F.relu(node_sx)
+            edge_x = F.relu(edge_x)
+
+            return node_x, edge_x
+        elif mode == 2:
+            # with DPP
+            node_x = self.node_fc(emb_node)
+            node_sx = self.node_sfc(emb_node)
+            edge_x = self.edge_fc(emb_edge)
+
+            d_x = node_x.unsqueeze(1) - node_x.unsqueeze(2)
+            d_x = torch.sum(d_x ** 2, dim=3, keepdim=False)
+            d_x = torch.exp(-d_x)
+
+            A = A.unsqueeze(-1)
+            # pdb.set_trace()
+            A = torch.mul(A.expand_as(edge_x), edge_x)
+
+            node_x = torch.matmul(A.transpose(2, 3).transpose(1, 2),
+                                  node_x.unsqueeze(2).transpose(2, 3).transpose(1, 2))
+            node_x = node_x.squeeze(-1).transpose(1, 2)
+            node_x = F.relu(node_x) + F.relu(node_sx)
+            edge_x = F.relu(edge_x)
+            return node_x, edge_x, d_x
+
+
 '''
 class Gconv(nn.Module):
     def __init__(self, feature_maps, J):
@@ -103,3 +167,17 @@ class Siamese_Gconv(nn.Module):
         emb2 = self.gconv(*g2)
         # embx are tensors of size (bs, N, num_features)
         return emb1, emb2
+
+class Siamese_GconvEdge(nn.Module):
+    def __init__(self, in_features, num_features, in_edges, out_edges=None):
+        super(Siamese_GconvEdge, self).__init__()
+        self.in_feature = in_features
+        self.gconv1 = GconvEdge(in_features, num_features, in_edges, out_edges)
+        self.gconv2 = GconvEdge(in_features, num_features, in_edges, out_edges)
+
+    def forward(self, g1, g2):
+        # pdb.set_trace()
+        emb1, emb_edge1 = self.gconv1(*g1)
+        emb2, emb_edge2 = self.gconv2(*g2)
+        # embx are tensors of size (bs, N, num_features)
+        return emb1, emb2, emb_edge1, emb_edge2

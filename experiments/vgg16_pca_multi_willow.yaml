@@ -1,11 +1,11 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_sm_ol
-DATASET_NAME: cub
+MODEL_NAME: vgg16_pca_multi
+DATASET_NAME: willow
 
-DATASET_FULL_NAME: CUB2011
+DATASET_FULL_NAME: WillowObject
 
-MODULE: GMN.model
+MODULE: PCA.mgmmodel
 
 BACKBONE: VGG16_bn
 
@@ -28,52 +28,54 @@ PAIR:
     - 16
     - 16
   GT_GRAPH_CONSTRUCT: tri
-  REF_GRAPH_CONSTRUCT: fc
+  REF_GRAPH_CONSTRUCT: tri
+  NUM_GRAPHS: 3
 
-CUB2011:
-  CROSS_CATEGORY_MATCHING: False
+# Willow object class dataset configuration
+WILLOW:
+  TRAIN_NUM: 20  # number of images for training set
+  SPLIT_OFFSET: 0  # the starting index of training set
 
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 15
+  NUM_EPOCHS: 30
 
-  LOSS_FUNC: perm #offset
+  LOSS_FUNC: perm
 
   # learning rate
-  LR: 2.0e-4
+  LR: 1.0e-2 #1.0e-4
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
     - 10
 
-  EPOCH_ITERS: 500  # iterations per epoch
+  EPOCH_ITERS: 1000  # iterations per epoch
 
   CLASS: none
 
 # Evaluation settings and PCK metric
 EVAL:
-  PCK_ALPHAS:
-    - 0.05
-    - 0.10
-  PCK_L: 256. # 362.03867
-  EPOCH: 30  # epoch to be tested
-  SAMPLES: 500  # number of tested pairs for each class
+  EPOCH: 0  # epoch to be tested
+  SAMPLES: 100  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:
   EPOCH: 0  # epoch to be visualized
   WEIGHT_PATH: ''  # path to weight to be loaded. If you want to use this, VISUAL.EPOCH must be 0.
-  CLASS: 'none'  # none for random choosing classes, else specify a class name
+  CLASS: person  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 20  # number of images to be visualized
+  NUM_IMGS: 100  # number of images to be visualized
 
-# GMN model parameters
-GMN:
+# PCA model parameters
+PCA:
   FEATURE_CHANNEL: 512
-  PI_ITER_NUM: 25
-  PI_STOP_THRESH: 0. #2.0e-7
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 200.
+  VOTING_ALPHA: 20.
+  GNN_FEAT: 2048
+  GNN_LAYER: 2
+  LOSS_WEIGHTS:
+    - 0.  # cross-module loss
+    - 1.  # final prediction loss

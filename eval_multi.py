@@ -64,6 +64,10 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
             es_gt = [_.cuda() for _ in inputs['es']]
             Gs_gt = [_.cuda() for _ in inputs['Gs']]
             Hs_gt = [_.cuda() for _ in inputs['Hs']]
+            Gs_ref = [_.cuda() for _ in inputs['Gs_ref']]
+            Hs_ref = [_.cuda() for _ in inputs['Hs_ref']]
+            KGs = {_: inputs['KGs'][_].cuda() for _ in inputs['KGs']}
+            KHs = {_: inputs['KHs'][_].cuda() for _ in inputs['KHs']}
             perm_mats = [_.cuda() for _ in inputs['gt_perm_mat']]
 
             batch_num = data[0].size(0)
@@ -75,16 +79,15 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 thres[b] = alphas * cfg.EVAL.PCK_L
 
             with torch.set_grad_enabled(False):
-                pred = model(data, Ps_gt, Gs_gt, Hs_gt, ns_gt, iter_times=2, type=inp_type)
+                pred = model(data, Ps_gt, Gs_gt, Hs_gt, Gs_ref, Hs_ref, KGs, KHs, ns_gt, iter_times=2, type=inp_type)
                 s_pred_list, indices = pred
 
-            for s_pred, gt_idx in zip(s_pred_list, indices):
-                _, _acc_match_num, _acc_total_num = \
-                    matching_accuracy(lap_solver(s_pred, ns_gt[gt_idx], ns_gt[0]), perm_mats[gt_idx], ns_gt[gt_idx])
-
+            for s_pred, (gt_idx_src, gt_idx_tgt) in zip(s_pred_list, indices):
+                pred_perm_mat = lap_solver(s_pred, ns_gt[gt_idx_src], ns_gt[gt_idx_tgt])
+                gt_perm_mat = torch.bmm(perm_mats[gt_idx_src], perm_mats[gt_idx_tgt].transpose(1, 2))
+                _, _acc_match_num, _acc_total_num = matching_accuracy(pred_perm_mat, gt_perm_mat, ns_gt[gt_idx_src])
                 acc_match_num += _acc_match_num
                 acc_total_num += _acc_total_num
-
 
             if iter_num % cfg.STATISTIC_STEP == 0 and verbose:
                 running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)
@@ -110,12 +113,12 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         print('PCK@{:.2f}'.format(alphas[i]))
         for cls, single_pck in zip(classes, pcks[:, i]):
             print('{} = {:.4f}'.format(cls, single_pck))
-        print('average = {:.4f}'.format(torch.mean(pcks[:, i])))
+        print('average PCK = {:.4f}'.format(torch.mean(pcks[:, i])))
 
     print('Matching accuracy')
     for cls, single_acc in zip(classes, accs):
         print('{} = {:.4f}'.format(cls, single_acc))
-    print('average = {:.4f}'.format(torch.mean(accs)))
+    print('average accuracy = {:.4f}'.format(torch.mean(accs)))
 
     return accs
 

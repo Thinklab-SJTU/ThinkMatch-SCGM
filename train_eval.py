@@ -105,9 +105,13 @@ def train_eval_model(model,
                     model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
                 if len(pred) == 2:
                     s_pred, d_pred = pred
-                    s_pred_score = s_pred
                 else:
-                    s_pred_score, s_pred, d_pred = pred
+                    s_pred, d_pred, affmtx = pred
+
+                num_repeat = s_pred.shape[0] // perm_mat.shape[0]
+                perm_mat = torch.repeat_interleave(perm_mat, num_repeat, dim=0)
+                n1_gt = torch.repeat_interleave(n1_gt, num_repeat, dim=0)
+                n2_gt = torch.repeat_interleave(n2_gt, num_repeat, dim=0)
 
                 multi_loss = []
                 if cfg.TRAIN.LOSS_FUNC == 'offset':
@@ -125,8 +129,8 @@ def train_eval_model(model,
                 else:
                     raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-                if type(s_pred_score) is list:
-                    s_pred_score = s_pred_score[-1]
+                if type(s_pred) is list:
+                    s_pred = s_pred[-1]
 
                 # backward + optimize
                 if cfg.FP16:
@@ -148,7 +152,7 @@ def train_eval_model(model,
                 for b in range(batch_num):
                     thres[b] = alphas * cfg.EVAL.PCK_L
                 #pck, _, __ = eval_pck(P2, P2_gt, s_pred, thres, n1_gt)
-                acc, _, __ = matching_accuracy(lap_solver(s_pred_score, n1_gt, n2_gt), perm_mat, n1_gt)
+                acc, _, __ = matching_accuracy(lap_solver(s_pred, n1_gt, n2_gt), perm_mat, n1_gt)
 
                 # tfboard writer
                 loss_dict = {'loss_{}'.format(i): l.item() for i, l in enumerate(multi_loss)}

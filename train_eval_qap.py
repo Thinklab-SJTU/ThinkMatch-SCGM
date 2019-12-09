@@ -9,8 +9,8 @@ import scipy.sparse as ssp
 
 from data.data_loader import QAPDataset, get_dataloader
 from GMN.bi_stochastic import BiStochastic
-from GMN.permutation_loss import CrossEntropyLoss
-from utils.evaluation_metric import pck as eval_pck, matching_accuracy
+from GMN.permutation_loss import CrossEntropyLoss, CrossEntropyLossHung
+from utils.evaluation_metric import pck as eval_pck, matching_accuracy, objective_score
 from parallel import DataParallel
 from utils.model_sl import load_model, save_model
 from eval_qap import eval_model
@@ -61,7 +61,6 @@ def train_eval_model(model,
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
-        scheduler.step()
         model.train()  # Set model to training mode
 
         print('lr = ' + ', '.join(['{:.2e}'.format(x['lr']) for x in optimizer.param_groups]))
@@ -71,11 +70,18 @@ def train_eval_model(model,
         running_since = time.time()
         iter_num = 0
 
+        det_anomaly = False
+
         # Iterate over data.
         for inputs in dataloader['train']:
-            if 'affmat' in inputs:
-                data = inputs['affmat'].cuda()
+            if cfg.QAPLIB.FEED_TYPE == 'affmat' and 'affmat' in inputs:
+                data1 = inputs['affmat'].cuda()
+                data2 = None
                 inp_type = 'affmat'
+            elif cfg.QAPLIB.FEED_TYPE == 'adj':
+                data1 = inputs['Fi'].cuda()
+                data2 = inputs['Fj'].cuda()
+                inp_type = 'adj'
             else:
                 raise ValueError('no valid data key found from dataloader!')
             n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
@@ -87,73 +93,86 @@ def train_eval_model(model,
             optimizer.zero_grad()
 
             with torch.set_grad_enabled(True):
-                # forward
-                _ = None
-                pred = \
-                    model(data, _, _, _, _, _, _, _, n1_gt, n2_gt, _, _, inp_type)
-                if len(pred) == 2:
-                    s_pred, d_pred = pred
-                    s_pred_score = s_pred
-                else:
-                    s_pred_score, s_pred, d_pred = pred
+                with torch.autograd.set_detect_anomaly(det_anomaly):
+                    # forward
+                    _ = None
+                    pred = \
+                        model(data1, data2, _, _, _, _, _, _, n1_gt, n2_gt, _, _, inp_type)
+                    if len(pred) == 2:
+                        s_pred, d_pred = pred
+                        affmtx = inputs['affmat'].cuda()
+                    else:
+                        s_pred, d_pred, affmtx = pred
 
-                multi_loss = []
-                if cfg.TRAIN.LOSS_FUNC == 'perm':
-                    loss = criterion(s_pred, perm_mat, n1_gt, n2_gt)
-                elif cfg.TRAIN.LOSS_FUNC == 'obj':
-                    loss = criterion(d_pred)
-                else:
-                    raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
+                    #perm_mat = torch.repeat_interleave(perm_mat, 5, dim=0)
+                    #n1_gt = torch.repeat_interleave(n1_gt, 5, dim=0)
+                    #n2_gt = torch.repeat_interleave(n2_gt, 5, dim=0)
 
-                if type(s_pred_score) is list:
-                    s_pred_score = s_pred_score[-1]
+                    if type(s_pred) is list:
+                        s_pred = s_pred[-1]
 
-                # backward + optimize
-                if cfg.FP16:
-                    with amp.scale_loss(loss, optimizer) as scaled_loss:
-                        scaled_loss.backward()
-                else:
-                    loss.backward()
-                optimizer.step()
+                    multi_loss = []
+                    if cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'hung':
+                        loss = criterion(s_pred, perm_mat, n1_gt, n2_gt)
+                    elif cfg.TRAIN.LOSS_FUNC == 'obj':
+                        loss = criterion(s_pred, affmtx, n1_gt)
+                    else:
+                        raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-                if cfg.MODULE == 'NGM.hypermodel':
+                    for b in range(s_pred.shape[0]):
+                        penalty = torch.norm(s_pred[b, :n1_gt[b], :n2_gt[b]].sum(dim=-1) - 1) * 100 + \
+                                  torch.norm(s_pred[b, :n1_gt[b], :n2_gt[b]].sum(dim=-2) - 1) * 100
+                        loss += penalty
+                        if penalty > 20:
+                            eval_model(model, alphas, dataloader['test'])
+
+                    # backward + optimize
+                    if cfg.FP16:
+                        with amp.scale_loss(loss, optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                    else:
+                        loss.backward()
+
+                    det_anomaly = False
+
+                    for param in model.parameters():
+                        if param.grad is not None and torch.any(torch.isnan(param.grad)):
+                            det_anomaly = True
+                            break
+                    if not det_anomaly:
+                        optimizer.step()
+
+                    # training accuracy statistic
+                    acc, _, __ = matching_accuracy(lap_solver(s_pred, n1_gt, n2_gt), perm_mat, n1_gt)
+
+                    # tfboard writer
+                    loss_dict = {'loss_{}'.format(i): l.item() for i, l in enumerate(multi_loss)}
+                    loss_dict['loss'] = loss.item()
+                    tfboard_writer.add_scalars('loss', loss_dict, epoch * cfg.TRAIN.EPOCH_ITERS + iter_num)
+                    #accdict = {'PCK@{:.2f}'.format(a): p for a, p in zip(alphas, pck)}
+                    accdict = dict()
+                    accdict['matching accuracy'] = acc
                     tfboard_writer.add_scalars(
-                        'weight',
-                        {'w2': model.module.weight2, 'w3': model.module.weight3},
-                        epoch * dataset_size + iter_num
+                        'training accuracy',
+                        accdict,
+                        epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
                     )
 
-                # training accuracy statistic
-                acc, _, __ = matching_accuracy(lap_solver(s_pred_score, n1_gt, n2_gt), perm_mat, n1_gt)
+                    # statistics
+                    running_loss += loss.item() * perm_mat.size(0)
+                    epoch_loss += loss.item() * perm_mat.size(0)
 
-                # tfboard writer
-                loss_dict = {'loss_{}'.format(i): l.item() for i, l in enumerate(multi_loss)}
-                loss_dict['loss'] = loss.item()
-                tfboard_writer.add_scalars('loss', loss_dict, epoch * dataset_size + iter_num)
-                #accdict = {'PCK@{:.2f}'.format(a): p for a, p in zip(alphas, pck)}
-                accdict = dict()
-                accdict['matching accuracy'] = acc
-                tfboard_writer.add_scalars(
-                    'training accuracy',
-                    accdict,
-                    epoch * dataset_size + iter_num
-                )
-
-                # statistics
-                running_loss += loss.item() * perm_mat.size(0)
-                epoch_loss += loss.item() * perm_mat.size(0)
-
-                if iter_num % cfg.STATISTIC_STEP == 0:
-                    running_speed = cfg.STATISTIC_STEP * perm_mat.size(0) / (time.time() - running_since)
-                    print('Epoch {:<4} Iteration {:<4} {:>4.2f}sample/s Loss={:<8.4f}'
-                          .format(epoch, iter_num, running_speed, running_loss / cfg.STATISTIC_STEP / perm_mat.size(0)))
-                    tfboard_writer.add_scalars(
-                        'speed',
-                        {'speed': running_speed},
-                        epoch * dataset_size + iter_num
-                    )
-                    running_loss = 0.0
-                    running_since = time.time()
+                    if iter_num % cfg.STATISTIC_STEP == 0:
+                        running_speed = cfg.STATISTIC_STEP * perm_mat.size(0) / (time.time() - running_since)
+                        print('Epoch {:<4} Iteration {:<4} {:>4.2f}sample/s Loss={:<8.4f}'
+                              .format(epoch, iter_num, running_speed, running_loss / cfg.STATISTIC_STEP / perm_mat.size(0)))
+                        tfboard_writer.add_scalars(
+                            'speed',
+                            {'speed': running_speed},
+                            epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
+                        )
+                        running_loss = 0.0
+                        running_since = time.time()
 
         epoch_loss = epoch_loss / dataset_size
 
@@ -178,8 +197,10 @@ def train_eval_model(model,
         tfboard_writer.add_scalars(
             'Eval acc',
             acc_dict,
-            (epoch + 1) * dataset_size
+            (epoch + 1) * cfg.TRAIN.EPOCH_ITERS
         )
+
+        scheduler.step()
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}h {:.0f}m {:.0f}s'
@@ -208,9 +229,10 @@ if __name__ == '__main__':
                       length=dataset_len[x],
                       pad=cfg.PAIR.PADDING,
                       cls=cfg.TRAIN.CLASS if x == 'train' else None,
-                      obj_resize=cfg.PAIR.RESCALE)
+                      obj_resize=cfg.PAIR.RESCALE,
+                      fetch_online=False)
         for x in ('train', 'test')}
-    dataloader = {x: get_dataloader(qap_dataset[x], fix_seed=(x == 'test'), shuffle=(x == 'train'))
+    dataloader = {x: get_dataloader(qap_dataset[x], fix_seed=(x == 'test'), shuffle=False)#(x == 'train'))
         for x in ('train', 'test')}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -221,7 +243,9 @@ if __name__ == '__main__':
     if cfg.TRAIN.LOSS_FUNC == 'perm':
         criterion = CrossEntropyLoss()
     elif cfg.TRAIN.LOSS_FUNC == 'obj':
-        criterion = torch.sum
+        criterion = lambda *x: torch.mean(objective_score(*x))
+    elif cfg.TRAIN.LOSS_FUNC == 'hung':
+        criterion = CrossEntropyLossHung()
     else:
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 

@@ -18,7 +18,7 @@ class PowerIteration(nn.Module):
         self.max_iter = max_iter
         self.stop_thresh = stop_thresh
 
-    def forward(self, M, v0=None):
+    def forward(self, M, v0=None, **kwargs):
         batch_num = M.shape[0]
         mn = M.shape[1]
         if v0 is None:

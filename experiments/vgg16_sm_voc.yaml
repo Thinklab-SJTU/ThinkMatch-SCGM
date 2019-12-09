@@ -1,6 +1,6 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_sm_ol
+MODEL_NAME: vgg16_sm_pl
 DATASET_NAME: voc
 
 DATASET_FULL_NAME: PascalVOC
@@ -29,7 +29,7 @@ PAIR:
     - 16
   GT_GRAPH_CONSTRUCT: tri
   REF_GRAPH_CONSTRUCT: fc
-  REF_OUTLIER: False
+  REF_OUTLIER: True
 
 # Training settings
 TRAIN:
@@ -37,13 +37,14 @@ TRAIN:
   START_EPOCH: 0
   NUM_EPOCHS: 15
 
-  LOSS_FUNC: offset
+  LOSS_FUNC: perm
 
   # learning rate
-  LR: 2.0e-4
+  LR: 1.0e-3 #2.0e-4
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
+    - 2
     - 10
 
   EPOCH_ITERS: 2000  # iterations per epoch

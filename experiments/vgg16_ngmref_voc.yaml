@@ -85,4 +85,3 @@ NGM:
   GAUSSIAN_SIGMA: 1.
   SK_EMB: True
   FIRST_ORDER: True
-  OUTP_SCORE: True
