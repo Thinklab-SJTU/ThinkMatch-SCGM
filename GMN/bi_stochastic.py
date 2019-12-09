@@ -10,14 +10,18 @@ class BiStochastic(nn.Module):
     Input: input matrix s
     Output: bi-stochastic matrix s
     """
-    def __init__(self, max_iter=10, tau=1., epsilon=1e-4):
+    def __init__(self, max_iter=10, tau=1., epsilon=1e-4, log_forward=True):
         super(BiStochastic, self).__init__()
         self.max_iter = max_iter
         self.tau = tau
         self.epsilon = epsilon
+        self.log_forward = log_forward
 
     def forward(self, *input, **kwinput):
-        return self.forward_log(*input, **kwinput)
+        if self.log_forward:
+            return self.forward_log(*input, **kwinput)
+        else:
+            return self.forward_ori(*input, **kwinput)
 
     def forward_ori(self, s, nrows=None, ncols=None, dummy_row=False, dtype=torch.float32):
         batch_size = s.shape[0]
@@ -87,7 +91,7 @@ class BiStochastic(nn.Module):
             nrows = ncols
             s = torch.cat((s, torch.full(dummy_shape, -float('inf')).to(s.device)), dim=1)
             for b in range(batch_size):
-                s[b, ori_nrows[b]:nrows[b], :ncols[b]] = -1e5
+                s[b, ori_nrows[b]:nrows[b], :ncols[b]] = -100
 
         ret_log_s = torch.full((batch_size, s.shape[1], s.shape[2]), -float('inf'), device=s.device, dtype=s.dtype)
 
