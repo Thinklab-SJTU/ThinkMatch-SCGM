@@ -24,9 +24,22 @@ class BiStochastic(nn.Module):
             return self.forward_ori(*input, **kwinput)
 
     def forward_ori(self, s, nrows=None, ncols=None, dummy_row=False, dtype=torch.float32):
+        if len(s.shape) == 2:
+            s = s.unsqueeze(0)
+            matrix_input = True
+        elif len(s.shape) == 3:
+            matrix_input = False
+        else:
+            raise ValueError('input data shape not understood.')
+
         batch_size = s.shape[0]
 
         #s = s.to(dtype=dtype)
+
+        if nrows is None:
+            nrows = [s.shape[1] for _ in range(batch_size)]
+        if ncols is None:
+            ncols = [s.shape[2] for _ in range(batch_size)]
 
         if dummy_row:
             dummy_shape = list(s.shape)
@@ -42,8 +55,8 @@ class BiStochastic(nn.Module):
         row_norm_ones = torch.zeros(batch_size, s.shape[1], s.shape[1], device=s.device, dtype=s.dtype)  # size: row x row
         col_norm_ones = torch.zeros(batch_size, s.shape[2], s.shape[2], device=s.device, dtype=s.dtype)  # size: col x col
         for b in range(batch_size):
-            row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
-            col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
+            row_slice = slice(0, nrows[b])
+            col_slice = slice(0, ncols[b])
             row_norm_ones[b, row_slice, row_slice] = 1
             col_norm_ones[b, col_slice, col_slice] = 1
 
@@ -76,15 +89,32 @@ class BiStochastic(nn.Module):
             for b in range(batch_size):
                 s[b, ori_nrows[b]:nrows[b], :ncols[b]] = 0
 
+        if matrix_input:
+            s.squeeze_(0)
+
         return s
 
     def forward_log(self, s, nrows=None, ncols=None, dummy_row=False, dtype=torch.float32):
+        if len(s.shape) == 2:
+            s = s.unsqueeze(0)
+            matrix_input = True
+        elif len(s.shape) == 3:
+            matrix_input = False
+        else:
+            raise ValueError('input data shape not understood.')
+
         batch_size = s.shape[0]
+
+        if nrows is None:
+            nrows = [s.shape[1] for _ in range(batch_size)]
+        if ncols is None:
+            ncols = [s.shape[2] for _ in range(batch_size)]
 
         # operations are performed on log_s
         s = s / self.tau
 
         if dummy_row:
+            assert s.shape[2] >= s.shape[1]
             dummy_shape = list(s.shape)
             dummy_shape[1] = s.shape[2] - s.shape[1]
             ori_nrows = nrows
@@ -96,8 +126,8 @@ class BiStochastic(nn.Module):
         ret_log_s = torch.full((batch_size, s.shape[1], s.shape[2]), -float('inf'), device=s.device, dtype=s.dtype)
 
         for b in range(batch_size):
-            row_slice = slice(0, nrows[b] if nrows is not None else s.shape[1])
-            col_slice = slice(0, ncols[b] if ncols is not None else s.shape[2])
+            row_slice = slice(0, nrows[b])
+            col_slice = slice(0, ncols[b])
             log_s = s[b, row_slice, col_slice]
 
             for i in range(self.max_iter):
@@ -114,6 +144,9 @@ class BiStochastic(nn.Module):
             ret_log_s = ret_log_s[:, :-dummy_shape[1]]
             for b in range(batch_size):
                 ret_log_s[b, ori_nrows[b]:nrows[b], :ncols[b]] = -float('inf')
+
+        if matrix_input:
+            ret_log_s.squeeze_(0)
 
         return torch.exp(ret_log_s)
 

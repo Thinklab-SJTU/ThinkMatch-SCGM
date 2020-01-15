@@ -11,6 +11,14 @@ def hungarian(s: torch.Tensor, n1=None, n2=None):
     :param n2: [num of objs in dim2] (against padding)
     :return: optimal permutation matrix
     """
+    if len(s.shape) == 2:
+        s = s.unsqueeze(0)
+        matrix_input = True
+    elif len(s.shape) == 3:
+        matrix_input = False
+    else:
+        raise ValueError('input data shape not understood.')
+
     device = s.device
     batch_num = s.shape[0]
 
@@ -22,5 +30,8 @@ def hungarian(s: torch.Tensor, n1=None, n2=None):
         perm_mat[b] = np.zeros_like(perm_mat[b])
         perm_mat[b, row, col] = 1
     perm_mat = torch.from_numpy(perm_mat).to(device)
+
+    if matrix_input:
+        perm_mat.squeeze_(0)
 
     return perm_mat
