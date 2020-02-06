@@ -107,8 +107,8 @@ class QAPLIB(BaseDataset):
         Fetch from online QAPLIB data
         """
         for name in self.data_list:
-            dat_content = urllib.request.urlopen(cfg.QAPLIB.ONLINE_REPO + '{}.dat'.format(name)).read()
-            sln_content = urllib.request.urlopen(cfg.QAPLIB.ONLINE_REPO + '{}.sln'.format(name)).read()
+            dat_content = urllib.request.urlopen(cfg.QAPLIB.ONLINE_REPO + 'data.d/{}.dat'.format(name)).read()
+            sln_content = urllib.request.urlopen(cfg.QAPLIB.ONLINE_REPO + 'soln.d/{}.sln'.format(name)).read()
 
             dat_file = (self.qap_path / (name + '.dat')).open('wb')
             dat_file.write(dat_content)

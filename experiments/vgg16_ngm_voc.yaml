@@ -81,3 +81,4 @@ NGM:
   GAUSSIAN_SIGMA: 1.
   SK_EMB: True
   FIRST_ORDER: True
+  EDGE_EMB: False
