@@ -13,7 +13,7 @@ else
 fi
 
 nohup \
-  singularity shell \
+  singularity run \
   --nv \
   --bind /data:/data \
   docker://registry.cn-shanghai.aliyuncs.com/wangrunzhong/dl-of-gm:pytorch1.3_cu10.1 \
