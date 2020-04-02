@@ -7,6 +7,10 @@ from data.base_dataset import BaseDataset
 import random
 
 
+'''
+Important Notice: Face image 160 contains only 8 labeled keypoints (should be 10)
+'''
+
 class WillowObject(BaseDataset):
     def __init__(self, sets, obj_resize):
         """
@@ -28,6 +32,9 @@ class WillowObject(BaseDataset):
         for cls_name in self.classes:
             assert type(cls_name) is str
             cls_mat_list = [p for p in (self.root_path / cls_name).glob('*.mat')]
+            if cls_name == 'Face':
+                cls_mat_list.remove(self.root_path / cls_name / 'image_0160.mat')
+                assert not self.root_path / cls_name / 'image_0160.mat' in cls_mat_list
             ori_len = len(cls_mat_list)
             if self.split_offset % ori_len + self.train_len <= ori_len:
                 if sets == 'train':

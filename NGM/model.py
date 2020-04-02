@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 
 from GMN.bi_stochastic import BiStochastic, GumbelSinkhorn
-from GMN.voting_layer import Voting
 from GMN.displacement_layer import Displacement
 from utils.build_graphs import reshape_edge_feature
 from utils.feature_align import feature_align
@@ -11,6 +10,8 @@ from PCA.gconv import Gconv
 from NGM.gnn import GNNLayer, HyperConvLayer
 from NGM.geo_edge_feature import geo_edge_feature
 from GMN.affinity_layer import InnerpAffinity, GaussianAffinity
+from utils.evaluation_metric import objective_score
+from utils.hungarian import hungarian
 import math
 
 from GMN.rrwm import RRWM
@@ -32,9 +33,8 @@ class Net(CNN):
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
         self.tau = 1 / cfg.NGM.VOTING_ALPHA #nn.Parameter(torch.Tensor([1 / cfg.NGM.VOTING_ALPHA]))
         self.bi_stochastic = BiStochastic(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
-        self.bi_stochastic_g = GumbelSinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
-        self.rrwm = RRWM()
-        self.voting_layer = Voting(alpha=cfg.NGM.VOTING_ALPHA)
+        self.bi_stochastic_g = GumbelSinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau*20, epsilon=cfg.NGM.BS_EPSILON)
+        #self.rrwm = PowerIteration()
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
 
@@ -130,8 +130,23 @@ class Net(CNN):
         if True:
             ss = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
         else:
-            ss = self.bi_stochastic_g(s, ns_src, ns_tgt, sample_num=5, dummy_row=True)
-            M = torch.repeat_interleave(M, 5, dim=0)
+            #if self.training:
+            #    gumbel_sample_num = 5
+            #    M = torch.repeat_interleave(M, gumbel_sample_num, dim=0)
+            #else:
+
+            ss = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+            opt_obj_score = objective_score(hungarian(ss, ns_src, ns_tgt), M, ns_src)
+
+            gumbel_sample_num = 500
+            ss_gumbel = self.bi_stochastic_g(s, ns_src, ns_tgt, sample_num=gumbel_sample_num, dummy_row=True)
+            
+            for ri in range(0, gumbel_sample_num):
+                min_obj_score = torch.stack((opt_obj_score, objective_score(hungarian(ss_gumbel[ri::gumbel_sample_num], ns_src, ns_tgt), M, ns_src))).max(dim=0)
+                opt_obj_score = min_obj_score.values
+                ss = min_obj_score.indices.unsqueeze(-1).unsqueeze(-1) * ss_gumbel[ri::gumbel_sample_num] + (1 - min_obj_score.indices).unsqueeze(-1).unsqueeze(-1) * ss
+
+            #opt_obj_score = objective_score(perm_mat, ori_affmtx, n1_gt)
 
         if type != 'affmat':
             d, _ = self.displacement_layer(ss, P_src, P_tgt)

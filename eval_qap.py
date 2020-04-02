@@ -72,6 +72,12 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
             iter_num = iter_num + 1
 
+            fwd_since = time.time()
+
+            if 'esc16f' in name:
+                print('esc16f - 0')
+                continue
+
             with torch.set_grad_enabled(False):
                 _ = None
                 pred = \
@@ -81,26 +87,32 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 else:
                     s_pred, d_pred, affmtx = pred
 
-            #repeat = lambda x: torch.repeat_interleave(x, 5, dim=0)
-            repeat = lambda x : x
+            repeat_num = s_pred.shape[0] // batch_num
+            repeat = lambda x: torch.repeat_interleave(x, repeat_num, dim=0)
+            #repeat = lambda x : x
 
             if type(s_pred) is list:
                 s_pred = s_pred[-1]
             s_pred_perm = lap_solver(s_pred, repeat(n1_gt), repeat(n2_gt))
 
-            _, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_perm, repeat(perm_mat), repeat(n1_gt))
-            acc_match_num += _acc_match_num
-            acc_total_num += _acc_total_num
+            fwd_time = time.time() - fwd_since
 
-            obj_score = objective_score(s_pred_perm, repeat(ori_affmtx), repeat(n1_gt))
-            #obj_score = obj_score.view(obj_score.shape[0] // 5, 5).mean(dim=-1)
+            #_, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_perm, repeat(perm_mat), repeat(n1_gt))
+            #acc_match_num += _acc_match_num
+            #acc_total_num += _acc_total_num
+
+            #obj_score = objective_score(s_pred_perm, repeat(ori_affmtx), repeat(n1_gt))
+            #obj_score = obj_score.view(obj_score.shape[0] // repeat_num, repeat_num).min(dim=-1).values
+            obj_score = objective_score(s_pred_perm[0::repeat_num], ori_affmtx, n1_gt)
+            for ri in range(1, repeat_num):
+                obj_score = torch.stack((obj_score, objective_score(s_pred_perm[ri::repeat_num], ori_affmtx, n1_gt))).min(dim=0).values
             opt_obj_score = objective_score(perm_mat, ori_affmtx, n1_gt)
             ori_obj_score = solution
 
             for n, x, y, z in zip(name, obj_score, opt_obj_score, ori_obj_score):
-                rel = (x - y) / x
-                print('{} - Solved: {:.0f}, Feas: {:.0f}, Opt/Bnd: {:.0f}, Gap: {:.0f}, Rel: {:.4f}'.
-                      format(n, x, y, z, x - y, rel))
+                rel = (x - z) / x
+                print('{} - Solved: {:.0f}, Feas: {:.0f}, Opt/Bnd: {:.0f}, Gap: {:.0f}, Rel: {:.4f}, time: {:.3f}'.
+                      format(n, x, y, z, x - z, rel, fwd_time))
                 if not torch.isnan(rel):
                     rel_sum += rel
                 #rel_num += 1

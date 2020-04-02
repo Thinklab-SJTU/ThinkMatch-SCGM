@@ -132,9 +132,19 @@ class GNNLayer(nn.Module):
         if self.classifier is not None:
             assert n1.max() * n2.max() == x.shape[1]
             x3 = self.classifier(x2)
-            x5 = self.sk(x3.view(x.shape[0], n2.max(), n1.max()).transpose(1, 2), n1, n2, dummy_row=True).transpose(2, 1).contiguous()
+            #x5 = self.sk(x3.permute(0,2,1).view(x.shape[0] * self.sk_channel, n2.max(), n1.max()).transpose(1, 2), n1, n2, dummy_row=True).transpose(2, 1).contiguous()
+            n1_rep = torch.repeat_interleave(n1, self.sk_channel, dim=0)
+            n2_rep = torch.repeat_interleave(n2, self.sk_channel, dim=0)
+            x4 = x3.permute(0,2,1).reshape(x.shape[0] * self.sk_channel, n2.max(), n1.max()).transpose(1, 2)
+            x5 = self.sk(x4, n1_rep, n2_rep, dummy_row=True).transpose(2, 1).contiguous()
 
-            x_new = torch.cat((x2, x5.view(x.shape[0], n1.max() * n2.max(), -1)), dim=-1)
+            #vec_x5 = x5.reshape(x.shape[0], n1.max() * n2.max(), -1)
+            #A_q = torch.matmul(vec_x5, vec_x5.transpose(1, 2))
+            #x_new_v = self.n_value_func(x2)
+            #x_new = torch.matmul(A_q, x_new_v) + F.relu(self.n_transform_func(x2) + x2)
+
+            x6 = x5.reshape(x.shape[0], self.sk_channel, n1.max() * n2.max()).permute(0, 2, 1)
+            x_new = torch.cat((x2, x6), dim=-1)
         else:
             x_new = x2
 

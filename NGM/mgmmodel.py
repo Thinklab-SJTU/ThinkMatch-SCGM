@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as functional
 
 from GMN.bi_stochastic import BiStochastic, GumbelSinkhorn
 from GMN.voting_layer import Voting
@@ -14,6 +15,7 @@ from GMN.affinity_layer import InnerpAffinity, GaussianAffinity
 from utils.model_sl import load_model
 from utils.fgm import kronecker_sparse
 from sparse_torch.csx_matrix import CSRMatrix3d
+from utils.hungarian import hungarian
 
 from itertools import combinations
 import numpy as np
@@ -23,6 +25,29 @@ from utils.config import cfg
 
 import GMN.backbone
 CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
+
+def pad_tensor(inp):
+    assert type(inp[0]) == torch.Tensor
+    it = iter(inp)
+    t = next(it)
+    max_shape = list(t.shape)
+    while True:
+        try:
+            t = next(it)
+            for i in range(len(max_shape)):
+                max_shape[i] = int(max(max_shape[i], t.shape[i]))
+        except StopIteration:
+            break
+    max_shape = np.array(max_shape)
+
+    padded_ts = []
+    for t in inp:
+        pad_pattern = np.zeros(2 * len(max_shape), dtype=np.int64)
+        pad_pattern[::-2] = max_shape - np.array(t.shape)
+        pad_pattern = tuple(pad_pattern.tolist())
+        padded_ts.append(functional.pad(t, pad_pattern, 'constant', 0))
+
+    return padded_ts
 
 
 class Net(CNN):
@@ -72,24 +97,34 @@ class Net(CNN):
         batch_size = data[0].shape[0]
         device = data[0].device
 
+        # extract graph feature
+        if type == 'img' or type == 'image':
+            data_cat = torch.cat(data, dim=0)
+            P_cat = torch.cat(pad_tensor(Ps), dim=0)
+            n_cat = torch.cat(ns, dim=0)
+            node = self.node_layers(data_cat)
+            edge = self.edge_layers(node)
+            U = feature_align(node, P_cat, n_cat, cfg.PAIR.RESCALE)
+            F = feature_align(edge, P_cat, n_cat, cfg.PAIR.RESCALE)
+            feats = torch.cat((U, F), dim=1)
+            feats = self.l2norm(feats)
+            feats = torch.split(feats, batch_size, dim=0)
+        elif type == 'feat' or type == 'feature':
+            feats = data
+        else:
+            raise ValueError('unknown type string {}'.format(type))
+
         # extract reference graph feature
         feat_list = []
         joint_indices = [0]
-        iterator = zip(data, Ps, Gs, Hs, Gs_ref, Hs_ref, ns)
-        for idx, (dat, P, G, H, G_ref, H_ref, n) in enumerate(iterator):
-            if type == 'img' or type == 'image':
-                node = self.node_layers(dat)
-                edge = self.edge_layers(node)
-                node = self.l2norm(node)
-                edge = self.l2norm(edge)
-                U = feature_align(node, P, n, cfg.PAIR.RESCALE)
-                F = feature_align(edge, P, n, cfg.PAIR.RESCALE)
-                feat = torch.cat((U, F), dim=1)
-            elif type == 'feat' or type == 'feature':
-                feat = dat
-            else:
-                raise ValueError('unknown type string {}'.format(type))
-            feat_list.append((idx, feat, P, G, H, G_ref, H_ref, n))
+        iterator = zip(feats, Ps, Gs, Hs, Gs_ref, Hs_ref, ns)
+        for idx, (feat, P, G, H, G_ref, H_ref, n) in enumerate(iterator):
+            feat_list.append(
+                (idx,
+                 feat,
+                 P, G, H, G_ref, H_ref, n
+                 )
+            )
             joint_indices.append(joint_indices[-1] + P.shape[1])
 
         joint_S = torch.zeros(batch_size, joint_indices[-1], joint_indices[-1], device=device)

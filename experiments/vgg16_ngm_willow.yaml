@@ -32,7 +32,7 @@ PAIR:
   REF_GRAPH_CONSTRUCT: fc
   SYM_ADJACENCY: True
   #MAX_PROB_SIZE: 225
-  NUM_GRAPHS: 3
+  NUM_GRAPHS: 2
 
 # Training settings
 TRAIN:
@@ -81,5 +81,6 @@ NGM:
     - 16
   GNN_LAYER: 3
   GAUSSIAN_SIGMA: 1.
-  SK_EMB: True
+  SK_EMB: 1
   FIRST_ORDER: True
+  EDGE_EMB: False

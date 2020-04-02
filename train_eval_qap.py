@@ -119,12 +119,12 @@ def train_eval_model(model,
                     else:
                         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-                    for b in range(s_pred.shape[0]):
-                        penalty = torch.norm(s_pred[b, :n1_gt[b], :n2_gt[b]].sum(dim=-1) - 1) * 100 + \
-                                  torch.norm(s_pred[b, :n1_gt[b], :n2_gt[b]].sum(dim=-2) - 1) * 100
-                        loss += penalty
-                        if penalty > 20:
-                            eval_model(model, alphas, dataloader['test'])
+                    #for b in range(s_pred.shape[0]):
+                    #    penalty = torch.norm(s_pred[b, :n1_gt[b], :n2_gt[b]].sum(dim=-1) - 1) * 100 + \
+                    #              torch.norm(s_pred[b, :n1_gt[b], :n2_gt[b]].sum(dim=-2) - 1) * 100
+                    #    loss += penalty
+                    #    if penalty > 20:
+                    #       eval_model(model, alphas, dataloader['test'])
 
                     # backward + optimize
                     if cfg.FP16:
@@ -143,7 +143,8 @@ def train_eval_model(model,
                         optimizer.step()
 
                     # training accuracy statistic
-                    acc, _, __ = matching_accuracy(lap_solver(s_pred, n1_gt, n2_gt), perm_mat, n1_gt)
+                    #acc, _, __ = matching_accuracy(lap_solver(s_pred, n1_gt, n2_gt), perm_mat, n1_gt)
+                    acc = 0
 
                     # tfboard writer
                     loss_dict = {'loss_{}'.format(i): l.item() for i, l in enumerate(multi_loss)}
@@ -232,7 +233,7 @@ if __name__ == '__main__':
                       obj_resize=cfg.PAIR.RESCALE,
                       fetch_online=False)
         for x in ('train', 'test')}
-    dataloader = {x: get_dataloader(qap_dataset[x], fix_seed=(x == 'test'), shuffle=False)#(x == 'train'))
+    dataloader = {x: get_dataloader(qap_dataset[x], fix_seed=(x == 'test'), shuffle=(x == 'train'))
         for x in ('train', 'test')}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

@@ -31,6 +31,24 @@ class Affinity(nn.Module):
         M = torch.matmul(M, Y.transpose(1, 2))
         return M
 
+class AffinityInp(nn.Module):
+    """
+    Affinity Layer to compute inner product affinity matrix from feature space.
+    M = X * A * Y^T
+    Parameter: scale of weight d
+    Input: feature X, Y
+    Output: affinity matrix M
+    """
+    def __init__(self, d):
+        super(AffinityInp, self).__init__()
+        self.d = d
+
+    def forward(self, X, Y):
+        assert X.shape[2] == Y.shape[2] == self.d
+        M = torch.matmul(X, Y.transpose(1, 2))
+        return M
+
+
 
 class AffinityLR(nn.Module):
     def __init__(self, d, k=512):

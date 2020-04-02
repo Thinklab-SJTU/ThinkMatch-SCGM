@@ -39,6 +39,7 @@ class RRWM(nn.Module):
         v = v0
         for i in range(self.max_iter):
             v = torch.bmm(M, v)
+            last_v = v
             n = torch.norm(v, p=1, dim=1, keepdim=True)
             v = v / n
             s = v.view(batch_num, -1, num_src).transpose(1, 2)
@@ -47,5 +48,8 @@ class RRWM(nn.Module):
             v = self.alpha * self.sk(s, ns_src, ns_tgt).transpose(1, 2).reshape(batch_num, mn, 1) + (1 - self.alpha) * v
             n = torch.norm(v, p=1, dim=1, keepdim=True)
             v = torch.matmul(v, 1 / n)
+
+            if torch.norm(v - last_v) < 1e-5:
+                break
 
         return v.view(batch_num, -1)

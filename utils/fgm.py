@@ -51,10 +51,10 @@ def kronecker_torch(t1: Tensor, t2: Tensor):
     batch_num = t1.shape[0]
     t1dim1, t1dim2 = t1.shape[1], t1.shape[2]
     t2dim1, t2dim2 = t2.shape[1], t2.shape[2]
-    t1 = t1.view(batch_num, -1, 1)
-    t2 = t2.view(batch_num, 1, -1)
+    t1 = t1.reshape(batch_num, -1, 1)
+    t2 = t2.reshape(batch_num, 1, -1)
     tt = torch.bmm(t1, t2)
-    tt = tt.view(batch_num, t1dim1, t1dim2, t2dim1, t2dim2)
+    tt = tt.reshape(batch_num, t1dim1, t1dim2, t2dim1, t2dim2)
     tt = tt.permute([0, 1, 3, 2, 4])
     tt = tt.reshape(batch_num, t1dim1 * t2dim1, t1dim2 * t2dim2)
     return tt

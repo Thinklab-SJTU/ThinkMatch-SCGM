@@ -81,5 +81,5 @@ NGM:
     - 16
   GNN_LAYER: 3
   GAUSSIAN_SIGMA: 1.
-  SK_EMB: True
+  SK_EMB: 1
   FIRST_ORDER: True

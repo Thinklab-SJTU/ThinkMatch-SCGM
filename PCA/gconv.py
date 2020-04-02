@@ -162,11 +162,16 @@ class Siamese_Gconv(nn.Module):
         super(Siamese_Gconv, self).__init__()
         self.gconv = Gconv(in_features, num_features)
 
-    def forward(self, g1, g2):
-        emb1 = self.gconv(*g1)
-        emb2 = self.gconv(*g2)
+    def forward(self, g1, *args):
         # embx are tensors of size (bs, N, num_features)
-        return emb1, emb2
+        emb1 = self.gconv(*g1)
+        if args is None:
+            return emb1
+        else:
+            returns = [emb1]
+            for g in args:
+                returns.append(self.gconv(*g))
+            return returns
 
 class Siamese_GconvEdge(nn.Module):
     def __init__(self, in_features, num_features, in_edges, out_edges=None):
@@ -175,9 +180,11 @@ class Siamese_GconvEdge(nn.Module):
         self.gconv1 = GconvEdge(in_features, num_features, in_edges, out_edges)
         self.gconv2 = GconvEdge(in_features, num_features, in_edges, out_edges)
 
-    def forward(self, g1, g2):
-        # pdb.set_trace()
+    def forward(self, g1, g2=None):
         emb1, emb_edge1 = self.gconv1(*g1)
-        emb2, emb_edge2 = self.gconv2(*g2)
-        # embx are tensors of size (bs, N, num_features)
-        return emb1, emb2, emb_edge1, emb_edge2
+        if g2 is None:
+            return emb1, emb_edge1
+        else:
+            emb2, emb_edge2 = self.gconv2(*g2)
+            # embx are tensors of size (bs, N, num_features)
+            return emb1, emb2, emb_edge1, emb_edge2

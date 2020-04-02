@@ -9,8 +9,8 @@ MODULE: NGM.model
 
 BACKBONE: NoBackbone
 
-BATCH_SIZE: 8
-DATALOADER_NUM: 2
+BATCH_SIZE: 1
+DATALOADER_NUM: 1
 
 RANDOM_SEED: 123
 
@@ -48,8 +48,8 @@ EVAL:
     - 0.05
     - 0.10
   PCK_L: 256.
-  EPOCH: 30  # epoch to be tested
-  SAMPLES: 95  # number of tested pairs for each class
+  EPOCH: 0  # epoch to be tested
+  SAMPLES: 134  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:

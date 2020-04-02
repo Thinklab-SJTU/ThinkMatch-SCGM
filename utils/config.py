@@ -120,7 +120,20 @@ __C.NGM.ORDER3_FEATURE = 'cat' # 'cat' or 'geo'
 #__C.NGM.OUTP_SCORE = True # output the scoring matrix as prediction in testing (no Sinkhorn applied in testing)
 __C.NGM.FIRST_ORDER = True
 __C.NGM.EDGE_EMB = False
-__C.NGM.SK_EMB = True
+__C.NGM.SK_EMB = 1
+
+# IGMGM model options
+__C.IGMGM = edict()
+__C.IGMGM.FEATURE_CHANNEL = 1024
+__C.IGMGM.SK_ITER_NUM = 20
+__C.IGMGM.SK_TAU = 0.05
+__C.IGMGM.SK_EPSILON = 1e-10
+__C.IGMGM.UNIV_FACTOR = 1.
+__C.IGMGM.MAX_ITER = 200
+__C.IGMGM.INIT_TAU = 0.5
+__C.IGMGM.BETA = 0.5
+__C.IGMGM.CONVERGE_TOL = 1e-5
+__C.IGMGM.MIN_TAU = 1e-2
 
 #
 # Training options

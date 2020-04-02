@@ -27,9 +27,11 @@ class QAPLIB(BaseDataset):
             for dat_path in self.qap_path.glob(inst + '*.dat'):
                 name = dat_path.name[:-4]
                 prob_size = int(re.findall(r"\d+", name)[0])
-                if prob_size > 40:
+                if prob_size > 200 or (self.sets == 'train' and prob_size >= 100):
                     continue
                 self.data_list.append(name)
+
+        self.data_list.sort()
 
         #if sets == 'train':
         #    self.data_list = ['tho40']
@@ -40,9 +42,9 @@ class QAPLIB(BaseDataset):
             self.__fetch_online()
             fetched_flag.touch()
 
-    def get_pair(self, idx, shuffle=False):
+    def get_pair(self, idx, shuffle=None):
         """
-        Randomly get a pair of objects from synthetic data
+        Get QAP data by index
         :param idx: dataset index
         :param shuffle: no use here
         :return: (pair of data, groundtruth permutation matrix)
