@@ -42,10 +42,10 @@ SYNTHETIC:
   FEAT_NOISE_STD: 1.5  # feature noise ~ N(0, X^2)
   POS_GT_UNIFORM: 1.  # keypoint position ~ uniform(0, X)
   POS_AFFINE_DXY: 0. #50.  # t_x, t_y ~ uniform(-X, X)
-  POS_AFFINE_S_LOW: 0.8  # s ~ uniform(S_LOW, S_HIGH)
-  POS_AFFINE_S_HIGH: 1.2
+  POS_AFFINE_S_LOW: 0.9  # s ~ uniform(S_LOW, S_HIGH)
+  POS_AFFINE_S_HIGH: 1.1
   POS_AFFINE_DTHETA: 0. #60.  # theta ~ uniform(-X, X)
-  POS_NOISE_STD: 0.02  # position noise ~ N(0, X^2)
+  POS_NOISE_STD: 0.00  # position noise ~ N(0, X^2)
   MIXED_DATA_NUM: 10
 
 # Training settings

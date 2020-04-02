@@ -45,7 +45,7 @@ SYNTHETIC:
   POS_AFFINE_S_LOW: .9 #0.8  # s ~ uniform(S_LOW, S_HIGH)
   POS_AFFINE_S_HIGH: 1.1 #1.2
   POS_AFFINE_DTHETA: 0. #60.  # theta ~ uniform(-X, X)
-  POS_NOISE_STD: 0.01  # position noise ~ N(0, X^2)
+  POS_NOISE_STD: 0.00  # position noise ~ N(0, X^2)
 
 # Training settings
 TRAIN:
@@ -83,7 +83,7 @@ VISUAL:
 # model parameters
 NGM:
   FIRST_ORDER: False
-  SK_EMB: True
+  SK_EMB: 8 # 1
 
   EDGE_FEATURE: geo
 
@@ -92,8 +92,8 @@ NGM:
   BS_EPSILON: 1.0e-10
   VOTING_ALPHA: 20.
   GNN_FEAT:
-    - 16
-    - 16
-    - 16
+    - 24 # 16
+    - 24 # 16
+    - 24 # 16
   GNN_LAYER: 3
   GAUSSIAN_SIGMA: 5.e-7

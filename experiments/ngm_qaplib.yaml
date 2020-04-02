@@ -40,7 +40,7 @@ TRAIN:
 
   EPOCH_ITERS: 1000  # iterations per epoch
 
-  CLASS: tho
+  CLASS: esc
 
 # Evaluation settings and PCK metric
 EVAL:
@@ -70,4 +70,6 @@ NGM:
     - 16
     - 16
   GNN_LAYER: 3
-  SK_EMB: True
+  SK_EMB: 1
+  EDGE_EMB: False
+  GUMBEL_SK: True # Gumbel-Sinkhorn's alpha = VOTING_ALPHA / 20

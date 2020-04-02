@@ -60,16 +60,17 @@ def dsnorm(W, eps=1e-8):
 
 class GNNLayer(nn.Module):
     def __init__(self, in_node_features, in_edge_features, out_node_features, out_edge_features,
-                 sk_channel=False, sk_iter=20, voting_alpha=20, edge_emb=False):
+                 sk_channel=0, sk_iter=20, voting_alpha=20, edge_emb=False):
         super(GNNLayer, self).__init__()
         self.in_nfeat = in_node_features
         self.in_efeat = in_edge_features
         self.out_efeat = out_edge_features
-        if sk_channel:
+        self.sk_channel = sk_channel
+        if self.sk_channel > 0:
             assert out_node_features == out_edge_features + 1
-            self.out_nfeat = out_node_features - 1
+            self.out_nfeat = out_node_features - self.sk_channel
             self.sk = BiStochastic(sk_iter, 1/voting_alpha)
-            self.classifier = nn.Linear(self.out_nfeat, 1)
+            self.classifier = nn.Linear(self.out_nfeat, self.sk_channel)
         else:
             assert out_node_features == out_edge_features
             self.out_nfeat = out_node_features

@@ -12,6 +12,7 @@ from utils.sparse import to_sparse
 from NGM.gnn import HyperGNNLayer
 from NGM.geo_edge_feature import geo_edge_feature
 from GMN.affinity_layer import GaussianAffinity, InnerpAffinity
+#from NGM.rrwhm import RRWHM
 
 from utils.config import cfg
 
@@ -52,6 +53,8 @@ class Net(CNN):
 
         self.weight2 = nn.Parameter(torch.tensor(cfg.NGM.WEIGHT2)).detach()
         self.weight3 = nn.Parameter(torch.tensor(cfg.NGM.WEIGHT3)).detach()
+
+        #self.rrwhm = RRWHM()
 
     def forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, ns_src, ns_tgt, K_G, K_H, type='img'):
         if type == 'img' or type == 'image':
@@ -160,6 +163,13 @@ class Net(CNN):
         #hyperA_diag += A
         #hyperA_diag = torch.diagonal(hyperA, dim1=1, dim2=3)
         #hyperA_diag += A
+
+        # RRWHM
+        #v = self.rrwhm(hyperM, num_src=P_src.shape[1], ns_src=ns_src, ns_tgt=ns_tgt)
+        #s = v.view(v.shape[0], P_tgt.shape[1], -1).transpose(1, 2)
+        #ss = self.bi_stochastic(s, ns_src, ns_tgt)
+        #d, _ = self.displacement_layer(ss, P_src, P_tgt)
+        #return ss, d
 
         hyperA = hyperA.cpu()
         hyperA_sum = torch.sum(hyperA, dim=tuple(range(2, 3 + 1)), keepdim=True) + 1e-10

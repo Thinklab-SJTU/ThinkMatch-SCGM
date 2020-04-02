@@ -127,14 +127,9 @@ class Net(CNN):
         v = self.classifier(emb)
         s = v.view(v.shape[0], tgt_len, -1).transpose(1, 2)
 
-        if True:
+        if self.training or not cfg.NGM.GUMBEL_SK:
             ss = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
         else:
-            #if self.training:
-            #    gumbel_sample_num = 5
-            #    M = torch.repeat_interleave(M, gumbel_sample_num, dim=0)
-            #else:
-
             ss = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
             opt_obj_score = objective_score(hungarian(ss, ns_src, ns_tgt), M, ns_src)
 
