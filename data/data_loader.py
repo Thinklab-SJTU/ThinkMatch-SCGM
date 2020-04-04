@@ -11,11 +11,11 @@ from sparse_torch import CSRMatrix3d
 
 from utils.config import cfg
 
-from itertools import combinations
+from itertools import combinations, product, combinations_with_replacement
 
 
 class GMDataset(Dataset):
-    def __init__(self, name, length, pad=16, cls=None, pair=True, **args):
+    def __init__(self, name, length, pad=16, cls=None, problem='pairwise', **args):
         self.name = name
         self.ds = eval(self.name)(**args)
         self.length = length  # NOTE images pairs are sampled randomly, so there is no exact definition of dataset size
@@ -23,16 +23,18 @@ class GMDataset(Dataset):
         self.obj_size = self.ds.obj_resize
         self.classes = self.ds.classes
         self.cls = None if cls == 'none' else cls
-        self.pair = pair
+        self.problem_type = problem
 
     def __len__(self):
         return self.length
 
     def __getitem__(self, idx):
-        if self.pair:
+        if self.problem_type == 'pairwise':
             return self.get_pair(idx)
-        else:
+        elif self.problem_type == 'multi':
             return self.get_multi(idx)
+        elif self.problem_type == 'multi_cluster':
+            return self.get_multi_cluster(idx)
 
     def get_pair(self, idx):
         #anno_pair, perm_mat = self.ds.get_pair(self.cls if self.cls is not None else
@@ -119,9 +121,22 @@ class GMDataset(Dataset):
         Gs_ref = []
         Hs_ref = []
         es_gt = []
-        for P_gt, n_gt in zip(Ps_gt, ns_gt):
-            G_gt, H_gt, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
-            G_ref, H_ref, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
+        iterator = iter(zip(Ps_gt, ns_gt, perm_mat_list))
+        P_gt, n_gt, perm_mat = next(iterator)
+        G1_gt, H1_gt, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
+        Gs_gt.append(G1_gt)
+        Hs_gt.append(H1_gt)
+        Gs_ref.append(G1_gt)
+        Hs_ref.append(H1_gt)
+        for P_gt, n_gt, perm_mat in iterator:
+            if cfg.PAIR.REF_GRAPH_CONSTRUCT == 'same':
+                G_gt = perm_mat.dot(G1_gt)
+                H_gt = perm_mat.dot(H1_gt)
+                G_ref = G_gt
+                H_ref = H_gt
+            else:
+                G_gt, H_gt, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
+                G_ref, H_ref, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
             Gs_gt.append(G_gt)
             Hs_gt.append(H_gt)
             Gs_ref.append(G_ref)
@@ -134,7 +149,8 @@ class GMDataset(Dataset):
                     'Gs': [torch.Tensor(x) for x in Gs_gt],
                     'Hs': [torch.Tensor(x) for x in Hs_gt],
                     'Gs_ref': [torch.Tensor(x) for x in Gs_ref],
-                    'Hs_ref': [torch.Tensor(x) for x in Hs_ref]}
+                    'Hs_ref': [torch.Tensor(x) for x in Hs_ref],
+                    'cls': [str(x) for x in cls]}
 
         imgs = [anno['image'] for anno in anno_list]
         if imgs[0] is not None:
@@ -148,6 +164,17 @@ class GMDataset(Dataset):
             feats = [np.stack([kp['feat'] for kp in anno_dict['keypoints']], axis=-1) for anno_dict in anno_list]
             ret_dict['features'] = [torch.Tensor(x) for x in feats]
 
+        return ret_dict
+
+    def get_multi_cluster(self, idx):
+        self.cls = 'Winebottle'
+        dict1 = self.get_multi(idx)
+        self.cls = 'Car'
+        dict2 = self.get_multi(idx)
+        ret_dict = {}
+        for key in dict1:
+            ret_dict[key] = dict1[key]
+            ret_dict[key] += dict2[key]
         return ret_dict
 
 
@@ -382,6 +409,7 @@ def collate_fn(data: list):
             ret['KGs'] = dict()
             ret['KHs'] = dict()
             for idx_gt, idx_ref in combinations(range(len(ret['Gs'])), 2):
+            #for idx_gt, idx_ref in product(range(len(ret['Gs'])), repeat=2):
                 if idx_gt > idx_ref:
                     idx_gt, idx_ref = idx_ref, idx_gt
                 G1_gt = ret['Gs'][idx_gt]

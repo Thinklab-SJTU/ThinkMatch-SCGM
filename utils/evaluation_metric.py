@@ -80,3 +80,47 @@ def objective_score(pmat_pred, affmtx, ns):
     obj_score = torch.matmul(torch.matmul(p_vec.transpose(1, 2), affmtx), p_vec).view(-1)
 
     return obj_score
+
+def clustering_accuracy(pred_clusters, gt_classes):
+    """
+    Clustering accuracy for clusters.
+    :param pred_clusters: predicted clusters
+                          e.g. [[0,0,1,2,1,2]
+                                [0,1,2,2,1,0]]
+    :param gt_classes: ground truth classes
+                       e.g. [['car','car','bike','bike','person','person'],
+                             ['bus','bus','cat', 'sofa',  'cat',  'sofa' ]]
+    :return: clustering accuracy
+    """
+    num_clusters = torch.max(pred_clusters, dim=-1).values + 1
+    batch_num = pred_clusters.shape[0]
+
+    gt_classes_t = []
+
+    for b in range(batch_num):
+        gt_classes_b_set = list(set(gt_classes[b]))
+        gt_classes_t.append([])
+        assert len(gt_classes_b_set) == num_clusters[b]
+        for i in range(len(gt_classes[b])):
+            gt_classes_t[b].append(gt_classes_b_set.index(gt_classes[b][i]))
+    gt_clusters = torch.tensor(gt_classes_t).to(dtype=pred_clusters.dtype, device=pred_clusters.device)
+
+    cluster_acc = torch.zeros(batch_num, device=pred_clusters.device)
+    for b in range(batch_num):
+        sum = 0
+        for i in range(num_clusters):
+            for j, k in combinations(range(num_clusters), 2):
+                pred_i = (pred_clusters[b] == i).to(dtype=torch.float)
+                gt_j = (gt_clusters[b] == j).to(dtype=torch.float)
+                gt_k = (gt_clusters[b] == k).to(dtype=torch.float)
+                sum += (torch.sum(pred_i * gt_j) * torch.sum(pred_i * gt_k)) / torch.sum(pred_i) ** 2
+        for i in range(num_clusters):
+            for j, k in combinations(range(num_clusters), 2):
+                gt_i = (gt_clusters[b] == i).to(dtype=torch.float)
+                pred_j = (pred_clusters[b] == j).to(dtype=torch.float)
+                pred_k = (pred_clusters[b] == k).to(dtype=torch.float)
+                sum += (torch.sum(gt_i * pred_j) * torch.sum(gt_i * pred_k)) / (torch.sum(pred_j) * torch.sum(pred_k))
+
+        cluster_acc[b] = 1 - sum / num_clusters.to(dtype=torch.float)
+
+    return torch.mean(cluster_acc)
