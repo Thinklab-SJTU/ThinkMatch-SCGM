@@ -3,13 +3,13 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from lib.hungarian import hungarian
-from lib.dataset.data_loader import GMDataset, get_dataloader
-from lib.evaluation_metric import matching_accuracy, matching_precision
-from lib.parallel import DataParallel
-from lib.utils.model_sl import load_model
+from library.hungarian import hungarian
+from library.dataset.data_loader import GMDataset, get_dataloader
+from library.evaluation_metric import matching_accuracy, matching_precision
+from library.parallel import DataParallel
+from library.utils.model_sl import load_model
 
-from lib.utils.config import cfg
+from library.utils.config import cfg
 
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -182,9 +182,9 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
 
 if __name__ == '__main__':
-    from lib.utils.dup_stdout_manager import DupStdoutFileManager
-    from lib.utils.parse_args import parse_args
-    from lib.utils.print_easydict import print_easydict
+    from library.utils.dup_stdout_manager import DupStdoutFileManager
+    from library.utils.parse_args import parse_args
+    from library.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching evaluation code.')
 

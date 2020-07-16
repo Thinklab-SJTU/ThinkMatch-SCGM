@@ -1,21 +1,21 @@
 import torch
 import torch.nn as nn
 
-from lib.bi_stochastic import BiStochastic, GumbelSinkhorn
+from library.bi_stochastic import BiStochastic, GumbelSinkhorn
 from models.GMN.voting_layer import Voting
 from models.GMN.displacement_layer import Displacement
-from lib.build_graphs import reshape_edge_feature
-from lib.feature_align import feature_align
-from lib.factorize_graph_matching import construct_m
+from library.build_graphs import reshape_edge_feature
+from library.feature_align import feature_align
+from library.factorize_graph_matching import construct_m
 from models.NGM.gnn import GNNLayer
 from models.NGM.geo_edge_feature import geo_edge_feature
 from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
-from lib.hungarian import hungarian
+from library.hungarian import hungarian
 import math
 from itertools import combinations
 
 
-from lib.utils.config import cfg
+from library.utils.config import cfg
 
 CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
 

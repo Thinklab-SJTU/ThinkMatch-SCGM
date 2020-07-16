@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 from itertools import combinations
 
-from lib.bi_stochastic import BiStochastic
+from library.bi_stochastic import BiStochastic
 from models.GMN.displacement_layer import Displacement
-from lib.feature_align import feature_align
-from lib.gconv import Siamese_Gconv
+from library.feature_align import feature_align
+from library.gconv import Siamese_Gconv
 from models.PCA.affinity_layer import Affinity
-from lib.utils.model_sl import load_model
+from library.utils.model_sl import load_model
 
-from lib.utils.config import cfg
+from library.utils.config import cfg
 
 CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
 

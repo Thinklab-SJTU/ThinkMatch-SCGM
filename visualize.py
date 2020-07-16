@@ -2,10 +2,10 @@ import torch
 import numpy as np
 from pathlib import Path
 
-from lib.dataset.data_loader import GMDataset, get_dataloader
-from lib.utils.model_sl import load_model
-from lib.parallel import DataParallel
-from lib.hungarian import hungarian
+from library.dataset.data_loader import GMDataset, get_dataloader
+from library.utils.model_sl import load_model
+from library.parallel import DataParallel
+from library.hungarian import hungarian
 import matplotlib
 try:
     import _tkinter
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 plt.rcParams["font.family"] = "serif"
 
-from lib.utils.config import cfg
+from library.utils.config import cfg
 
 def vertical_subplt(a,b,c):
     plt.subplot(b, a, (c // b) + c % b * a)
@@ -204,11 +204,11 @@ def tensor2np(inp):
 
 
 if __name__ == '__main__':
-    from lib.utils.parse_args import parse_args
+    from library.utils.parse_args import parse_args
     args = parse_args('Deep learning of graph matching visualization code.')
 
     import importlib
-    from lib.utils.config import cfg_from_file
+    from library.utils.config import cfg_from_file
 
     dataset_len = {'train': cfg.TRAIN.EPOCH_ITERS * cfg.BATCH_SIZE, 'test': cfg.EVAL.SAMPLES}
     image_dataset = {

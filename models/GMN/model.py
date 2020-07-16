@@ -2,16 +2,16 @@ import torch.nn as nn
 
 from models.GMN.affinity_layer import InnerpAffinity as Affinity
 #from GMN.affinity_layer import GaussianAffinity
-from lib.spectral_matching import SpectralMatching
-from lib.rrwm import RRWM
-from lib.bi_stochastic import BiStochastic
+from library.spectral_matching import SpectralMatching
+from library.rrwm import RRWM
+from library.bi_stochastic import BiStochastic
 from models.GMN.voting_layer import Voting
 from models.GMN.displacement_layer import Displacement
-from lib.build_graphs import reshape_edge_feature
-from lib.feature_align import feature_align
-from lib.factorize_graph_matching import construct_m
+from library.build_graphs import reshape_edge_feature
+from library.feature_align import feature_align
+from library.factorize_graph_matching import construct_m
 
-from lib.utils.config import cfg
+from library.utils.config import cfg
 
 CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
 

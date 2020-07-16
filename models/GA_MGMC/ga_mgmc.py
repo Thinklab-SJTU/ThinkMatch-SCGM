@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
-from lib.hungarian import hungarian
-from lib.bi_stochastic import BiStochastic
+from library.hungarian import hungarian
+from library.bi_stochastic import BiStochastic
 from itertools import product
-from lib.spectral_clustering import spectral_clustering
-from lib.utils.pad_tensor import pad_tensor
+from library.spectral_clustering import spectral_clustering
+from library.utils.pad_tensor import pad_tensor
 
 import time
 

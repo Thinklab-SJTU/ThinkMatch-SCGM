@@ -4,20 +4,20 @@ import torch.nn.functional as functional
 
 import numpy as np
 
-from lib.bi_stochastic import BiStochastic as Sinkhorn
+from library.bi_stochastic import BiStochastic as Sinkhorn
 from models.GMN.displacement_layer import Displacement
-from lib.feature_align import feature_align
+from library.feature_align import feature_align
 from models.PCA.affinity_layer import AffinityInp
 from models.GMN.affinity_layer import InnerpAffinity as QuadInnerpAffinity
 from models.GMN.affinity_layer import GaussianAffinity as QuadGaussianAffinity
-from lib.gconv import Siamese_Gconv
+from library.gconv import Siamese_Gconv
 from models.GA_MGMC.ga_mgmc import GA_MGMC
-from lib.hungarian import hungarian
-from lib.utils.pad_tensor import pad_tensor
+from library.hungarian import hungarian
+from library.utils.pad_tensor import pad_tensor
 
 from itertools import combinations, product, chain
 
-from lib.utils.config import cfg
+from library.utils.config import cfg
 
 CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
 

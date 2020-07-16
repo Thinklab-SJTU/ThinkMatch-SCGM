@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from lib.bi_stochastic import BiStochastic
+from library.bi_stochastic import BiStochastic
 
 from collections import Iterable
 

@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from lib.utils.print_easydict import print_easydict_str
+from library.utils.print_easydict import print_easydict_str
 from copy import deepcopy
 import xlwt
 import time

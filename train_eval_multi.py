@@ -4,15 +4,15 @@ from datetime import datetime
 from pathlib import Path
 from tensorboardX import SummaryWriter
 
-from lib.dataset.data_loader import GMDataset, get_dataloader
-from lib.loss_func import *
-from lib.evaluation_metric import matching_accuracy
-from lib.parallel import DataParallel
-from lib.utils.model_sl import load_model, save_model
+from library.dataset.data_loader import GMDataset, get_dataloader
+from library.loss_func import *
+from library.evaluation_metric import matching_accuracy
+from library.parallel import DataParallel
+from library.utils.model_sl import load_model, save_model
 from eval_multi import eval_model
-from lib.hungarian import hungarian
+from library.hungarian import hungarian
 
-from lib.utils.config import cfg
+from library.utils.config import cfg
 
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -229,9 +229,9 @@ def train_eval_model(model,
 
 
 if __name__ == '__main__':
-    from lib.utils.dup_stdout_manager import DupStdoutFileManager
-    from lib.utils.parse_args import parse_args
-    from lib.utils.print_easydict import print_easydict
+    from library.utils.dup_stdout_manager import DupStdoutFileManager
+    from library.utils.parse_args import parse_args
+    from library.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching training & evaluation code.')
 
