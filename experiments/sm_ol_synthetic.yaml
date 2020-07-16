@@ -5,7 +5,7 @@ DATASET_NAME: synthetic
 
 DATASET_FULL_NAME: SyntheticDataset
 
-MODULE: GMN.model
+MODULE: models.GMN.model
 
 BATCH_SIZE: 8
 

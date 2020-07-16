@@ -3,14 +3,13 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from GMN.bi_stochastic import BiStochastic
-from utils.hungarian import hungarian
-from data.data_loader import QAPDataset, get_dataloader
-from utils.evaluation_metric import matching_accuracy, objective_score
-from parallel import DataParallel
-from utils.model_sl import load_model
+from lib.hungarian import hungarian
+from lib.dataset.data_loader import QAPDataset, get_dataloader
+from lib.evaluation_metric import objective_score
+from lib.parallel import DataParallel
+from lib.utils.model_sl import load_model
 
-from utils.config import cfg
+from lib.utils.config import cfg
 
 
 def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
@@ -154,9 +153,9 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
 
 if __name__ == '__main__':
-    from utils.dup_stdout_manager import DupStdoutFileManager
-    from utils.parse_args import parse_args
-    from utils.print_easydict import print_easydict
+    from lib.utils.dup_stdout_manager import DupStdoutFileManager
+    from lib.utils.parse_args import parse_args
+    from lib.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching evaluation code.')
 

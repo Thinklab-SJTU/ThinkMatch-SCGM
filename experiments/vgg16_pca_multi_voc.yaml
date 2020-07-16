@@ -5,7 +5,7 @@ DATASET_NAME: voc
 
 DATASET_FULL_NAME: PascalVOC
 
-MODULE: PCA.rnnmodel
+MODULE: models.PCA.rnnmodel
 
 BACKBONE: VGG16_bn
 

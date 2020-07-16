@@ -1,25 +1,19 @@
-import torch
-import torch.nn as nn
 import torch.optim as optim
 import time
 from datetime import datetime
 from pathlib import Path
 from tensorboardX import SummaryWriter
-import scipy.sparse as ssp
 
-from data.data_loader import GMDataset, get_dataloader
-from GMN.displacement_layer import Displacement
-from GMN.bi_stochastic import BiStochastic
-from GMN.robust_loss import RobustLoss
-from GMN.permutation_loss import CrossEntropyLoss
-from GMN.focal_loss import FocalLoss
-from utils.evaluation_metric import pck as eval_pck, matching_accuracy
-from parallel import DataParallel
-from utils.model_sl import load_model, save_model
+from lib.dataset.data_loader import GMDataset, get_dataloader
+from models.GMN.displacement_layer import Displacement
+from lib.loss_func import *
+from lib.evaluation_metric import matching_accuracy
+from lib.parallel import DataParallel
+from lib.utils.model_sl import load_model, save_model
 from eval import eval_model
-from utils.hungarian import hungarian
+from lib.hungarian import hungarian
 
-from utils.config import cfg
+from lib.utils.config import cfg
 
 
 def train_eval_model(model,
@@ -117,7 +111,7 @@ def train_eval_model(model,
                 if cfg.TRAIN.LOSS_FUNC == 'offset':
                     d_gt, grad_mask = displacement(perm_mat, P1_gt, P2_gt, n1_gt)
                     loss = criterion(d_pred, d_gt, grad_mask)
-                elif cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'focal':
+                elif cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'focal' or cfg.TRAIN.LOSS_FUNC == 'hung':
                     loss = torch.zeros(1).cuda()
                     if type(s_pred) is list:
                         for _s_pred, weight in zip(s_pred, cfg.PCA.LOSS_WEIGHTS):
@@ -160,7 +154,7 @@ def train_eval_model(model,
                 tfboard_writer.add_scalars('loss', loss_dict, epoch * cfg.TRAIN.EPOCH_ITERS + iter_num)
                 #accdict = {'PCK@{:.2f}'.format(a): p for a, p in zip(alphas, pck)}
                 accdict = dict()
-                accdict['matching accuracy'] = acc
+                accdict['matching accuracy'] = torch.mean(acc)
                 tfboard_writer.add_scalars(
                     'training accuracy',
                     accdict,
@@ -217,9 +211,9 @@ def train_eval_model(model,
 
 
 if __name__ == '__main__':
-    from utils.dup_stdout_manager import DupStdoutFileManager
-    from utils.parse_args import parse_args
-    from utils.print_easydict import print_easydict
+    from lib.utils.dup_stdout_manager import DupStdoutFileManager
+    from lib.utils.parse_args import parse_args
+    from lib.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching training & evaluation code.')
 
@@ -252,6 +246,8 @@ if __name__ == '__main__':
         criterion = CrossEntropyLoss()
     elif cfg.TRAIN.LOSS_FUNC == 'focal':
         criterion = FocalLoss(alpha=.5, gamma=0.)
+    elif cfg.TRAIN.LOSS_FUNC == 'hung':
+        criterion = CrossEntropyLossHung()
     else:
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 

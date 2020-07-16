@@ -1,5 +1,3 @@
-import torch
-import torch.nn as nn
 import torch.optim as optim
 import time
 from datetime import datetime
@@ -7,19 +5,17 @@ from pathlib import Path
 from tensorboardX import SummaryWriter
 import itertools
 
-from data.data_loader import GMRefDataset, get_dataloader
-from GMN.displacement_layer import Displacement
-from GMN.bi_stochastic import BiStochastic
-from GMN.robust_loss import RobustLoss
-from GMN.permutation_loss import CrossEntropyLoss
-from utils.evaluation_metric import pck as eval_pck, matching_accuracy
-from parallel import DataParallel
-from utils.model_sl import load_model, save_model
+from lib.dataset.data_loader import GMRefDataset, get_dataloader
+from models.GMN.displacement_layer import Displacement
+from lib.loss_func import *
+from lib.evaluation_metric import matching_accuracy
+from lib.parallel import DataParallel
+from lib.utils.model_sl import load_model, save_model
 from eval_ref import eval_model
-from utils.hungarian import hungarian
-from NGM.refmodel import RefGraph
+from lib.hungarian import hungarian
+from models.NGM.refmodel import RefGraph
 
-from utils.config import cfg
+from lib.utils.config import cfg
 
 
 def train_eval_model(model,
@@ -220,9 +216,9 @@ def train_eval_model(model,
 
 
 if __name__ == '__main__':
-    from utils.dup_stdout_manager import DupStdoutFileManager
-    from utils.parse_args import parse_args
-    from utils.print_easydict import print_easydict
+    from lib.utils.dup_stdout_manager import DupStdoutFileManager
+    from lib.utils.parse_args import parse_args
+    from lib.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching training & evaluation code.')
 

@@ -3,15 +3,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from GMN.bi_stochastic import BiStochastic
-from utils.hungarian import hungarian
-from data.data_loader import GMRefDataset, get_dataloader
-from utils.evaluation_metric import pck, matching_accuracy
-from parallel import DataParallel
-from utils.model_sl import load_model
-from NGM.refmodel import RefGraph
+from lib.hungarian import hungarian
+from lib.dataset.data_loader import GMRefDataset, get_dataloader
+from lib.evaluation_metric import matching_accuracy
+from lib.parallel import DataParallel
+from lib.utils.model_sl import load_model
+from models.NGM.refmodel import RefGraph
 
-from utils.config import cfg
+from lib.utils.config import cfg
 
 
 def eval_model(model, refmodel, alphas, dataloader, eval_epoch=None, verbose=False):
@@ -123,9 +122,9 @@ def eval_model(model, refmodel, alphas, dataloader, eval_epoch=None, verbose=Fal
 
 
 if __name__ == '__main__':
-    from utils.dup_stdout_manager import DupStdoutFileManager
+    from lib.utils.dup_stdout_manager import DupStdoutFileManager
     from utils.parse_args import parse_args
-    from utils.print_easydict import print_easydict
+    from lib.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching evaluation code.')
 

@@ -5,7 +5,7 @@ DATASET_NAME: qaplib
 
 DATASET_FULL_NAME: QAPLIB
 
-MODULE: PCA.edgeconv_model
+MODULE: models.PCA.edgeconv_model
 
 BACKBONE: NoBackbone
 

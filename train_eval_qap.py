@@ -1,22 +1,18 @@
-import torch
-import torch.nn as nn
 import torch.optim as optim
 import time
 from datetime import datetime
 from pathlib import Path
 from tensorboardX import SummaryWriter
-import scipy.sparse as ssp
 
-from data.data_loader import QAPDataset, get_dataloader
-from GMN.bi_stochastic import BiStochastic
-from GMN.permutation_loss import CrossEntropyLoss, CrossEntropyLossHung
-from utils.evaluation_metric import pck as eval_pck, matching_accuracy, objective_score
-from parallel import DataParallel
-from utils.model_sl import load_model, save_model
+from lib.dataset.data_loader import QAPDataset, get_dataloader
+from lib.loss_func import *
+from lib.evaluation_metric import objective_score
+from lib.parallel import DataParallel
+from lib.utils.model_sl import load_model, save_model
 from eval_qap import eval_model
-from utils.hungarian import hungarian
+from lib.hungarian import hungarian
 
-from utils.config import cfg
+from lib.utils.config import cfg
 
 
 def train_eval_model(model,
@@ -211,9 +207,9 @@ def train_eval_model(model,
 
 
 if __name__ == '__main__':
-    from utils.dup_stdout_manager import DupStdoutFileManager
-    from utils.parse_args import parse_args
-    from utils.print_easydict import print_easydict
+    from lib.utils.dup_stdout_manager import DupStdoutFileManager
+    from lib.utils.parse_args import parse_args
+    from lib.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching training & evaluation code.')
 

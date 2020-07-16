@@ -12,6 +12,8 @@ else
     main_file="$4"
 fi
 
+#   ~/dl-of-gm_pytorch1.3_cu10.1.sif \
+
 nohup \
   singularity run \
   --nv \

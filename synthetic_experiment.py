@@ -1,16 +1,18 @@
 import os
 from datetime import datetime
-from utils.print_easydict import print_easydict_str
+from lib.utils.print_easydict import print_easydict_str
 from copy import deepcopy
 import xlwt
+import time
 
 repeat_times = 1
 
 #environments = 'CUDA_VISIBLE_DEVICES=3,4 CXX=/opt/rh/devtoolset-3/root/usr/bin/gcc'
-#environments = 'CUDA_VISIBLE_DEVICES=1 CUDA_HOME=/usr/local/cuda-10.0 LD_LIBRARY_PATH=/usr/local/cuda-10.0/lib64/:$LD_LIBRARY_PATH PATH=/usr/local/cuda-10.0/bin/:$PATH CXX=gcc'
-environments = 'CXX=g++'
-#python_path = '~/dl-of-gm/venv/bin/python'
-python_path = '/opt/conda/bin/python'
+environments = 'CUDA_VISIBLE_DEVICES=0 CUDA_HOME=/usr/local/cuda-10.1 LD_LIBRARY_PATH=/usr/local/cuda-10.1/lib64/:$LD_LIBRARY_PATH PATH=/usr/local/cuda-10.1/bin/:$PATH CXX=gcc'
+#environments = 'CXX=g++'
+python_path = '~/dl-of-gm/venv/bin/python'
+#python_path = '~/dl-of-gm/venv/torch/bin/python'
+#python_path = '/opt/conda/bin/python'
 #cfg_file = 'experiments/nhgm_synthetic.yaml'
 cfg_file = 'experiments/sm_pl_synthetic.yaml'
 #script = 'train_eval.py'
@@ -33,7 +35,7 @@ ori_cfg_dict_cvpr20 = {
             'POS_AFFINE_S_LOW': .9,  # s ~ uniform(S_LOW, S_HIGH)
             'POS_AFFINE_S_HIGH': 1.1,
             'POS_AFFINE_DTHETA': 0.,  # theta ~ uniform(-X, X)
-            'POS_NOISE_STD': 0.02
+            'POS_NOISE_STD': 0.00
          },
     'PAIR':
         {
@@ -85,7 +87,7 @@ ori_cfg_dict_iccv19 = {
          }
 }
 
-ori_cfg_dict = ori_cfg_dict_cvpr20
+ori_cfg_dict = ori_cfg_dict_iccv19
 
 def edit_cfg(cfg_name: str, edit_pairs: dict, suffix=''):
     """
@@ -136,12 +138,51 @@ def test_once(cfg_dict, init_t=0):
 
 wb = xlwt.Workbook()
 
-method_list = ['sm', 'rrwm', 'ngm', 'nhgm', 'nmgm_eval', 'nmgm',
+method_list = ['rrwhm', 'cache', 'sm', 'rrwm', 'ngm', 'nhgm', 'nmgm_eval', 'nmgm',
                'ngm_vanilla']
-cfg_list = ['experiments/sm_pl_synthetic.yaml', 'experiments/rrwm_pl_synthetic.yaml', 'experiments/ngm_synthetic.yaml', 'experiments/nhgm_synthetic.yaml', 'experiments/nmgm_synthetic.yaml', 'experiments/nmgm_synthetic.yaml',
+cfg_list = ['experiments/nhgm_synthetic.yaml', 'experiments/sm_ol_synthetic.yaml', 'experiments/sm_pl_synthetic.yaml', 'experiments/rrwm_pl_synthetic.yaml', 'experiments/ngm_synthetic.yaml', 'experiments/nhgm_synthetic.yaml', 'experiments/nmgm_synthetic.yaml', 'experiments/nmgm_synthetic.yaml',
             'experiments/ngm_vanilla_synthetic.yaml']
-script_list = ['eval.py --epoch 0', 'eval.py --epoch 0', 'train_eval.py', 'train_eval.py', 'eval_multi.py --epoch 10', 'train_eval_multi.py',
+script_list = ['eval.py --epoch 0', 'cache_m.py --epoch 0', 'eval.py --epoch 0', 'eval.py --epoch 0', 'train_eval.py', 'train_eval.py', 'eval_multi.py --epoch 10', 'train_eval_multi.py',
                'train_eval.py']
+'''
+print('FEAT_NOISE_STD', flush=True)
+noise_list = [x / 10 for x in range(10, 26, 1)]
+for idx, noise in enumerate(noise_list):
+    for jdx, (method, cfg_file, script) in enumerate(zip(method_list, cfg_list, script_list)):
+        if method != 'cache':
+            continue
+        cfg_dict = deepcopy(ori_cfg_dict)
+        cfg_dict['SYNTHETIC']['FEAT_NOISE_STD'] = noise
+        mean_acc, mean_obj = test_once(cfg_dict)
+        print('{} exp {}/{} on noise_std={}, mean acc = {:.4f}, mean obj = {:.4f}\n'.format(method, idx, len(noise_list), noise, mean_acc, mean_obj), flush=True)
+exit(0)
+
+print('-' * 10)
+print('POS_AFFINE_SCALE', flush=True)
+ws_acc = wb.add_sheet('POS_AFFINE_SCALE_acc')
+ws_obj = wb.add_sheet('POS_AFFINE_SCALE_obj')
+for idx, method in enumerate(method_list):
+    ws_acc.write(idx+1, 0, method)
+    ws_obj.write(idx+1, 0, method)
+scale_list = [x / 100 for x in range(0, 51, 5)]
+for idx, scale in enumerate(scale_list):
+    ws_acc.write(0, idx+1, scale)
+    ws_obj.write(0, idx+1, scale)
+    for jdx, (method, cfg_file, script) in enumerate(zip(method_list, cfg_list, script_list)):
+        if method != 'rrwhm':
+            continue
+        cfg_dict = deepcopy(ori_cfg_dict)
+        cfg_dict['SYNTHETIC']['POS_AFFINE_S_LOW'] = 1 - scale
+        cfg_dict['SYNTHETIC']['POS_AFFINE_S_HIGH'] = 1 + scale
+        mean_acc, mean_obj = test_once(cfg_dict)
+        ws_acc.write(jdx+1, idx+1, mean_acc)
+        ws_obj.write(jdx+1, idx+1, mean_obj)
+        print('{} exp {}/{} on scale={}, mean acc = {:.4f}, mean obj = {:.4f}\n'.format(method, idx, len(scale_list), scale, mean_acc, mean_obj), flush=True)
+        wb.save('syn_exp_scale.xls')
+
+wb.save('syn_exp_scale.xls')
+#exit(0)
+
 
 print('-' * 10)
 print('POS_NOISE_STD', flush=True)
@@ -151,13 +192,11 @@ for idx, method in enumerate(method_list):
     ws_acc.write(idx+1, 0, method)
     ws_obj.write(idx+1, 0, method)
 noise_list = [x / 100 for x in range(0, 11, 1)]
-#noise_list = [x / 10 for x in range(22, 23, 1)]
 for idx, noise in enumerate(noise_list):
     ws_acc.write(0, idx+1, noise)
     ws_obj.write(0, idx+1, noise)
     for jdx, (method, cfg_file, script) in enumerate(zip(method_list, cfg_list, script_list)):
-        #if method != 'sm' and method != 'rrwm' and method != 'nhgm':
-        if method != 'sm':
+        if method != 'rrwhm':
             continue
         cfg_dict = deepcopy(ori_cfg_dict)
         cfg_dict['SYNTHETIC']['POS_NOISE_STD'] = noise
@@ -165,45 +204,53 @@ for idx, noise in enumerate(noise_list):
         ws_acc.write(jdx+1, idx+1, mean_acc)
         ws_obj.write(jdx+1, idx+1, mean_obj)
         print('{} exp {}/{} on noise_std={}, mean acc = {:.4f}, mean obj = {:.4f}\n'.format(method, idx, len(noise_list), noise, mean_acc, mean_obj), flush=True)
-        wb.save('syn_exp_rrwm11.xls')
+        wb.save('syn_exp_ngm0911.xls')
 
-wb.save('syn_exp_rrwm11.xls')
-exit(0)
-
-print('-' * 10)
-print('KPT_NUM', flush=True)
-kpt_list = list(range(4, 14, 1))
-#kpt_list = list(range(15, 55, 5))
-for idx, kpt_num in enumerate(kpt_list):
-    cfg_dict = deepcopy(ori_cfg_dict)
-    cfg_dict['SYNTHETIC']['KPT_NUM'] = kpt_num
-    mean_acc = test_once(cfg_dict)
-    print('exp {}/{} on kpt_num={}, mean acc = {:.4f}\n'.format(idx, len(kpt_list), kpt_num, mean_acc), flush=True)
-
+wb.save('syn_exp_ngm0911.xls')
+#exit(0)
+'''
 
 print('-' * 10)
 print('OUT_NUM', flush=True)
 ws_acc = wb.add_sheet('OUT_NUM_acc')
 ws_obj = wb.add_sheet('OUT_NUM_obj')
+ws_time = wb.add_sheet('OUT_NUM_time')
 for idx, method in enumerate(method_list):
     ws_acc.write(idx+1, 0, method)
     ws_obj.write(idx+1, 0, method)
-out_list = list(range(0, 20, 2))
+    ws_time.write(idx+1, 0, method)
+out_list = list(range(0, 55, 5))
 for idx, out_num in enumerate(out_list):
     ws_acc.write(0, idx + 1, out_num)
     ws_obj.write(0, idx + 1, out_num)
+    ws_time.write(0, idx + 1, out_num)
     for jdx, (method, cfg_file, script) in enumerate(zip(method_list, cfg_list, script_list)):
-        if method != 'nmgm':
+        if method != 'cache':
             continue
         cfg_dict = deepcopy(ori_cfg_dict)
         cfg_dict['SYNTHETIC']['OUT_NUM'] = out_num
+        since = time.time()
         mean_acc, mean_obj = test_once(cfg_dict)
         ws_acc.write(jdx + 1, idx + 1, mean_acc)
         ws_obj.write(jdx + 1, idx + 1, mean_obj)
+        ws_time.write(jdx + 1, idx + 1, (time.time() - since) / (100 * 10))
         print('{} exp {}/{} on out_num={}, mean acc = {:.4f}, mean obj = {:.4f}\n'.format(method, idx, len(out_list), out_num, mean_acc, mean_obj), flush=True)
-        wb.save('syn_exp_out_0911.xls')
+        wb.save('syn_exp_out_rrwhm.xls')
+exit(0)
+#wb.save('syn_exp_out_rrwhm.xls')
 
-wb.save('syn_exp_out_0911_nmgm.xls')
+print('-' * 10)
+print('KPT_NUM', flush=True)
+#kpt_list = list(range(4, 14, 1))
+kpt_list = list(range(5, 55, 5))
+for idx, kpt_num in enumerate(kpt_list):
+    for jdx, (method, cfg_file, script) in enumerate(zip(method_list, cfg_list, script_list)):
+        if method != 'cache':
+            continue
+        cfg_dict = deepcopy(ori_cfg_dict)
+        cfg_dict['SYNTHETIC']['KPT_NUM'] = kpt_num
+        mean_acc, mean_obj = test_once(cfg_dict)
+        print('{} exp {}/{} on kpt_num={}, mean acc = {:.4f}\n'.format(method, idx, len(kpt_list), kpt_num, mean_acc), flush=True)
 exit(0)
 
 print('-' * 10)

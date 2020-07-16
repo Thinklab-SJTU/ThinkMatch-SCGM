@@ -5,7 +5,7 @@ DATASET_NAME: synthetic
 
 DATASET_FULL_NAME: MixedSyntheticDataset
 
-MODULE: NGM.mgmmodel
+MODULE: models.NGM.mgmmodel
 
 BACKBONE: NoBackbone
 

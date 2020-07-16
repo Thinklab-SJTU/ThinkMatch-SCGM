@@ -1,16 +1,14 @@
-import torch
 import time
 from datetime import datetime
 from pathlib import Path
 
-from GMN.bi_stochastic import BiStochastic
-from utils.hungarian import hungarian
-from data.data_loader import GMDataset, get_dataloader
-from utils.evaluation_metric import pck, matching_accuracy, objective_score
-from parallel import DataParallel
-from utils.model_sl import load_model
+from lib.hungarian import hungarian
+from lib.dataset.data_loader import GMDataset, get_dataloader
+from lib.evaluation_metric import *
+from lib.parallel import DataParallel
+from lib.utils.model_sl import load_model
 
-from utils.config import cfg
+from lib.utils.config import cfg
 
 
 def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
@@ -35,7 +33,9 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
     lap_solver = hungarian
 
     pcks = torch.zeros(len(classes), len(alphas), device=device)
-    accs = torch.zeros(len(classes), device=device)
+    accs = []
+    precisions = []
+    f1s = []
     objs = torch.zeros(len(classes), device=device)
 
     for i, cls in enumerate(classes):
@@ -48,8 +48,9 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         ds.cls = cls
         pck_match_num = torch.zeros(len(alphas), device=device)
         pck_total_num = torch.zeros(len(alphas), device=device)
-        acc_match_num = torch.zeros(1, device=device)
-        acc_total_num = torch.zeros(1, device=device)
+        acc_list = []
+        precision_list = [] 
+        f1_list = []
         obj_total_num = torch.zeros(1, device=device)
         for inputs in dataloader:
             if 'images' in inputs:
@@ -93,14 +94,19 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
             #pck_match_num += _pck_match_num
             #pck_total_num += _pck_total_num
 
-            _, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_perm, perm_mat, n1_gt)
-            acc_match_num += _acc_match_num
-            acc_total_num += _acc_total_num
+            acc, _, __ = matching_accuracy(s_pred_perm, perm_mat, n1_gt)
+            acc_list.append(acc)
+            precision, _, __ = matching_precision(s_pred_perm, perm_mat, n1_gt)
+            precision_list.append(precision)
+            precision_list.append(precision)
+            f1 = 2 * (precision * acc) / (precision + acc)
+            f1[torch.isnan(f1)] = 0
+            f1_list.append(f1)
 
             if affmtx is not None:
                 obj_score = objective_score(s_pred_perm, affmtx, n1_gt)
                 objs[i] += torch.sum(obj_score)
-                obj_total_num += batch_num
+            obj_total_num += batch_num
 
             if iter_num % cfg.STATISTIC_STEP == 0 and verbose:
                 running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)
@@ -108,13 +114,15 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 running_since = time.time()
 
         pcks[i] = pck_match_num / pck_total_num
-        accs[i] = acc_match_num / acc_total_num
+        accs.append(torch.cat(acc_list))
+        precisions.append(torch.cat(precision_list))
+        f1s.append(torch.cat(f1_list))
         objs[i] = objs[i] / obj_total_num
         if verbose:
             print('Class {} PCK@{{'.format(cls) +
                   ', '.join(list(map('{:.2f}'.format, alphas.tolist()))) + '} = {' +
                   ', '.join(list(map('{:.4f}'.format, pcks[i].tolist()))) + '}')
-            print('Class {} acc = {:.4f}'.format(cls, accs[i]))
+            print('Class {} {}'.format(cls, format_accuracy_metric(precisions[i], accs[i], f1s[i])))
             print('Class {} obj score = {:.4f}'.format(cls, objs[i]))
 
     time_elapsed = time.time() - since
@@ -131,23 +139,23 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         print('average PCK = {:.4f}'.format(torch.mean(pcks[:, i])))
 
     print('Matching accuracy')
-    for cls, single_acc in zip(classes, accs):
-        print('{} = {:.4f}'.format(cls, single_acc))
-    print('average accuracy = {:.4f}'.format(torch.mean(accs)))
+    for cls, cls_p, cls_acc, cls_f1 in zip(classes, precisions, accs, f1s):
+        print('{}: {}'.format(cls, format_accuracy_metric(cls_p, cls_acc, cls_f1)))
+    print('average accuracy: {}'.format(format_accuracy_metric(torch.cat(precisions), torch.cat(accs), torch.cat(f1s))))
 
     if not torch.any(torch.isnan(objs)):
         print('Objective score')
-        for cls, single_obj in zip(classes, objs):
-            print('{} = {:.4f}'.format(cls, single_obj))
+        for cls, cls_obj in zip(classes, objs):
+            print('{} = {:.4f}'.format(cls, cls_obj))
         print('average objscore = {:.4f}'.format(torch.mean(objs)))
 
-    return accs
+    return torch.Tensor(list(map(torch.mean, accs)))
 
 
 if __name__ == '__main__':
-    from utils.dup_stdout_manager import DupStdoutFileManager
-    from utils.parse_args import parse_args
-    from utils.print_easydict import print_easydict
+    from lib.utils.dup_stdout_manager import DupStdoutFileManager
+    from lib.utils.parse_args import parse_args
+    from lib.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching evaluation code.')
 

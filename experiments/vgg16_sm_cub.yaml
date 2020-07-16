@@ -5,7 +5,7 @@ DATASET_NAME: cub
 
 DATASET_FULL_NAME: CUB2011
 
-MODULE: GMN.model
+MODULE: models.GMN.model
 
 BACKBONE: VGG16_bn
 
@@ -29,9 +29,11 @@ PAIR:
     - 16
   GT_GRAPH_CONSTRUCT: tri
   REF_GRAPH_CONSTRUCT: fc
+  REF_OUTLIER: True
+  GT_OUTLIER: True
 
 CUB2011:
-  CROSS_CATEGORY_MATCHING: False
+  CLASS_SPLIT: all
 
 # Training settings
 TRAIN:
@@ -54,12 +56,8 @@ TRAIN:
 
 # Evaluation settings and PCK metric
 EVAL:
-  PCK_ALPHAS:
-    - 0.05
-    - 0.10
-  PCK_L: 256. # 362.03867
   EPOCH: 30  # epoch to be tested
-  SAMPLES: 500  # number of tested pairs for each class
+  SAMPLES: 10  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:

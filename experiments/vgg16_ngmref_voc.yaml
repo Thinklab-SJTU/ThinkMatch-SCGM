@@ -5,7 +5,7 @@ DATASET_NAME: voc
 
 DATASET_FULL_NAME: PascalVOC
 
-MODULE: NGM.refmodel
+MODULE: models.NGM.refmodel
 
 BACKBONE: VGG16_bn
 

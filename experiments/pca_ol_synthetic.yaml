@@ -5,7 +5,7 @@ DATASET_NAME: synthetic
 
 DATASET_FULL_NAME: SyntheticDataset
 
-MODULE: PCA.model
+MODULE: models.PCA.model
 
 BATCH_SIZE: 8
 

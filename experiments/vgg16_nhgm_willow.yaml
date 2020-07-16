@@ -5,7 +5,7 @@ DATASET_NAME: willow
 
 DATASET_FULL_NAME: WillowObject
 
-MODULE: NGM.hypermodel
+MODULE: models.NGM.hypermodel
 
 BACKBONE: VGG16_bn
 

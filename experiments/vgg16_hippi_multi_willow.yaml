@@ -5,7 +5,7 @@ DATASET_NAME: willow
 
 DATASET_FULL_NAME: WillowObject
 
-MODULE: HiPPI.model
+MODULE: models.GA_MGMC.model
 
 BACKBONE: VGG16_bn
 
@@ -29,20 +29,23 @@ PAIR:
     - 16
     - 16
   GT_GRAPH_CONSTRUCT: tri #fc
-  REF_GRAPH_CONSTRUCT: same #fc
+  REF_GRAPH_CONSTRUCT: tri #fc
   SYM_ADJACENCY: True
   #MAX_PROB_SIZE: 225
   NUM_GRAPHS: 8
+  NUM_CLUSTERS: 1
+  TEST_ALL_GRAPHS: True
 
 # Willow dataset settings
 WILLOW:
   TRAIN_NUM: 0
+  TRAIN_SAME_AS_TEST: True
 
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 10
+  NUM_EPOCHS: 20
 
   LOSS_FUNC: perm
 
@@ -53,6 +56,7 @@ TRAIN:
   LR_STEP:  # (in epochs)
     #- 2
     #- 5
+    - 2
     - 10
 
   EPOCH_ITERS: 100  # iterations per epoch
@@ -62,7 +66,7 @@ TRAIN:
 # Evaluation settings and PCK metric
 EVAL:
   EPOCH: 0  # epoch to be tested
-  SAMPLES: 20  # number of tested pairs for each class
+  SAMPLES: 50 # 20 # number of tests for each class
 
 # Visualization settings
 VISUAL:
@@ -73,14 +77,19 @@ VISUAL:
   NUM_IMGS: 100  # number of images to be visualized
 
 # model parameters
-IGMGM:
+GAMGM:
   FEATURE_CHANNEL: 1024
   SK_ITER_NUM: 20
   SK_TAU: 0.05
   SK_EPSILON: 1.0e-10
-  UNIV_FACTOR: 1.
-  MAX_ITER: 1000 #200
-  INIT_TAU: 0.5
-  BETA: 0.5
-  CONVERGE_TOL: 1.0e-5
-  MIN_TAU: 1.0e-2
+  UNIV_SIZE: 10
+  MAX_ITER:
+    - 500
+  INIT_TAU:
+    - 0.1
+  GAMMA: 0.8
+  CONVERGE_TOL: 1.0e-3
+  MIN_TAU:
+    - 1.0e-2
+  SCALE_FACTOR: 1.
+  QUAD_WEIGHT: 1.

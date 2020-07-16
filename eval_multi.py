@@ -2,16 +2,17 @@ import torch
 import time
 from datetime import datetime
 from pathlib import Path
-import itertools
 
-from GMN.bi_stochastic import BiStochastic
-from utils.hungarian import hungarian
-from data.data_loader import GMDataset, get_dataloader
-from utils.evaluation_metric import pck, matching_accuracy
-from parallel import DataParallel
-from utils.model_sl import load_model
+from lib.hungarian import hungarian
+from lib.dataset.data_loader import GMDataset, get_dataloader
+from lib.evaluation_metric import matching_accuracy, matching_precision
+from lib.parallel import DataParallel
+from lib.utils.model_sl import load_model
 
-from utils.config import cfg
+from lib.utils.config import cfg
+
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 
 def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
@@ -37,6 +38,11 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
     pcks = torch.zeros(len(classes), len(alphas), device=device)
     accs = torch.zeros(len(classes), device=device)
+    precisions = torch.zeros(len(classes), device=device)
+    f1s = torch.zeros(len(classes), device=device)
+    accs_mgm = torch.zeros(len(classes), device=device)
+    precisions_mgm = torch.zeros(len(classes), device=device)
+    f1s_mgm = torch.zeros(len(classes), device=device)
 
     for i, cls in enumerate(classes):
         if verbose:
@@ -48,8 +54,19 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         ds.cls = cls
         pck_match_num = torch.zeros(len(alphas), device=device)
         pck_total_num = torch.zeros(len(alphas), device=device)
-        acc_match_num = torch.zeros(1, device=device)
-        acc_total_num = torch.zeros(1, device=device)
+        cum_acc = torch.zeros(1, device=device)
+        cum_acc_num = torch.zeros(1, device=device)
+        cum_precision = torch.zeros(1, device=device)
+        cum_precision_num = torch.zeros(1, device=device)
+        cum_f1 = torch.zeros(1, device=device)
+        cum_f1_num = torch.zeros(1, device=device)
+        cum_acc_mgm = torch.zeros(1, device=device)
+        cum_acc_mgm_num = torch.zeros(1, device=device)
+        cum_precision_mgm = torch.zeros(1, device=device)
+        cum_precision_mgm_num = torch.zeros(1, device=device)
+        cum_f1_mgm = torch.zeros(1, device=device)
+        cum_f1_mgm_num = torch.zeros(1, device=device)
+
         for inputs in dataloader:
             if 'images' in inputs:
                 data = [_.cuda() for _ in inputs['images']]
@@ -79,15 +96,42 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 thres[b] = alphas * cfg.EVAL.PCK_L
 
             with torch.set_grad_enabled(False):
-                pred = model(data, Ps_gt, Gs_gt, Hs_gt, Gs_ref, Hs_ref, KGs, KHs, ns_gt, iter_times=2, type=inp_type)
-                s_pred_list, indices = pred
+                pred = model(
+                    data, Ps_gt, Gs_gt, Hs_gt, Gs_ref=Gs_ref, Hs_ref=Hs_ref, KGs=KGs, KHs=KHs,
+                    ns=ns_gt,
+                    iter_times=2,
+                    type=inp_type,
+                    num_clusters=1,
+                    pretrain_backbone=False)
+                if len(pred) == 2:
+                    s_pred_list, indices = pred
+                else:
+                    s_pred_list, indices, s_pred_list_mgm = pred
 
             for s_pred, (gt_idx_src, gt_idx_tgt) in zip(s_pred_list, indices):
                 pred_perm_mat = lap_solver(s_pred, ns_gt[gt_idx_src], ns_gt[gt_idx_tgt])
                 gt_perm_mat = torch.bmm(perm_mats[gt_idx_src], perm_mats[gt_idx_tgt].transpose(1, 2))
-                _, _acc_match_num, _acc_total_num = matching_accuracy(pred_perm_mat, gt_perm_mat, ns_gt[gt_idx_src])
-                acc_match_num += _acc_match_num
-                acc_total_num += _acc_total_num
+                acc, _, __ = matching_accuracy(pred_perm_mat, gt_perm_mat, ns_gt[gt_idx_src])
+                cum_acc += acc * batch_num
+                cum_acc_num += batch_num
+                precision, _, __ = matching_precision(pred_perm_mat, gt_perm_mat, ns_gt[gt_idx_src])
+                cum_precision += precision * batch_num
+                cum_precision_num += batch_num
+                #cum_f1 += 2 * (precision * acc) / (precision + acc)
+                #cum_f1_num += batch_num
+
+            for s_pred, (gt_idx_src, gt_idx_tgt) in zip(s_pred_list_mgm, indices):
+                pred_perm_mat = lap_solver(s_pred, ns_gt[gt_idx_src], ns_gt[gt_idx_tgt])
+                gt_perm_mat = torch.bmm(perm_mats[gt_idx_src], perm_mats[gt_idx_tgt].transpose(1, 2))
+                acc_mgm, _, __ = matching_accuracy(pred_perm_mat, gt_perm_mat, ns_gt[gt_idx_src])
+                cum_acc_mgm += acc_mgm * batch_num
+                cum_acc_mgm_num += batch_num
+                precision_mgm, _, __ = matching_precision(pred_perm_mat, gt_perm_mat, ns_gt[gt_idx_src])
+                cum_precision_mgm += precision_mgm * batch_num
+                cum_precision_mgm_num += batch_num
+                #cum_f1_mgm += 2 * (precision_mgm * acc_mgm) / (precision_mgm + acc_mgm)
+                #cum_f1_mgm_num += batch_num
+
 
             if iter_num % cfg.STATISTIC_STEP == 0 and verbose:
                 running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)
@@ -95,12 +139,21 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 running_since = time.time()
 
         pcks[i] = pck_match_num / pck_total_num
-        accs[i] = acc_match_num / acc_total_num
+        accs[i] = cum_acc / cum_acc_num
+        precisions[i] = cum_precision / cum_precision_num
+        f1s[i] = 2 * (precisions[i] * accs[i]) / (precisions[i] + accs[i])
+        accs_mgm[i] = cum_acc_mgm / cum_acc_mgm_num
+        precisions_mgm[i] = cum_precision_mgm / cum_precision_mgm_num
+        f1s_mgm[i] = 2 * (precisions_mgm[i] * accs_mgm[i]) / (precisions_mgm[i] + accs_mgm[i])
+
         if verbose:
             print('Class {} PCK@{{'.format(cls) +
                   ', '.join(list(map('{:.2f}'.format, alphas.tolist()))) + '} = {' +
                   ', '.join(list(map('{:.4f}'.format, pcks[i].tolist()))) + '}')
-            print('Class {} acc = {:.4f}'.format(cls, accs[i]))
+            print('Class {} acc = {:.4f} precision = {:.4f} f1 = {:.4f}'\
+                  .format(cls, accs[i], precisions[i], f1s[i]))
+            print('Class {} mgmacc = {:.4f} mgm precision = {:.4f} mgm f1 = {:.4f}'\
+                  .format(cls, accs_mgm[i], precisions_mgm[i], f1s_mgm[i]))
 
     time_elapsed = time.time() - since
     print('Evaluation complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
@@ -116,17 +169,22 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         print('average PCK = {:.4f}'.format(torch.mean(pcks[:, i])))
 
     print('Matching accuracy')
-    for cls, single_acc in zip(classes, accs):
-        print('{} = {:.4f}'.format(cls, single_acc))
-    print('average accuracy = {:.4f}'.format(torch.mean(accs)))
+    for cls, single_acc, single_p, single_f1 in zip(classes, accs, precisions, f1s):
+        print('{} = p{:.4f},r{:.4f},f1{:.4f}'.format(cls, single_p, single_acc, single_f1))
+    print('average accuracy = p{:.4f},r{:.4f},f1{:.4f}'.format(torch.mean(precisions), torch.mean(accs), torch.mean(f1s)))
+
+    print('MGM Matching accuracy')
+    for cls, single_acc, single_p, single_f1 in zip(classes, accs_mgm, precisions_mgm, f1s_mgm):
+        print('{} = p{:.4f},r{:.4f},f1{:.4f}'.format(cls, single_p, single_acc, single_f1))
+    print('average accuracy = p{:.4f},r{:.4f},f1{:.4f}'.format(torch.mean(precisions_mgm), torch.mean(accs_mgm), torch.mean(f1s_mgm)))
 
     return accs
 
 
 if __name__ == '__main__':
-    from utils.dup_stdout_manager import DupStdoutFileManager
-    from utils.parse_args import parse_args
-    from utils.print_easydict import print_easydict
+    from lib.utils.dup_stdout_manager import DupStdoutFileManager
+    from lib.utils.parse_args import parse_args
+    from lib.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching evaluation code.')
 
@@ -140,7 +198,7 @@ if __name__ == '__main__':
                               sets='test',
                               length=cfg.EVAL.SAMPLES,
                               pad=cfg.PAIR.PADDING,
-                              pair=False,
+                              problem='multi',#_cluster',
                               obj_resize=cfg.PAIR.RESCALE)
     dataloader = get_dataloader(image_dataset)
 

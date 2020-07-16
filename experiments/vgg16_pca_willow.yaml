@@ -5,7 +5,7 @@ DATASET_NAME: willow
 
 DATASET_FULL_NAME: WillowObject
 
-MODULE: PCA.model
+MODULE: models.PCA.model
 
 BACKBONE: VGG16_bn
 
@@ -16,7 +16,6 @@ RANDOM_SEED: 123
 # available GPU ids
 GPUS:
   - 0
-  - 1
 
 # Pairwise data configuration
 PAIR:
@@ -37,16 +36,17 @@ WILLOW:
 # Training settings
 TRAIN:
   # start, end epochs
-  START_EPOCH: 10
+  START_EPOCH: 0
   NUM_EPOCHS: 30
 
   # learning rate
-  LR: 1.0e-4
+  LR: 1.0e-2
   MOMENTUM: 0.9
   LR_DECAY: 0.1
-  LR_STEP: 10  # (in epochs)
+  LR_STEP:
+    - 10  # (in epochs)
 
-  EPOCH_ITERS: 1000  # iterations per epoch
+  EPOCH_ITERS: 200  # iterations per epoch
 
 # Evaluation settings and PCK metric
 EVAL:
@@ -71,6 +71,6 @@ PCA:
   FEATURE_CHANNEL: 512
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 200. #2.0e+2 #2.0e+6
+  VOTING_ALPHA: 20. #2.0e+2 #2.0e+6
   GNN_FEAT: 2048
   GNN_LAYER: 2

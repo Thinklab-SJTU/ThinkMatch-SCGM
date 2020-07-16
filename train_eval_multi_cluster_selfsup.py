@@ -4,18 +4,18 @@ from datetime import datetime
 from pathlib import Path
 from tensorboardX import SummaryWriter
 
-from lib.dataset.data_loader import GMDataset, get_dataloader
+from lib.dataset.data_loader import MGMCDataset, get_dataloader
 from lib.loss_func import *
 from lib.evaluation_metric import matching_accuracy
 from lib.parallel import DataParallel
 from lib.utils.model_sl import load_model, save_model
-from eval_multi import eval_model
+from eval_multi_cluster import eval_model
 from lib.hungarian import hungarian
 
 from lib.utils.config import cfg
 
-import torch.multiprocessing
-torch.multiprocessing.set_sharing_strategy('file_system')
+#import torch.multiprocessing
+#torch.multiprocessing.set_sharing_strategy('file_system')
 
 
 def train_eval_model(model,
@@ -100,48 +100,32 @@ def train_eval_model(model,
                 with torch.autograd.set_detect_anomaly(det_anomaly):
                     # forward
                     pred = model(
-                        data, Ps_gt, Gs_gt, Hs_gt, Gs_ref=Gs_ref, Hs_ref=Hs_ref, KGs=KGs, KHs=KHs,
+                        data,
+                        Ps_gt, Gs_gt, Hs_gt,
+                        Gs_ref=Gs_ref, Hs_ref=Hs_ref,
+                        KGs=KGs, KHs=KHs,
                         ns=ns_gt,
+                        gt_cls=None,
                         iter_times=2,
                         type=inp_type,
-                        num_clusters=1,
-                        pretrain_backbone=False)
+                        pretrain_backbone=False,
+                        num_clusters=cfg.PAIR.NUM_CLUSTERS,
+                        return_cluster=True
+                    )
                     if len(pred) == 2:
                         s_pred_list, indices = pred
                     else:
-                        s_pred_list, indices, t_pred = pred
+                        s_pred_list, indices, s_pred_list_mgm, cluster_v = pred
 
-                    if cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'focal':
-                        '''
-                        t_gt = torch.ones_like(t_pred)
-                        for idx, pmat in enumerate(perm_mats):
-                            if idx == 0:
-                                continue
-                            view_shape = [t_gt.shape[0]] + [1] * (len(t_gt.shape) - 1)
-                            view_shape[idx+1] = t_gt.shape[idx+1]
-                            view_shape[1] = t_gt.shape[1]
-                            t_gt = torch.mul(t_gt, pmat.transpose(1,2).reshape(view_shape))
-                        loss = criterion(t_pred, t_gt, *ns_gt)
-                        '''
-
-                        loss = torch.zeros(1).cuda()
+                    if cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'focal' or cfg.TRAIN.LOSS_FUNC == 'hung' or cfg.TRAIN.LOSS_FUNC == 'innp':
+                        loss = torch.zeros(1).to(device)
                         assert type(s_pred_list) is list
-                        for s_pred, (gt_idx_src, gt_idx_tgt) in zip(s_pred_list, indices):
-                            gt_perm_mat = torch.bmm(perm_mats[gt_idx_src], perm_mats[gt_idx_tgt].transpose(1, 2))
-                            l = criterion(s_pred, gt_perm_mat, ns_gt[gt_idx_src], ns_gt[gt_idx_tgt])
-                            loss += l
-                        loss /= len(s_pred_list)
-                        '''
-                        loss = torch.zeros(1).cuda()
-                        assert type(s_pred_list) is list
-                        assert type(t_pred) is list
-                        for s_pred, sd_pred, (gt_idx_src, gt_idx_tgt) in zip(s_pred_list, t_pred, indices):
+                        assert type(s_pred_list_mgm) is list
+                        for s_pred, sd_pred, (gt_idx_src, gt_idx_tgt) in zip(s_pred_list, s_pred_list_mgm, indices):
                             l = criterion(s_pred, sd_pred, ns_gt[gt_idx_src], ns_gt[gt_idx_tgt])
                             loss += l
                         loss /= len(s_pred_list)
-                        '''
-                    elif cfg.TRAIN.LOSS_FUNC == 'fnorm':
-                        loss = criterion(t_pred)
+
                     else:
                         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
@@ -243,15 +227,22 @@ if __name__ == '__main__':
 
     dataset_len = {'train': cfg.TRAIN.EPOCH_ITERS * cfg.BATCH_SIZE, 'test': cfg.EVAL.SAMPLES}
     image_dataset = {
-        x: GMDataset(cfg.DATASET_FULL_NAME,
-                     #sets=x, #todo
-                     sets='test',
-                     length=dataset_len[x],
-                     pad=cfg.PAIR.PADDING,
-                     cls=cfg.TRAIN.CLASS if x == 'train' else None,
-                     problem='multi',
-                     obj_resize=cfg.PAIR.RESCALE)
+        x: MGMCDataset(cfg.DATASET_FULL_NAME,
+                       sets=x,
+                       length=dataset_len[x],
+                       pad=cfg.PAIR.PADDING,
+                       cls=cfg.TRAIN.CLASS if x == 'train' else None,
+                       problem='multi_cluster',
+                       obj_resize=cfg.PAIR.RESCALE)
         for x in ('train', 'test')}
+    #for x in ('train', 'test'):
+        #image_dataset[x].classes = [['Car', 'Duck', 'Motorbike']]
+        #image_dataset[x].classes = [['051.Horned_Grebe', '113.Baird_Sparrow', '143.Caspian_Tern']]
+        #image_dataset[x].classes = [['Grebe', 'Sparrow', 'Tern']]
+
+    cls_len = len(image_dataset['test'].classes)
+    if cls_len > 200:
+        image_dataset['test'].classes = image_dataset['test'].classes[::(cls_len//200)]
     dataloader = {x: get_dataloader(image_dataset[x], fix_seed=(x == 'test'))
         for x in ('train', 'test')}
 
@@ -268,8 +259,8 @@ if __name__ == '__main__':
         criterion = CrossEntropyLossHung()
     elif cfg.TRAIN.LOSS_FUNC == 'focal':
         criterion = FocalLoss(alpha=.5, gamma=0.)
-    elif cfg.TRAIN.LOSS_FUNC == 'fnorm':
-        criterion = lambda t: -torch.norm(t)**2 / t.shape[0]
+    elif cfg.TRAIN.LOSS_FUNC == 'innp':
+        criterion = InnerProductLoss()
     else:
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
