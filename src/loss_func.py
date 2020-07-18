@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from library.hungarian import hungarian
+from src.lap_solvers.hungarian import hungarian
 
 
 class CrossEntropyLoss(nn.Module):

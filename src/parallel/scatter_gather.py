@@ -1,6 +1,6 @@
 import torch
 import torch.nn.parallel.scatter_gather as torch_
-from library.sparse_torch import CSRMatrix3d, CSCMatrix3d, concatenate
+from src.sparse_torch import CSRMatrix3d, CSCMatrix3d, concatenate
 
 
 def scatter(inputs, target_gpus, dim=0):

@@ -1,23 +1,23 @@
 import torch
 import torch.nn as nn
 
-from library.bi_stochastic import BiStochastic, GumbelSinkhorn
+from src.lap_solvers.sinkhorn import Sinkhorn, GumbelSinkhorn
 from models.GMN.voting_layer import Voting
 from models.GMN.displacement_layer import Displacement
-from library.build_graphs import reshape_edge_feature
-from library.feature_align import feature_align
-from library.factorize_graph_matching import construct_m
+from src.build_graphs import reshape_edge_feature
+from src.feature_align import feature_align
+from src.factorize_graph_matching import construct_m
 from models.NGM.gnn import GNNLayer
 from models.NGM.geo_edge_feature import geo_edge_feature
 from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
-from library.hungarian import hungarian
+from src.lap_solvers.hungarian import hungarian
 import math
 from itertools import combinations
 
 
-from library.utils.config import cfg
+from src.utils.config import cfg
 
-CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
+CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
 
 
 class Net(CNN):
@@ -30,7 +30,7 @@ class Net(CNN):
         else:
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
         self.tau = 1 / cfg.NGM.VOTING_ALPHA #nn.Parameter(torch.Tensor([1 / cfg.NGM.VOTING_ALPHA]))
-        self.bi_stochastic = BiStochastic(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
+        self.bi_stochastic = Sinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
         self.bi_stochastic_g = GumbelSinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
         self.voting_layer = Voting(alpha=cfg.NGM.VOTING_ALPHA)
         self.displacement_layer = Displacement()

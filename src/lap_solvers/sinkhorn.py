@@ -2,16 +2,16 @@ import torch
 import torch.nn as nn
 
 
-class BiStochastic(nn.Module):
+class Sinkhorn(nn.Module):
     """
-    BiStochastic Layer turns the input matrix into a bi-stochastic matrix.
+    Sinkhorn algorithm turns the input matrix into a bi-stochastic matrix.
     Parameter: maximum iterations max_iter
                a small number for numerical stability epsilon
     Input: input matrix s
     Output: bi-stochastic matrix s
     """
     def __init__(self, max_iter=10, tau=1., epsilon=1e-4, log_forward=True, batched_operation=False):
-        super(BiStochastic, self).__init__()
+        super(Sinkhorn, self).__init__()
         self.max_iter = max_iter
         self.tau = tau
         self.epsilon = epsilon
@@ -199,7 +199,7 @@ class GumbelSinkhorn(nn.Module):
     """
     def __init__(self, max_iter=10, tau=1., epsilon=1e-4):
         super(GumbelSinkhorn, self).__init__()
-        self.sinkhorn = BiStochastic(max_iter, tau, epsilon)
+        self.sinkhorn = Sinkhorn(max_iter, tau, epsilon)
 
     def forward(self, s, nrows=None, ncols=None, sample_num=5, dummy_row=False, dtype=torch.float32):
         def sample_gumbel(t_like, eps=1e-20):
@@ -219,7 +219,7 @@ class GumbelSinkhorn(nn.Module):
 
 
 if __name__ == '__main__':
-    bs = BiStochastic(max_iter=8, epsilon=1e-4)
+    bs = Sinkhorn(max_iter=8, epsilon=1e-4)
     inp = torch.tensor([[[1., 0, 1.],
                          [1., 0, 3.],
                          [2., 0, 1.],

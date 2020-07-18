@@ -2,18 +2,18 @@ import torch.nn as nn
 
 from models.GMN.affinity_layer import InnerpAffinity as Affinity
 #from GMN.affinity_layer import GaussianAffinity
-from library.spectral_matching import SpectralMatching
-from library.rrwm import RRWM
-from library.bi_stochastic import BiStochastic
+from src.qap_solvers.spectral_matching import SpectralMatching
+from src.qap_solvers.rrwm import RRWM
+from src.lap_solvers.sinkhorn import Sinkhorn
 from models.GMN.voting_layer import Voting
 from models.GMN.displacement_layer import Displacement
-from library.build_graphs import reshape_edge_feature
-from library.feature_align import feature_align
-from library.factorize_graph_matching import construct_m
+from src.build_graphs import reshape_edge_feature
+from src.feature_align import feature_align
+from src.factorize_graph_matching import construct_m
 
-from library.utils.config import cfg
+from src.utils.config import cfg
 
-CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
+CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
 
 
 class Net(CNN):
@@ -25,7 +25,7 @@ class Net(CNN):
             self.gm_solver = SpectralMatching(max_iter=cfg.GMN.PI_ITER_NUM, stop_thresh=cfg.GMN.PI_STOP_THRESH)
         elif cfg.GMN.GM_SOLVER == 'RRWM':
             self.gm_solver = RRWM()
-        self.bi_stochastic = BiStochastic(max_iter=cfg.GMN.BS_ITER_NUM, epsilon=cfg.GMN.BS_EPSILON, log_forward=False)
+        self.bi_stochastic = Sinkhorn(max_iter=cfg.GMN.BS_ITER_NUM, epsilon=cfg.GMN.BS_EPSILON, log_forward=False)
         self.voting_layer = Voting(alpha=cfg.GMN.VOTING_ALPHA)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.GMN.FEATURE_CHANNEL * 2, alpha=cfg.GMN.FEATURE_CHANNEL * 2, beta=0.5, k=0)

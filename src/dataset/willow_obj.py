@@ -2,8 +2,8 @@ from pathlib import Path
 import scipy.io as sio
 from PIL import Image
 import numpy as np
-from library.utils.config import cfg
-from data.base_dataset import BaseDataset
+from src.utils.config import cfg
+from src.dataset.base_dataset import BaseDataset
 import random
 
 

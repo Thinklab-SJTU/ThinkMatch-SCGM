@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from library.bi_stochastic import BiStochastic as Sinkhorn
+from src.lap_solvers.sinkhorn import Sinkhorn as Sinkhorn
 
 
 class RRWM(nn.Module):

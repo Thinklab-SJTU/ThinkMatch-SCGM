@@ -4,11 +4,12 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 import numpy as np
 import random
-from library.build_graphs import build_graphs
-from library.factorize_graph_matching import kronecker_sparse, kronecker_torch
-from library.sparse_torch import CSRMatrix3d
+from src.build_graphs import build_graphs
+from src.factorize_graph_matching import kronecker_sparse, kronecker_torch
+from src.sparse_torch import CSRMatrix3d
+from src.dataset import *
 
-from library.utils.config import cfg
+from src.utils.config import cfg
 
 from itertools import combinations
 

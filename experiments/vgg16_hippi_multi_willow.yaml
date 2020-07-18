@@ -28,8 +28,8 @@ PAIR:
   CANDIDATE_SHAPE:  # target candidate grid
     - 16
     - 16
-  GT_GRAPH_CONSTRUCT: tri #fc
-  REF_GRAPH_CONSTRUCT: tri #fc
+  GT_GRAPH_CONSTRUCT: fc
+  REF_GRAPH_CONSTRUCT: fc
   SYM_ADJACENCY: True
   #MAX_PROB_SIZE: 225
   NUM_GRAPHS: 8

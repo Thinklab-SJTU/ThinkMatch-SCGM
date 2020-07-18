@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
-from library.hungarian import hungarian
-from library.bi_stochastic import BiStochastic
+from src.lap_solvers.hungarian import hungarian
+from src.lap_solvers.sinkhorn import Sinkhorn
 from itertools import product
-from library.spectral_clustering import spectral_clustering
-from library.utils.pad_tensor import pad_tensor
+from src.spectral_clustering import spectral_clustering
+from src.utils.pad_tensor import pad_tensor
 
 import time
 
@@ -16,65 +16,6 @@ class Timer:
     def toc(self, str=""):
         print('{:.5f}sec {}'.format(time.time()-self.start_time, str))
 
-
-class HiPPI(nn.Module):
-    """
-    GA_MGMC solver for multiple graph matching: Higher-order Projected Power Iteration in ICCV 2019
-
-    This operation does not support batched input, and all input tensors should not have the first batch dimension.
-
-    Parameter: maximum iteration max_iter
-               sinkhorn iteration sk_iter
-               sinkhorn regularization sk_tau
-    Input: multi-graph similarity matrix W
-           initial multi-matching matrix U0
-           number of nodes in each graph ms
-           size of universe d
-           (optional) projector to doubly-stochastic matrix (sinkhorn) or permutation matrix (hungarian)
-    Output: multi-matching matrix U
-    """
-    def __init__(self, max_iter=50, sk_iter=20, sk_tau=1/200.):
-        super(HiPPI, self).__init__()
-        self.max_iter = max_iter
-        self.sinkhorn = BiStochastic(max_iter=sk_iter, tau=sk_tau)
-        self.hungarian = hungarian
-
-    def forward(self, W, U0, ms, d, projector='sinkhorn'):
-        num_graphs = ms.shape[0]
-
-        U = U0
-        for i in range(self.max_iter):
-            lastU = U
-            WU = torch.mm(W, U) #/ num_graphs
-            V = torch.chain_matmul(WU, U.t(), WU) #/ num_graphs ** 2
-
-            #V_median = torch.median(torch.flatten(V, start_dim=-2), dim=-1).values
-            #V_var, V_mean = torch.var_mean(torch.flatten(V, start_dim=-2), dim=-1)
-            #V = V - V_mean
-            #V = V / torch.sqrt(V_var)
-
-            #V = V / V_median
-
-            U = []
-            m_start = 0
-            m_indices = torch.cumsum(ms, dim=0)
-            for m_end in m_indices:
-                if projector == 'sinkhorn':
-                    U.append(self.sinkhorn(V[m_start:m_end, :d], dummy_row=True))
-                elif projector == 'hungarian':
-                    U.append(self.hungarian(V[m_start:m_end, :d]))
-                else:
-                    raise NameError('Unknown projector {}.'.format(projector))
-                m_start = m_end
-            U = torch.cat(U, dim=0)
-
-            #print('iter={}, diff={}, var={}, vmean={}, vvar={}'.format(i, torch.norm(U-lastU), torch.var(torch.sum(U, dim=0)), V_mean, V_var))
-
-            if torch.norm(U - lastU) < 1e-5:
-                print(i)
-                break
-
-        return U
 
 class GA_MGMC(nn.Module):
     """
@@ -271,11 +212,11 @@ class GA_MGMC(nn.Module):
                     if torch.all(ms == ms[0]):
                         if ms[0] <= n_univ:
                             U_list.append(
-                                BiStochastic(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True) \
+                                Sinkhorn(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True) \
                                     (V.reshape(num_graphs, -1, n_univ), dummy_row=True).reshape(-1, n_univ))
                         else:
                             U_list.append(
-                                BiStochastic(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True) \
+                                Sinkhorn(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True) \
                                     (V.reshape(num_graphs, -1, n_univ).transpose(1, 2), dummy_row=True).transpose(1, 2).reshape(-1, n_univ))
                     else:
                         V_list = []
@@ -286,7 +227,7 @@ class GA_MGMC(nn.Module):
                             n1.append(m_end - m_start)
                             m_start = m_end
                         n1 = torch.tensor(n1)
-                        U = BiStochastic(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True) \
+                        U = Sinkhorn(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True) \
                             (torch.stack(pad_tensor(V_list), dim=0), n1, dummy_row=True)
                         m_start = 0
                         for idx, m_end in enumerate(m_indices):
@@ -424,7 +365,7 @@ class GA_MGMC(nn.Module):
                 if projector == 'hungarian':
                     U_list.append(hungarian(V[m_start:m_end, :n_univ]))
                 elif projector == 'sinkhorn':
-                    U_list.append(BiStochastic(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True)\
+                    U_list.append(Sinkhorn(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True)\
                                   (V[m_start:m_end, :n_univ], dummy_row=True))
                 else:
                     raise NameError('Unknown projecter name: {}'.format(projector))
@@ -477,3 +418,63 @@ class GA_MGMC(nn.Module):
                 U = torch.cat(U_list, dim=0)
 
         return U, cluster_v
+
+
+class HiPPI(nn.Module):
+    """
+    HiPPI solver for multiple graph matching: Higher-order Projected Power Iteration in ICCV 2019
+
+    This operation does not support batched input, and all input tensors should not have the first batch dimension.
+
+    Parameter: maximum iteration max_iter
+               sinkhorn iteration sk_iter
+               sinkhorn regularization sk_tau
+    Input: multi-graph similarity matrix W
+           initial multi-matching matrix U0
+           number of nodes in each graph ms
+           size of universe d
+           (optional) projector to doubly-stochastic matrix (sinkhorn) or permutation matrix (hungarian)
+    Output: multi-matching matrix U
+    """
+    def __init__(self, max_iter=50, sk_iter=20, sk_tau=1/200.):
+        super(HiPPI, self).__init__()
+        self.max_iter = max_iter
+        self.sinkhorn = Sinkhorn(max_iter=sk_iter, tau=sk_tau)
+        self.hungarian = hungarian
+
+    def forward(self, W, U0, ms, d, projector='sinkhorn'):
+        num_graphs = ms.shape[0]
+
+        U = U0
+        for i in range(self.max_iter):
+            lastU = U
+            WU = torch.mm(W, U) #/ num_graphs
+            V = torch.chain_matmul(WU, U.t(), WU) #/ num_graphs ** 2
+
+            #V_median = torch.median(torch.flatten(V, start_dim=-2), dim=-1).values
+            #V_var, V_mean = torch.var_mean(torch.flatten(V, start_dim=-2), dim=-1)
+            #V = V - V_mean
+            #V = V / torch.sqrt(V_var)
+
+            #V = V / V_median
+
+            U = []
+            m_start = 0
+            m_indices = torch.cumsum(ms, dim=0)
+            for m_end in m_indices:
+                if projector == 'sinkhorn':
+                    U.append(self.sinkhorn(V[m_start:m_end, :d], dummy_row=True))
+                elif projector == 'hungarian':
+                    U.append(self.hungarian(V[m_start:m_end, :d]))
+                else:
+                    raise NameError('Unknown projector {}.'.format(projector))
+                m_start = m_end
+            U = torch.cat(U, dim=0)
+
+            #print('iter={}, diff={}, var={}, vmean={}, vvar={}'.format(i, torch.norm(U-lastU), torch.var(torch.sum(U, dim=0)), V_mean, V_var))
+
+            if torch.norm(U - lastU) < 1e-5:
+                print(i)
+                break
+
+        return U

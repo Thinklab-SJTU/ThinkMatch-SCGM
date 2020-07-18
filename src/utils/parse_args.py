@@ -1,5 +1,5 @@
 import argparse
-from library.utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
+from src.utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
 from pathlib import Path
 
 

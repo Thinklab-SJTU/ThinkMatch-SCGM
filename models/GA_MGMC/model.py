@@ -4,30 +4,31 @@ import torch.nn.functional as functional
 
 import numpy as np
 
-from library.bi_stochastic import BiStochastic as Sinkhorn
+from src.lap_solvers.sinkhorn import Sinkhorn as Sinkhorn
 from models.GMN.displacement_layer import Displacement
-from library.feature_align import feature_align
+from src.feature_align import feature_align
 from models.PCA.affinity_layer import AffinityInp
 from models.GMN.affinity_layer import InnerpAffinity as QuadInnerpAffinity
 from models.GMN.affinity_layer import GaussianAffinity as QuadGaussianAffinity
-from library.gconv import Siamese_Gconv
+from src.gconv import Siamese_Gconv
 from models.GA_MGMC.ga_mgmc import GA_MGMC
-from library.hungarian import hungarian
-from library.utils.pad_tensor import pad_tensor
+from src.lap_solvers.hungarian import hungarian
+from src.utils.pad_tensor import pad_tensor
 
 from itertools import combinations, product, chain
 
-from library.utils.config import cfg
+from src.utils.config import cfg
 
-CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
+from src.backbone import *
+CNN = eval(cfg.BACKBONE)
 
 
 class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
-        self.affinity_layer = AffinityInp(2048) #cfg.GAMGM.FEATURE_CHANNEL) todo
+        self.affinity_layer = AffinityInp(cfg.GAMGM.FEATURE_CHANNEL)
         self.tau = cfg.GAMGM.SK_TAU
-        self.bi_stochastic = Sinkhorn(max_iter=20, #cfg.GAMGM.SK_ITER_NUM,
+        self.bi_stochastic = Sinkhorn(max_iter=cfg.GAMGM.SK_ITER_NUM,
                                       tau=self.tau, epsilon=cfg.GAMGM.SK_EPSILON, batched_operation=False)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.GAMGM.FEATURE_CHANNEL * 2, alpha=cfg.GAMGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
@@ -112,14 +113,14 @@ class Net(CNN):
             feats[torch.isnan(feats)] = 0.
 
             # gnn
-            feats = feats.transpose(1, 2)
-            G_cat = torch.cat(pad_tensor(Gs), dim=0)
-            H_cat = torch.cat(pad_tensor(Hs), dim=0)
-            A_cat = torch.bmm(G_cat, H_cat.transpose(1, 2))
-            for i in range(self.gnn_layer):
-                gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
-                feats = gnn_layer([A_cat, feats])
-            feats = feats.transpose(1, 2)
+            #feats = feats.transpose(1, 2)
+            #G_cat = torch.cat(pad_tensor(Gs), dim=0)
+            #H_cat = torch.cat(pad_tensor(Hs), dim=0)
+            #A_cat = torch.bmm(G_cat, H_cat.transpose(1, 2))
+            #for i in range(self.gnn_layer):
+            #    gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
+            #    feats = gnn_layer([A_cat, feats])
+            #feats = feats.transpose(1, 2)
 
             feats = torch.split(feats, batch_size, dim=0)
         elif type == 'feat' or type == 'feature':
@@ -145,11 +146,10 @@ class Net(CNN):
         A = [torch.zeros(m.item(), m.item(), device=device) for m in mssum]
         #Adj_s = {}
         for idx, feat, P, G, H, G_ref, H_ref, n in feat_list:
-            edge_lens = torch.sqrt(torch.sum((P.unsqueeze(1) - P.unsqueeze(2)) ** 2, dim=-1))
+            edge_lens = torch.sqrt(torch.sum((P.unsqueeze(1) - P.unsqueeze(2)) ** 2, dim=-1)) * torch.bmm(G, H.transpose(1, 2))
             median_lens = torch.median(torch.flatten(edge_lens, start_dim=-2), dim=-1).values
             median_lens = median_lens.unsqueeze(-1).unsqueeze(-1)
-            #A_ii = edge_lens / 256
-            A_ii = torch.exp(- edge_lens ** 2 / median_lens ** 2 / cfg.GAMGM.SCALE_FACTOR) #todo
+            A_ii = torch.exp(- edge_lens ** 2 / median_lens ** 2 / cfg.GAMGM.SCALE_FACTOR)
             diag_A_ii = torch.diagonal(A_ii, dim1=-2, dim2=-1)
             diag_A_ii[:] = 0
             #A_ii = edge_lens ** 2 / median_lens ** 2 / cfg.GAMGM.SCALE_FACTOR #todo

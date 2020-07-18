@@ -1,21 +1,21 @@
 import torch
 import torch.nn as nn
 
-from library.bi_stochastic import BiStochastic
+from src.lap_solvers.sinkhorn import Sinkhorn
 from models.GMN.displacement_layer import Displacement
-from library.feature_align import feature_align
-from library.gconv import Siamese_Gconv
+from src.feature_align import feature_align
+from src.gconv import Siamese_Gconv
 from models.PCA.affinity_layer import Affinity
 
-from library.utils.config import cfg
+from src.utils.config import cfg
 
-CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
+CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
 
 
 class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
-        self.bi_stochastic = BiStochastic(max_iter=cfg.PCA.BS_ITER_NUM, epsilon=cfg.PCA.BS_EPSILON, tau=1/cfg.PCA.VOTING_ALPHA)
+        self.bi_stochastic = Sinkhorn(max_iter=cfg.PCA.BS_ITER_NUM, epsilon=cfg.PCA.BS_EPSILON, tau=1 / cfg.PCA.VOTING_ALPHA)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.PCA.FEATURE_CHANNEL * 2, alpha=cfg.PCA.FEATURE_CHANNEL * 2, beta=0.5, k=0)
         self.gnn_layer = cfg.PCA.GNN_LAYER

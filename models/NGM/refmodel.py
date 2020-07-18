@@ -3,19 +3,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from library.bi_stochastic import BiStochastic
+from src.lap_solvers.sinkhorn import Sinkhorn
 from models.GMN.voting_layer import Voting
 from models.GMN.displacement_layer import Displacement
-from library.build_graphs import reshape_edge_feature
-from library.feature_align import feature_align
-from library.factorize_graph_matching import construct_m
+from src.build_graphs import reshape_edge_feature
+from src.feature_align import feature_align
+from src.factorize_graph_matching import construct_m
 from models.NGM.gnn import GNNLayer
 from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
 import math
 
-from library.utils.config import cfg
+from src.utils.config import cfg
 
-CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
+CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
 
 
 class Net(CNN):
@@ -27,7 +27,7 @@ class Net(CNN):
             self.affinity_layer = GaussianAffinity(1, cfg.NGM.GAUSSIAN_SIGMA)
         else:
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
-        self.bi_stochastic = BiStochastic(max_iter=cfg.NGM.BS_ITER_NUM, epsilon=cfg.NGM.BS_EPSILON)
+        self.bi_stochastic = Sinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, epsilon=cfg.NGM.BS_EPSILON)
         self.voting_layer = Voting(alpha=cfg.NGM.VOTING_ALPHA)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)

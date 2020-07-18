@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as functional
 
-from library.bi_stochastic import BiStochastic
+from src.lap_solvers.sinkhorn import Sinkhorn
 from models.GMN.voting_layer import Voting
 from models.GMN.displacement_layer import Displacement
-from library.build_graphs import reshape_edge_feature
-from library.feature_align import feature_align
-from library.factorize_graph_matching import construct_m
+from src.build_graphs import reshape_edge_feature
+from src.feature_align import feature_align
+from src.factorize_graph_matching import construct_m
 from models.NGM.gnn import GNNLayer
 from models.NGM.geo_edge_feature import geo_edge_feature
 from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
@@ -15,10 +15,9 @@ from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
 from itertools import combinations
 import numpy as np
 
+from src.utils.config import cfg
 
-from library.utils.config import cfg
-
-CNN = eval('GMN.backbone.{}'.format(cfg.BACKBONE))
+CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
 
 def pad_tensor(inp):
     assert type(inp[0]) == torch.Tensor
@@ -54,7 +53,7 @@ class Net(CNN):
         else:
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
         self.tau = 1 / cfg.NGM.VOTING_ALPHA #nn.Parameter(torch.Tensor([1 / cfg.NGM.VOTING_ALPHA]))
-        self.bi_stochastic = BiStochastic(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
+        self.bi_stochastic = Sinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
         self.voting_layer = Voting(alpha=cfg.NGM.VOTING_ALPHA)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
@@ -85,7 +84,7 @@ class Net(CNN):
         #if pretrained:
         #    load_model(self, 'output/ngm_em_synthetic/params/params_0020.pt')
 
-        self.bi_stochastic2 = BiStochastic(max_iter=cfg.NGM.BS_ITER_NUM, epsilon=cfg.NGM.BS_EPSILON, tau=1/2.)
+        self.bi_stochastic2 = Sinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, epsilon=cfg.NGM.BS_EPSILON, tau=1 / 2.)
 
     def forward(self, data, Ps, Gs, Hs, Gs_ref, Hs_ref, KGs, KHs, ns, type='img', **kwargs):
         batch_size = data[0].shape[0]

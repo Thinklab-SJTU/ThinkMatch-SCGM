@@ -5,17 +5,17 @@ from pathlib import Path
 from tensorboardX import SummaryWriter
 import itertools
 
-from library.dataset.data_loader import GMRefDataset, get_dataloader
+from src.dataset.data_loader import GMRefDataset, get_dataloader
 from models.GMN.displacement_layer import Displacement
-from library.loss_func import *
-from library.evaluation_metric import matching_accuracy
-from library.parallel import DataParallel
-from library.utils.model_sl import load_model, save_model
+from src.loss_func import *
+from src.evaluation_metric import matching_accuracy
+from src.parallel import DataParallel
+from src.utils.model_sl import load_model, save_model
 from eval_ref import eval_model
-from library.hungarian import hungarian
+from src.lap_solvers.hungarian import hungarian
 from models.NGM.refmodel import RefGraph
 
-from library.utils.config import cfg
+from src.utils.config import cfg
 
 
 def train_eval_model(model,
@@ -216,9 +216,9 @@ def train_eval_model(model,
 
 
 if __name__ == '__main__':
-    from library.utils.dup_stdout_manager import DupStdoutFileManager
-    from library.utils.parse_args import parse_args
-    from library.utils.print_easydict import print_easydict
+    from src.utils.dup_stdout_manager import DupStdoutFileManager
+    from src.utils.parse_args import parse_args
+    from src.utils.print_easydict import print_easydict
 
     args = parse_args('Deep learning of graph matching training & evaluation code.')
 

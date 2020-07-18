@@ -3,8 +3,8 @@ from PIL import Image
 import numpy as np
 import random
 
-from data.base_dataset import BaseDataset
-from library.utils.config import cfg
+from src.dataset.base_dataset import BaseDataset
+from src.utils.config import cfg
 
 
 class CUB2011(BaseDataset):

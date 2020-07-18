@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from library.bi_stochastic import BiStochastic
+from src.lap_solvers.sinkhorn import Sinkhorn
 
 from collections import Iterable
 
@@ -66,7 +66,7 @@ class GNNLayer(nn.Module):
         if self.sk_channel > 0:
             assert out_node_features == out_edge_features + 1
             self.out_nfeat = out_node_features - self.sk_channel
-            self.sk = BiStochastic(sk_iter, 1/voting_alpha)
+            self.sk = Sinkhorn(sk_iter, 1 / voting_alpha)
             self.classifier = nn.Linear(self.out_nfeat, self.sk_channel)
         else:
             assert out_node_features == out_edge_features
@@ -160,7 +160,7 @@ class HyperGNNLayer(nn.Module):
         if sk_channel:
             assert out_node_features == out_edge_features + 1
             self.out_nfeat = out_node_features - 1
-            self.sk = BiStochastic(sk_iter, 1/voting_alpha)
+            self.sk = Sinkhorn(sk_iter, 1 / voting_alpha)
             self.classifier = nn.Linear(self.out_efeat, 1)
         else:
             assert out_node_features == out_edge_features
@@ -319,7 +319,7 @@ class HyperConvLayer(nn.Module):
         if sk_channel:
             assert out_node_features == out_edge_features + 1
             self.out_nfeat = out_node_features - 1
-            self.sk = BiStochastic(sk_iter, 1/voting_alpha)
+            self.sk = Sinkhorn(sk_iter, 1 / voting_alpha)
             self.classifier = nn.Linear(self.out_efeat, 1)
         else:
             assert out_node_features == out_edge_features
