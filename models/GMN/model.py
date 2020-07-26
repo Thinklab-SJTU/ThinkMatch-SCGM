@@ -13,6 +13,7 @@ from src.factorize_graph_matching import construct_m
 
 from src.utils.config import cfg
 
+from src.backbone import *
 CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
 
 

@@ -14,6 +14,7 @@ from models.GMN.affinity_layer import GaussianAffinity, InnerpAffinity
 
 from src.utils.config import cfg
 
+from src.backbone import *
 CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
 
 
@@ -164,7 +165,7 @@ class Net(CNN):
         # RRWHM
         #v = self.rrwhm(hyperM, num_src=P_src.shape[1], ns_src=ns_src, ns_tgt=ns_tgt)
         #s = v.view(v.shape[0], P_tgt.shape[1], -1).transpose(1, 2)
-        #ss = self.bi_stochastic(s, ns_src, ns_tgt)
+        #ss = self.sinkhorn(s, ns_src, ns_tgt)
         #d, _ = self.displacement_layer(ss, P_src, P_tgt)
         #return ss, d
 

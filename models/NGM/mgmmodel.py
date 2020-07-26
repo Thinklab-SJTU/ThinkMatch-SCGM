@@ -17,6 +17,7 @@ import numpy as np
 
 from src.utils.config import cfg
 
+from src.backbone import *
 CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
 
 def pad_tensor(inp):

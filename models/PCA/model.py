@@ -9,6 +9,7 @@ from models.PCA.affinity_layer import Affinity
 
 from src.utils.config import cfg
 
+from src.backbone import *
 CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
 
 
