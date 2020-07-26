@@ -15,7 +15,7 @@ from models.GMN.affinity_layer import GaussianAffinity, InnerpAffinity
 from src.utils.config import cfg
 
 from src.backbone import *
-CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
+CNN = eval(cfg.BACKBONE)
 
 
 class Net(CNN):

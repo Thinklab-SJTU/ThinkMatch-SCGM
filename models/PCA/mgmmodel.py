@@ -11,7 +11,8 @@ from src.utils.model_sl import load_model
 
 from src.utils.config import cfg
 
-CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
+from src.backbone import *
+CNN = eval(cfg.BACKBONE)
 
 
 class Net(CNN):

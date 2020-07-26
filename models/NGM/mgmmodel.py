@@ -18,7 +18,7 @@ import numpy as np
 from src.utils.config import cfg
 
 from src.backbone import *
-CNN = eval('src.backbone.{}'.format(cfg.BACKBONE))
+CNN = eval(cfg.BACKBONE)
 
 def pad_tensor(inp):
     assert type(inp[0]) == torch.Tensor
