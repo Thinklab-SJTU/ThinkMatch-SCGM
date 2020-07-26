@@ -11,7 +11,7 @@ from models.PCA.affinity_layer import AffinityInp
 from models.GMN.affinity_layer import InnerpAffinity as QuadInnerpAffinity
 from models.GMN.affinity_layer import GaussianAffinity as QuadGaussianAffinity
 from src.gconv import Siamese_Gconv
-from models.GA_MGMC.ga_mgmc import GA_MGMC
+from models.GANN.ga_mgmc import GA_MGMC
 from src.lap_solvers.hungarian import hungarian
 from src.utils.pad_tensor import pad_tensor
 
@@ -26,21 +26,21 @@ CNN = eval(cfg.BACKBONE)
 class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
-        self.affinity_layer = AffinityInp(cfg.GAMGM.FEATURE_CHANNEL)
-        self.tau = cfg.GAMGM.SK_TAU
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.GAMGM.SK_ITER_NUM,
-                                      tau=self.tau, epsilon=cfg.GAMGM.SK_EPSILON, batched_operation=False)
+        self.affinity_layer = AffinityInp(cfg.GANN.FEATURE_CHANNEL)
+        self.tau = cfg.GANN.SK_TAU
+        self.bi_stochastic = Sinkhorn(max_iter=cfg.GANN.SK_ITER_NUM,
+                                      tau=self.tau, epsilon=cfg.GANN.SK_EPSILON, batched_operation=False)
         self.displacement_layer = Displacement()
-        self.l2norm = nn.LocalResponseNorm(cfg.GAMGM.FEATURE_CHANNEL * 2, alpha=cfg.GAMGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
-        #self.hippi = GA_MGMC(sk_iter=41, sk_tau=1./20)
-        self.univ_size = torch.tensor(cfg.GAMGM.UNIV_SIZE)
-        self.quad_weight = cfg.GAMGM.QUAD_WEIGHT
-        self.cluster_quad_weight = cfg.GAMGM.CLUSTER_QUAD_WEIGHT
+        self.l2norm = nn.LocalResponseNorm(cfg.GANN.FEATURE_CHANNEL * 2, alpha=cfg.GANN.FEATURE_CHANNEL * 2, beta=0.5, k=0)
+        #self.hippi = GANN(sk_iter=41, sk_tau=1./20)
+        self.univ_size = torch.tensor(cfg.GANN.UNIV_SIZE)
+        self.quad_weight = cfg.GANN.QUAD_WEIGHT
+        self.cluster_quad_weight = cfg.GANN.CLUSTER_QUAD_WEIGHT
         self.gamgm = GA_MGMC(
-            max_iter=cfg.GAMGM.MAX_ITER,
-            sk_iter=cfg.GAMGM.SK_ITER_NUM, sk_tau0=cfg.GAMGM.INIT_TAU, sk_gamma=cfg.GAMGM.GAMMA,
-            cluster_beta=cfg.GAMGM.BETA,
-            converge_tol=cfg.GAMGM.CONVERGE_TOL, min_tau=cfg.GAMGM.MIN_TAU, projector0=cfg.GAMGM.PROJECTOR
+            max_iter=cfg.GANN.MAX_ITER,
+            sk_iter=cfg.GANN.SK_ITER_NUM, sk_tau0=cfg.GANN.INIT_TAU, sk_gamma=cfg.GANN.GAMMA,
+            cluster_beta=cfg.GANN.BETA,
+            converge_tol=cfg.GANN.CONVERGE_TOL, min_tau=cfg.GANN.MIN_TAU, projector0=cfg.GANN.PROJECTOR
         )
 
         if cfg.NGM.EDGE_FEATURE == 'cat':
@@ -49,16 +49,16 @@ class Net(CNN):
             self.quad_affinity_layer = QuadGaussianAffinity(1, sigma=1.)
 
         self.graph_learning_layer = nn.Sequential(
-            nn.Linear(cfg.GAMGM.FEATURE_CHANNEL, cfg.GAMGM.FEATURE_CHANNEL, bias=False),
+            nn.Linear(cfg.GANN.FEATURE_CHANNEL, cfg.GANN.FEATURE_CHANNEL, bias=False),
             nn.ReLU(),
-            #nn.Linear(cfg.GAMGM.FEATURE_CHANNEL, cfg.GAMGM.FEATURE_CHANNEL)
+            #nn.Linear(cfg.GANN.FEATURE_CHANNEL, cfg.GANN.FEATURE_CHANNEL)
         )
 
         self.gnn_layer = 3
         GNN_FEAT = 2048
         for i in range(self.gnn_layer):
             if i == 0:
-                gnn_layer = Siamese_Gconv(cfg.GAMGM.FEATURE_CHANNEL, GNN_FEAT)
+                gnn_layer = Siamese_Gconv(cfg.GANN.FEATURE_CHANNEL, GNN_FEAT)
             else:
                 gnn_layer = Siamese_Gconv(GNN_FEAT, GNN_FEAT)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
@@ -149,10 +149,10 @@ class Net(CNN):
             edge_lens = torch.sqrt(torch.sum((P.unsqueeze(1) - P.unsqueeze(2)) ** 2, dim=-1)) * torch.bmm(G, H.transpose(1, 2))
             median_lens = torch.median(torch.flatten(edge_lens, start_dim=-2), dim=-1).values
             median_lens = median_lens.unsqueeze(-1).unsqueeze(-1)
-            A_ii = torch.exp(- edge_lens ** 2 / median_lens ** 2 / cfg.GAMGM.SCALE_FACTOR)
+            A_ii = torch.exp(- edge_lens ** 2 / median_lens ** 2 / cfg.GANN.SCALE_FACTOR)
             diag_A_ii = torch.diagonal(A_ii, dim1=-2, dim2=-1)
             diag_A_ii[:] = 0
-            #A_ii = edge_lens ** 2 / median_lens ** 2 / cfg.GAMGM.SCALE_FACTOR #todo
+            #A_ii = edge_lens ** 2 / median_lens ** 2 / cfg.GANN.SCALE_FACTOR #todo
 
             #Adj_s['{}'.format(idx)] = torch.bmm(G, H.transpose(1,2))
 
@@ -220,7 +220,7 @@ class Net(CNN):
             U0.append(torch.cat(U0_b, dim=0))
         '''
 
-        # GA_MGMC
+        # GANN
         U = [[] for _ in range(batch_size)]
         #U = [] # todo
         cluster_v = []

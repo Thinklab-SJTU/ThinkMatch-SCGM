@@ -67,8 +67,8 @@ class GA_MGMC(nn.Module):
         cluster_M = torch.ones(num_graphs, num_graphs, device=A.device)
         cluster_M01 = cluster_M
 
-        U = self.igm(A, W, U, ms, n_univ, cluster_M, self.sk_tau0[0], self.min_tau[0], self.max_iter[0], self.projector0[0],
-                     quad_weight=quad_weight, hung_iter=(num_clusters == 1))
+        U = self.gagm(A, W, U, ms, n_univ, cluster_M, self.sk_tau0[0], self.min_tau[0], self.max_iter[0], self.projector0[0],
+                      quad_weight=quad_weight, hung_iter=(num_clusters == 1))
         Us.append(U)
 
         if num_clusters == 1:
@@ -141,9 +141,9 @@ class GA_MGMC(nn.Module):
                 # matching
                 #U = self.igm(A, W, U, ms, n_univ, cluster_M, projector='hungarian' if (i != 0 and beta != 0.9) else 'sinkhorn')
                 #U = self.igm(A, W, U, ms, n_univ, cluster_M, self.sk_tau0 if i == 0 else self.sk_tau0 * 0.5) #, projector='hungarian' if i != 0 else 'sinkhorn')
-                U = self.igm(A, W, U, ms, n_univ, cluster_M, sk_tau0, min_tau, max_iter,
-                             projector='hungarian' if i != 0 else projector0, quad_weight=quad_weight,
-                             hung_iter=(beta == self.cluster_beta[-1]))
+                U = self.gagm(A, W, U, ms, n_univ, cluster_M, sk_tau0, min_tau, max_iter,
+                              projector='hungarian' if i != 0 else projector0, quad_weight=quad_weight,
+                              hung_iter=(beta == self.cluster_beta[-1]))
 
                 print('beta = {:.2f}, delta U = {:.4f}, delta M = {:.4f}'.format(beta, torch.norm(lastU - U), torch.norm(last_cluster_M01 - cluster_M01)))
 
@@ -159,7 +159,7 @@ class GA_MGMC(nn.Module):
         #return Us, clusters
         return  U, cluster_v
 
-    def igm(self, A, W, U0, ms, n_univ, cluster_M, init_tau, min_tau, max_iter, projector='sinkhorn', hung_iter=True, quad_weight=1.):
+    def gagm(self, A, W, U0, ms, n_univ, cluster_M, init_tau, min_tau, max_iter, projector='sinkhorn', hung_iter=True, quad_weight=1.):
         num_graphs = ms.shape[0]
         U = U0
         m_indices = torch.cumsum(ms, dim=0)
@@ -182,7 +182,7 @@ class GA_MGMC(nn.Module):
                 UUt = torch.mm(U, U.t())
                 cluster_weight = torch.repeat_interleave(cluster_M, ms.to(dtype=torch.long), dim=0)
                 cluster_weight = torch.repeat_interleave(cluster_weight, ms.to(dtype=torch.long), dim=1)
-                V = torch.chain_matmul(A, UUt * cluster_weight, A, U) * quad_weight + torch.mm(W * cluster_weight, U)
+                V = torch.chain_matmul(A, UUt * cluster_weight, A, U) * quad_weight * 2 + torch.mm(W * cluster_weight, U)
                 V /= num_graphs
                 '''
                 V = torch.zeros_like(U)

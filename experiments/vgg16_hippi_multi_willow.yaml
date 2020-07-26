@@ -5,7 +5,7 @@ DATASET_NAME: willow
 
 DATASET_FULL_NAME: WillowObject
 
-MODULE: models.GA_MGMC.model
+MODULE: models.GANN.model
 
 BACKBONE: VGG16_bn
 
@@ -77,7 +77,7 @@ VISUAL:
   NUM_IMGS: 100  # number of images to be visualized
 
 # model parameters
-GAMGM:
+GANN:
   FEATURE_CHANNEL: 1024
   SK_ITER_NUM: 20
   SK_TAU: 0.05
@@ -92,4 +92,4 @@ GAMGM:
   MIN_TAU:
     - 1.0e-2
   SCALE_FACTOR: 1.
-  QUAD_WEIGHT: 1.
+  QUAD_WEIGHT: 0.5 #1.
