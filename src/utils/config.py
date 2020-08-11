@@ -81,6 +81,8 @@ __C.QAPLIB = edict()
 __C.QAPLIB.DIR = 'data/qapdata'
 __C.QAPLIB.FEED_TYPE = 'affmat' # 'affmat' (affinity matrix) or 'adj' (adjacency matrix)
 __C.QAPLIB.ONLINE_REPO = 'http://anjos.mgi.polymtl.ca/qaplib/'
+__C.QAPLIB.MAX_TRAIN_SIZE = 200
+__C.QAPLIB.MAX_TEST_SIZE = 100
 
 # CUB2011 dataset
 __C.CUB2011 = edict()
@@ -151,6 +153,10 @@ __C.GANN.SCALE_FACTOR = 1.
 __C.GANN.QUAD_WEIGHT = 1.
 __C.GANN.CLUSTER_QUAD_WEIGHT = 1.
 __C.GANN.PROJECTOR = ['sinkhorn', 'sinkhorn']
+
+# GUROBI options
+__C.GUROBI = edict()
+__C.GUROBI.TIME_LIMIT = 0
 
 #
 # Training options
