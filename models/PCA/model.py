@@ -16,7 +16,7 @@ CNN = eval(cfg.BACKBONE)
 class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.PCA.BS_ITER_NUM, epsilon=cfg.PCA.BS_EPSILON, tau=1 / cfg.PCA.VOTING_ALPHA)
+        self.sinkhorn = Sinkhorn(max_iter=cfg.PCA.BS_ITER_NUM, epsilon=cfg.PCA.BS_EPSILON, tau=cfg.PCA.SK_TAU)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.PCA.FEATURE_CHANNEL * 2, alpha=cfg.PCA.FEATURE_CHANNEL * 2, beta=0.5, k=0)
         self.gnn_layer = cfg.PCA.GNN_LAYER

@@ -64,7 +64,7 @@ NGM:
   FEATURE_CHANNEL: 1
   BS_ITER_NUM: 20
   BS_EPSILON: 1.0e-10
-  VOTING_ALPHA: 20.
+  SK_TAU: 0.05
   GNN_FEAT:
     - 16
     - 16
@@ -72,4 +72,4 @@ NGM:
   GNN_LAYER: 3
   SK_EMB: 1
   EDGE_EMB: False
-  GUMBEL_SK: True # Gumbel-Sinkhorn's alpha = VOTING_ALPHA / 20
+  GUMBEL_SK: True # Gumbel-Sinkhorn's tau = SK_TAU * 20

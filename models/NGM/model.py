@@ -28,7 +28,7 @@ class Net(CNN):
             self.affinity_layer = GaussianAffinity(1, cfg.NGM.GAUSSIAN_SIGMA)
         else:
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
-        self.tau = 1 / cfg.NGM.VOTING_ALPHA #nn.Parameter(torch.Tensor([1 / cfg.NGM.VOTING_ALPHA]))
+        self.tau = cfg.NGM.SK_TAU
         self.bi_stochastic = Sinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
         self.bi_stochastic_g = GumbelSinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau*20, epsilon=cfg.NGM.BS_EPSILON)
         #self.rrwm = PowerIteration()

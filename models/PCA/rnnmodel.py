@@ -170,7 +170,7 @@ class Net(CNN):
                     emb1, emb2 = gnn_layer([A_src, emb1], [A_tgt, emb2])
                     affinity = getattr(self, 'affinity_{}'.format(i))
                     s = affinity(emb1, emb2)
-                s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+                s = self.sinkhorn(s, ns_src, ns_tgt, dummy_row=True)
                     ss.append(s)
         '''
 

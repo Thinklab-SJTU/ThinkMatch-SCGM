@@ -15,7 +15,7 @@ import numpy as np
 
 __C = edict()
 # Consumers can get config by:
-#   from fast_rcnn_config import cfg
+#   from config import cfg
 cfg = __C
 
 # Minibatch size
@@ -107,7 +107,7 @@ __C.PCA = edict()
 __C.PCA.FEATURE_CHANNEL = 512
 __C.PCA.BS_ITER_NUM = 20
 __C.PCA.BS_EPSILON = 1.0e-10
-__C.PCA.VOTING_ALPHA = 200.
+__C.PCA.SK_TAU = 0.005
 __C.PCA.GNN_LAYER = 5
 __C.PCA.GNN_FEAT = 1024
 __C.PCA.LOSS_WEIGHTS = [0., 1.]  # [cross-module loss, final prediction loss]
@@ -119,7 +119,7 @@ __C.NGM = edict()
 __C.NGM.FEATURE_CHANNEL = 512
 __C.NGM.BS_ITER_NUM = 10
 __C.NGM.BS_EPSILON = 1e-10
-__C.NGM.VOTING_ALPHA = 200.
+__C.NGM.SK_TAU = 0.005
 __C.NGM.GNN_FEAT = [16, 16, 16]
 __C.NGM.GNN_LAYER = 3
 __C.NGM.GAUSSIAN_SIGMA = 1.
