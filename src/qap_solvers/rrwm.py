@@ -25,7 +25,7 @@ class RRWM(nn.Module):
     def forward(self, M, num_src, ns_src, ns_tgt, v0=None):
         d = M.sum(dim=2, keepdim=True)
         dmax = d.max(dim=1, keepdim=True).values
-        M = M / dmax
+        M = M / (dmax + d.min() * 1e-5)
 
         batch_num = M.shape[0]
         mn = M.shape[1]

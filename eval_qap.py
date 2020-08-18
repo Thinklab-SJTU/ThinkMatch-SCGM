@@ -61,7 +61,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 inp_type = 'adj'
             else:
                 raise ValueError('no valid data key found from dataloader!')
-            ori_affmtx = inputs['ori_affmat'].cuda()
+            ori_affmtx = inputs['affmat'].cuda()
             solution = inputs['solution'].cuda()
             name = inputs['name']
             n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
@@ -80,7 +80,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
             with torch.set_grad_enabled(False):
                 _ = None
                 pred = \
-                    model(data1, data2, _, _, _, _, _, _, n1_gt, n2_gt, _, _, inp_type)
+                    model(data1, data2, _, _, _, _, _, _, n1_gt, n2_gt, _, _, inp_type, name=name)
                 if len(pred) == 2:
                     s_pred, d_pred = pred
                 else:

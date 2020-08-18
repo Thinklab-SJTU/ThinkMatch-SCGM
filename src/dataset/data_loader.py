@@ -459,9 +459,7 @@ def collate_fn(data: list):
         Fi = ret['Fi']
         Fj = ret['Fj']
         aff_mat = kronecker_torch(Fj, Fi)
-        ret['ori_affmat'] = aff_mat
-        dmax = (torch.max(torch.sum(aff_mat, dim=2, keepdim=True), dim=1, keepdim=True).values + 1e-5)
-        ret['affmat'] = aff_mat / dmax * 1000
+        ret['affmat'] = aff_mat
 
     return ret
 

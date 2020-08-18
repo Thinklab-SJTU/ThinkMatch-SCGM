@@ -156,7 +156,7 @@ __C.GANN.PROJECTOR = ['sinkhorn', 'sinkhorn']
 
 # GUROBI options
 __C.GUROBI = edict()
-__C.GUROBI.TIME_LIMIT = 0
+__C.GUROBI.TIME_LIMIT = float('inf')
 
 #
 # Training options
@@ -313,7 +313,10 @@ def _merge_a_into_b(a, b):
 
         # the types must match, too
         if type(b[k]) is not type(v):
-            raise ValueError(('Type mismatch ({} vs. {}) '
+            if type(b[k]) is float and type(v) is int:
+                v = float(v)
+            else:
+                raise ValueError(('Type mismatch ({} vs. {}) '
                               'for config key: {}').format(type(b[k]),
                                                            type(v), k))
 

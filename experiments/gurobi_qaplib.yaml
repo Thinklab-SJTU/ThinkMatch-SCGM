@@ -43,7 +43,8 @@ TRAIN:
   CLASS: esc
 
 QAPLIB:
-  MAX_TEST_SIZE: 50
+  MAX_TRAIN_SIZE: 150
+  MAX_TEST_SIZE: 150
 
 # Evaluation settings and PCK metric
 EVAL:

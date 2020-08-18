@@ -10,7 +10,7 @@ MODULE: models.NGM.model
 BACKBONE: NoBackbone
 
 BATCH_SIZE: 1
-DATALOADER_NUM: 1
+DATALOADER_NUM: 0
 
 RANDOM_SEED: 123
 
@@ -41,6 +41,10 @@ TRAIN:
   EPOCH_ITERS: 1000  # iterations per epoch
 
   CLASS: esc
+
+QAPLIB:
+  MAX_TRAIN_SIZE: 150
+  MAX_TEST_SIZE: 150
 
 # Evaluation settings and PCK metric
 EVAL:

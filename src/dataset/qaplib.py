@@ -27,7 +27,8 @@ class QAPLIB(BaseDataset):
             for dat_path in self.qap_path.glob(inst + '*.dat'):
                 name = dat_path.name[:-4]
                 prob_size = int(re.findall(r"\d+", name)[0])
-                if prob_size > 200 or (self.sets == 'train' and prob_size >= 100):
+                if (self.sets == 'test' and prob_size > cfg.QAPLIB.MAX_TEST_SIZE) \
+                    or (self.sets == 'train' and prob_size > cfg.QAPLIB.MAX_TRAIN_SIZE):
                     continue
                 self.data_list.append(name)
 
