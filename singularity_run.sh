@@ -13,12 +13,20 @@ else
 fi
 
 #   ~/dl-of-gm_pytorch1.3_cu10.1.sif \
+# docker://registry.cn-shanghai.aliyuncs.com/wangrunzhong/dl-of-gm:pytorch1.3_cu10.1 \
+
+container_file="dl-of-gm.sif"
+
+if [ ! -f "$container_file" ]; then
+    echo "Building singularity container to $container_file ..."
+    singularity build --fakeroot "$container_file" singularity.def
+fi
 
 nohup \
   singularity run \
   --nv \
   --bind /data:/data \
-  docker://registry.cn-shanghai.aliyuncs.com/wangrunzhong/dl-of-gm:pytorch1.3_cu10.1 \
+  "$container_file" \
   bash -c "CUDA_VISIBLE_DEVICES=$2 python $main_file --cfg $3" \
   &>$1 \
   &
