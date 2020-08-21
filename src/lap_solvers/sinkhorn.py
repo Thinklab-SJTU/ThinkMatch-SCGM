@@ -23,80 +23,10 @@ class Sinkhorn(nn.Module):
         if self.log_forward:
             return self.forward_log(*input, **kwinput)
         else:
-            return self.forward_ori(*input, **kwinput)
-
-    def forward_ori(self, s, nrows=None, ncols=None, dummy_row=False, dtype=torch.float32):
-        if len(s.shape) == 2:
-            s = s.unsqueeze(0)
-            matrix_input = True
-        elif len(s.shape) == 3:
-            matrix_input = False
-        else:
-            raise ValueError('input data shape not understood.')
-
-        batch_size = s.shape[0]
-
-        #s = s.to(dtype=dtype)
-
-        if nrows is None:
-            nrows = [s.shape[1] for _ in range(batch_size)]
-        if ncols is None:
-            ncols = [s.shape[2] for _ in range(batch_size)]
-
-        if dummy_row:
-            dummy_shape = list(s.shape)
-            dummy_shape[1] = s.shape[2] - s.shape[1]
-            #s = torch.cat((s, torch.full(dummy_shape, self.epsilon * 10).to(s.device)), dim=1)
-            #nrows = nrows + dummy_shape[1] # non in-place
-            s = torch.cat((s, torch.full(dummy_shape, 0.).to(s.device)), dim=1)
-            ori_nrows = nrows
-            nrows = ncols
-            for b in range(batch_size):
-                s[b, ori_nrows[b]:nrows[b], :ncols[b]] = self.epsilon
-
-        row_norm_ones = torch.zeros(batch_size, s.shape[1], s.shape[1], device=s.device, dtype=s.dtype)  # size: row x row
-        col_norm_ones = torch.zeros(batch_size, s.shape[2], s.shape[2], device=s.device, dtype=s.dtype)  # size: col x col
-        for b in range(batch_size):
-            row_slice = slice(0, nrows[b])
-            col_slice = slice(0, ncols[b])
-            row_norm_ones[b, row_slice, row_slice] = 1
-            col_norm_ones[b, col_slice, col_slice] = 1
-
-        # for Sinkhorn stacked on last dimension
-        if len(s.shape) == 4:
-            row_norm_ones = row_norm_ones.unsqueeze(-1)
-            col_norm_ones = col_norm_ones.unsqueeze(-1)
-
-        s += self.epsilon
-
-        for i in range(self.max_iter):
-            if i % 2 == 0:
-                # column norm
-                #ones = torch.ones(batch_size, s.shape[1], s.shape[1], device=s.device)
-                sum = torch.sum(torch.mul(s.unsqueeze(3), col_norm_ones.unsqueeze(1)), dim=2)
-            else:
-                # row norm
-                # ones = torch.ones(batch_size, s.shape[2], s.shape[2], device=s.device)
-                sum = torch.sum(torch.mul(row_norm_ones.unsqueeze(3), s.unsqueeze(1)), dim=2)
-
-            tmp = torch.zeros_like(s)
-            for b in range(batch_size):
-                row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
-                col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
-                tmp[b, row_slice, col_slice] = 1 / sum[b, row_slice, col_slice]
-            s = s * tmp
-
-        if dummy_row and dummy_shape[1] > 0:
-            s = s[:, :-dummy_shape[1]]
-            for b in range(batch_size):
-                s[b, ori_nrows[b]:nrows[b], :ncols[b]] = 0
-
-        if matrix_input:
-            s.squeeze_(0)
-
-        return s
+            return self.forward_ori(*input, **kwinput) # deprecated
 
     def forward_log(self, s, nrows=None, ncols=None, dummy_row=False, dtype=torch.float32):
+        # computing sinkhorn with row/column normalization in the log space.
         if len(s.shape) == 2:
             s = s.unsqueeze(0)
             matrix_input = True
@@ -179,14 +109,88 @@ class Sinkhorn(nn.Module):
 
             return torch.exp(ret_log_s)
 
-        #ret_log_s = torch.full((batch_size, s.shape[1], s.shape[2]), -float('inf'), device=s.device, dtype=s.dtype)
+        # ret_log_s = torch.full((batch_size, s.shape[1], s.shape[2]), -float('inf'), device=s.device, dtype=s.dtype)
 
-        #for b in range(batch_size):
+        # for b in range(batch_size):
         #    row_slice = slice(0, nrows[b])
         #    col_slice = slice(0, ncols[b])
         #    log_s = s[b, row_slice, col_slice]
 
+    def forward_ori(self, s, nrows=None, ncols=None, dummy_row=False, dtype=torch.float32):
+        # computing sinkhorn with row/column normalization.
+        # This function is deprecated because forward_log is more numerically stable.
+        if len(s.shape) == 2:
+            s = s.unsqueeze(0)
+            matrix_input = True
+        elif len(s.shape) == 3:
+            matrix_input = False
+        else:
+            raise ValueError('input data shape not understood.')
 
+        batch_size = s.shape[0]
+
+        #s = s.to(dtype=dtype)
+
+        if nrows is None:
+            nrows = [s.shape[1] for _ in range(batch_size)]
+        if ncols is None:
+            ncols = [s.shape[2] for _ in range(batch_size)]
+
+        # tau scaling
+        ret_s = torch.zeros_like(s)
+        for b, n in enumerate(nrows):
+            ret_s[b, 0:n, 0:ncols[b]] = \
+                nn.functional.softmax(s[b, 0:n, 0:ncols[b]] / self.tau, dim=-1)
+        s = ret_s
+
+        # add dummy elements
+        if dummy_row:
+            dummy_shape = list(s.shape)
+            dummy_shape[1] = s.shape[2] - s.shape[1]
+            #s = torch.cat((s, torch.full(dummy_shape, self.epsilon * 10).to(s.device)), dim=1)
+            #nrows = nrows + dummy_shape[1] # non in-place
+            s = torch.cat((s, torch.full(dummy_shape, 0.).to(s.device)), dim=1)
+            ori_nrows = nrows
+            nrows = ncols
+            for b in range(batch_size):
+                s[b, ori_nrows[b]:nrows[b], :ncols[b]] = self.epsilon
+
+        row_norm_ones = torch.zeros(batch_size, s.shape[1], s.shape[1], device=s.device, dtype=s.dtype)  # size: row x row
+        col_norm_ones = torch.zeros(batch_size, s.shape[2], s.shape[2], device=s.device, dtype=s.dtype)  # size: col x col
+        for b in range(batch_size):
+            row_slice = slice(0, nrows[b])
+            col_slice = slice(0, ncols[b])
+            row_norm_ones[b, row_slice, row_slice] = 1
+            col_norm_ones[b, col_slice, col_slice] = 1
+
+        s += self.epsilon
+
+        for i in range(self.max_iter):
+            if i % 2 == 0:
+                # column norm
+                #ones = torch.ones(batch_size, s.shape[1], s.shape[1], device=s.device)
+                sum = torch.sum(torch.mul(s.unsqueeze(3), col_norm_ones.unsqueeze(1)), dim=2)
+            else:
+                # row norm
+                # ones = torch.ones(batch_size, s.shape[2], s.shape[2], device=s.device)
+                sum = torch.sum(torch.mul(row_norm_ones.unsqueeze(3), s.unsqueeze(1)), dim=2)
+
+            tmp = torch.zeros_like(s)
+            for b in range(batch_size):
+                row_slice = slice(0, nrows[b] if nrows is not None else s.shape[2])
+                col_slice = slice(0, ncols[b] if ncols is not None else s.shape[1])
+                tmp[b, row_slice, col_slice] = 1 / sum[b, row_slice, col_slice]
+            s = s * tmp
+
+        if dummy_row and dummy_shape[1] > 0:
+            s = s[:, :-dummy_shape[1]]
+            for b in range(batch_size):
+                s[b, ori_nrows[b]:nrows[b], :ncols[b]] = 0
+
+        if matrix_input:
+            s.squeeze_(0)
+
+        return s
 
 
 class GumbelSinkhorn(nn.Module):

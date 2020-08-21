@@ -5,7 +5,6 @@ from models.GMN.affinity_layer import InnerpAffinity as Affinity
 from src.qap_solvers.spectral_matching import SpectralMatching
 from src.qap_solvers.rrwm import RRWM
 from src.lap_solvers.sinkhorn import Sinkhorn
-from models.GMN.voting_layer import Voting
 from models.GMN.displacement_layer import Displacement
 from src.build_graphs import reshape_edge_feature
 from src.feature_align import feature_align
@@ -26,8 +25,7 @@ class Net(CNN):
             self.gm_solver = SpectralMatching(max_iter=cfg.GMN.PI_ITER_NUM, stop_thresh=cfg.GMN.PI_STOP_THRESH)
         elif cfg.GMN.GM_SOLVER == 'RRWM':
             self.gm_solver = RRWM()
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.GMN.BS_ITER_NUM, epsilon=cfg.GMN.BS_EPSILON, log_forward=False)
-        self.voting_layer = Voting(alpha=cfg.GMN.VOTING_ALPHA)
+        self.bi_stochastic = Sinkhorn(max_iter=cfg.GMN.BS_ITER_NUM, tau=1/cfg.GMN.VOTING_ALPHA, epsilon=cfg.GMN.BS_EPSILON, log_forward=False)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.GMN.FEATURE_CHANNEL * 2, alpha=cfg.GMN.FEATURE_CHANNEL * 2, beta=0.5, k=0)
 
@@ -78,7 +76,6 @@ class Net(CNN):
         v = self.gm_solver(M, num_src=P_src.shape[1], ns_src=ns_src, ns_tgt=ns_tgt)
         s = v.view(v.shape[0], P_tgt.shape[1], -1).transpose(1, 2)
 
-        s = self.voting_layer(s, ns_src, ns_tgt)
         s = self.bi_stochastic(s, ns_src, ns_tgt)
 
         d, _ = self.displacement_layer(s, P_src, P_tgt)
