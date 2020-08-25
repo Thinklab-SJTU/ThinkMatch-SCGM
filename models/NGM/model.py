@@ -59,7 +59,8 @@ class Net(CNN):
 
         self.classifier = nn.Linear(cfg.NGM.GNN_FEAT[-1] + (1 if cfg.NGM.SK_EMB else 0), 1)
 
-    def forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, ns_src, ns_tgt, K_G, K_H, type='img'):
+    def forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, ns_src, ns_tgt, K_G, K_H, type='img', **kwargs):
+        batch_size = src.shape[0]
         if type == 'img' or type == 'image':
             # extract feature
             src_node = self.node_layers(src)
@@ -102,42 +103,73 @@ class Net(CNN):
             # affinity layer
             Me, Mp = self.affinity_layer(X, Y, U_src, U_tgt)
 
-            M = construct_m(Me, torch.zeros_like(Mp), K_G, K_H)
+            K = construct_m(Me, torch.zeros_like(Mp), K_G, K_H)
 
-            A = (M > 0).to(M.dtype)
+            A = (K > 0).to(K.dtype)
 
             if cfg.NGM.FIRST_ORDER:
                 emb = Mp.transpose(1, 2).contiguous().view(Mp.shape[0], -1, 1)
             else:
-                emb = torch.ones(M.shape[0], M.shape[1], 1, device=M.device)
+                emb = torch.ones(K.shape[0], K.shape[1], 1, device=K.device)
         else:
             tgt_len = int(math.sqrt(src.shape[2]))
-            M = src
-            A = (M > 0).to(M.dtype)
-            emb = torch.ones(M.shape[0], M.shape[1], 1, device=M.device)
+            K = src
+            dmax = (torch.max(torch.sum(K, dim=2, keepdim=True), dim=1, keepdim=True).values + 1e-5)
+            K = K / dmax * 1000
+            A = (K > 0).to(K.dtype)
+            emb = torch.ones(K.shape[0], K.shape[1], 1, device=K.device)
 
-        emb_M = M.unsqueeze(-1)
+        emb_K = K.unsqueeze(-1)
 
         for i in range(self.gnn_layer):
             gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
-            emb_M, emb = gnn_layer(A, emb_M, emb, ns_src, ns_tgt) #, norm=False)
+            emb_K, emb = gnn_layer(A, emb_K, emb, ns_src, ns_tgt) #, norm=False)
 
         v = self.classifier(emb)
         s = v.view(v.shape[0], tgt_len, -1).transpose(1, 2)
 
-        if self.training or not cfg.NGM.GUMBEL_SK:
-            ss = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+        if self.training or cfg.NGM.GUMBEL_SK <= 0:
+            ss = self.sinkhorn(s, ns_src, ns_tgt, dummy_row=True)
         else:
-            ss = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
-            opt_obj_score = objective_score(hungarian(ss, ns_src, ns_tgt), M, ns_src)
+            #ss = self.sinkhorn(s, ns_src, ns_tgt, dummy_row=True)
+            #opt_obj_score = objective_score(hungarian(ss, ns_src, ns_tgt), K, ns_src)
 
-            gumbel_sample_num = 500
-            ss_gumbel = self.bi_stochastic_g(s, ns_src, ns_tgt, sample_num=gumbel_sample_num, dummy_row=True)
+            gumbel_sample_num = cfg.NGM.GUMBEL_SK
+            ss_gumbel = self.gumbel_sinkhorn(s, ns_src, ns_tgt, sample_num=gumbel_sample_num, dummy_row=True)
             
-            for ri in range(0, gumbel_sample_num):
-                min_obj_score = torch.stack((opt_obj_score, objective_score(hungarian(ss_gumbel[ri::gumbel_sample_num], ns_src, ns_tgt), M, ns_src))).max(dim=0)
-                opt_obj_score = min_obj_score.values
-                ss = min_obj_score.indices.unsqueeze(-1).unsqueeze(-1) * ss_gumbel[ri::gumbel_sample_num] + (1 - min_obj_score.indices).unsqueeze(-1).unsqueeze(-1) * ss
+            #for ri in range(0, gumbel_sample_num):
+            #    min_obj_score = torch.stack((opt_obj_score, objective_score(hungarian(ss_gumbel[ri::gumbel_sample_num], ns_src, ns_tgt), K, ns_src))).max(dim=0)
+            #    opt_obj_score = min_obj_score.values
+            #    ss = min_obj_score.indices.unsqueeze(-1).unsqueeze(-1) * ss_gumbel[ri::gumbel_sample_num] + (1 - min_obj_score.indices).unsqueeze(-1).unsqueeze(-1) * ss
+
+            repeat = lambda x, rep_num=gumbel_sample_num: torch.repeat_interleave(x, rep_num, dim=0)
+            ss_gumbel = hungarian(ss_gumbel, repeat(ns_src), repeat(ns_tgt))
+            ss_gumbel = ss_gumbel.reshape(batch_size, gumbel_sample_num, ss_gumbel.shape[-2], ss_gumbel.shape[-1])
+
+            if ss_gumbel.device.type == 'cuda':
+                dev_idx = ss_gumbel.device.index
+                free_mem = free_gpu_memory(dev_idx) - 500 * 1024 ** 2
+                K_mem_size = K.element_size() * K.nelement()
+                max_repeats = free_mem // K_mem_size
+            else:
+                max_repeats = gumbel_sample_num
+
+            obj_score = []
+            for idx in range(0, gumbel_sample_num, max_repeats):
+                if idx + max_repeats > gumbel_sample_num:
+                    rep_num = gumbel_sample_num - idx
+                else:
+                    rep_num = max_repeats
+                obj_score.append(
+                    objective_score(
+                        ss_gumbel[:, idx:(idx+rep_num), :, :].reshape(-1, ss_gumbel.shape[-2], ss_gumbel.shape[-1]),
+                        repeat(K, rep_num)
+                    ).reshape(batch_size, -1)
+                )
+            obj_score = torch.cat(obj_score, dim=1)
+            #obj_score = objective_score(ss_gumbel, repeat(K)).reshape(s.shape[0], gumbel_sample_num)
+            min_obj_score = obj_score.min(dim=1)
+            ss = ss_gumbel[torch.arange(batch_size), min_obj_score.indices.cpu(), :, :]
 
             #opt_obj_score = objective_score(perm_mat, ori_affmtx, n1_gt)
 
@@ -146,4 +178,4 @@ class Net(CNN):
         else:
             d = None
 
-        return ss, d, M
+        return ss, d, K
