@@ -45,14 +45,14 @@ class Net(CNN):
             if i == 0:
                 #gnn_layer = Gconv(1, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha, edge_emb=cfg.NGM.EDGE_EMB)
+                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=alpha, edge_emb=cfg.NGM.EDGE_EMB)
                 #gnn_layer = HyperConvLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
                 #                           sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
             else:
                 #gnn_layer = Gconv(cfg.NGM.GNN_FEAT, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(cfg.NGM.GNN_FEAT[i - 1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i - 1],
                                      cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha, edge_emb=cfg.NGM.EDGE_EMB)
+                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=alpha, edge_emb=cfg.NGM.EDGE_EMB)
                 #gnn_layer = HyperConvLayer(cfg.NGM.GNN_FEAT[i-1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i-1],
                 #                           cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
                 #                           sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)

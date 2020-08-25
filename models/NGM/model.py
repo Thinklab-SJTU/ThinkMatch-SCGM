@@ -12,6 +12,7 @@ from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
 from src.evaluation_metric import objective_score
 from src.lap_solvers.hungarian import hungarian
 import math
+from src.utils.gpu_memory import free_gpu_memory
 
 from src.utils.config import cfg
 
@@ -29,8 +30,8 @@ class Net(CNN):
         else:
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
         self.tau = cfg.NGM.SK_TAU
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
-        self.bi_stochastic_g = GumbelSinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau*20, epsilon=cfg.NGM.BS_EPSILON)
+        self.sinkhorn = Sinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
+        self.gumbel_sinkhorn = GumbelSinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau * 20, epsilon=cfg.NGM.BS_EPSILON)
         #self.rrwm = PowerIteration()
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
@@ -39,18 +40,18 @@ class Net(CNN):
         for i in range(self.gnn_layer):
             #self.register_parameter('alpha_{}'.format(i), nn.Parameter(torch.Tensor([cfg.NGM.VOTING_ALPHA / (2 ** (self.gnn_layer - i - 1))])))
             #alpha = getattr(self, 'alpha_{}'.format(i))
-            alpha = cfg.NGM.VOTING_ALPHA
+            tau = cfg.NGM.SK_TAU
             if i == 0:
                 #gnn_layer = Gconv(1, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha, edge_emb=cfg.NGM.EDGE_EMB)
+                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=tau, edge_emb=cfg.NGM.EDGE_EMB)
                 #gnn_layer = HyperConvLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
                 #                           sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
             else:
                 #gnn_layer = Gconv(cfg.NGM.GNN_FEAT, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(cfg.NGM.GNN_FEAT[i - 1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i - 1],
                                      cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha, edge_emb=cfg.NGM.EDGE_EMB)
+                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=tau, edge_emb=cfg.NGM.EDGE_EMB)
                 #gnn_layer = HyperConvLayer(cfg.NGM.GNN_FEAT[i-1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i-1],
                 #                           cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
                 #                           sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)

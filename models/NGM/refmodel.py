@@ -41,12 +41,12 @@ class Net(CNN):
             if i == 0:
                 #gnn_layer = Gconv(1, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
+                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=alpha)
             else:
                 #gnn_layer = Gconv(cfg.NGM.GNN_FEAT, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(cfg.NGM.GNN_FEAT[i - 1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i - 1],
                                      cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
+                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=alpha)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
 
         self.classifier = nn.Linear(cfg.NGM.GNN_FEAT[-1] + (1 if cfg.NGM.SK_EMB else 0), 1)
