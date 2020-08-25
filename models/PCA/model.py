@@ -32,8 +32,6 @@ class Net(CNN):
                 self.add_module('cross_graph_{}'.format(i), nn.Linear(cfg.PCA.GNN_FEAT * 2, cfg.PCA.GNN_FEAT))
         self.cross_iter = cfg.PCA.CROSS_ITER
         self.cross_iter_num = cfg.PCA.CROSS_ITER_NUM
-        #self.rrwm = RRWM()
-        #self.affinity_layer = InnerpAffinity(cfg.PCA.FEATURE_CHANNEL)
 
     def reload_backbone(self):
         self.node_layers, self.edge_layers = self.get_backbone(True)
@@ -73,13 +71,14 @@ class Net(CNN):
         ss = []
 
         if not self.cross_iter:
+            # Vanilla PCA-GM
             for i in range(self.gnn_layer):
                 gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
                 emb1, emb2 = gnn_layer([A_src, emb1], [A_tgt, emb2])
                 affinity = getattr(self, 'affinity_{}'.format(i))
                 s = affinity(emb1, emb2)
-                #s = torch.bmm(emb1, emb2.transpose(1, 2))
-                s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+                s = self.sinkhorn(s, ns_src, ns_tgt, dummy_row=True)
+
                 ss.append(s)
 
                 if i == self.gnn_layer - 2:
@@ -89,6 +88,7 @@ class Net(CNN):
                     emb1 = new_emb1
                     emb2 = new_emb2
         else:
+            # IPCA-GM
             s = None
             for x in range(self.cross_iter_num):
                 for i in range(self.gnn_layer):
@@ -96,11 +96,7 @@ class Net(CNN):
                         if s is None:
                             gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
                             emb1_0, emb2_0 = gnn_layer([A_src, emb1], [A_tgt, emb2])
-                            s = torch.zeros(emb1.shape[0], emb1.shape[1], emb2.shape[1]).cuda()
-                            #affinity = getattr(self, 'affinity_{}'.format(i))
-                            #s = affinity(emb1_0, emb2_0)
-                            #s = self.voting_layer(s, ns_src, ns_tgt)
-                            #s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+                            s = torch.zeros(emb1.shape[0], emb1.shape[1], emb2.shape[1], device=emb1.device)
 
                         cross_graph = getattr(self, 'cross_graph_{}'.format(i))
                         emb1 = cross_graph(torch.cat((emb1_0, torch.bmm(s, emb2_0)), dim=-1))
@@ -110,7 +106,7 @@ class Net(CNN):
                         emb1, emb2 = gnn_layer([A_src, emb1], [A_tgt, emb2])
                         affinity = getattr(self, 'affinity_{}'.format(i))
                         s = affinity(emb1, emb2)
-                        s = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+                        s = self.sinkhorn(s, ns_src, ns_tgt, dummy_row=True)
                         ss.append(s)
 
         d, _ = self.displacement_layer(s, P_src, P_tgt)
