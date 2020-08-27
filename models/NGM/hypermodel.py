@@ -25,7 +25,7 @@ class Net(CNN):
         self.feat_affinity_layer = InnerpAffinity(cfg.NGM.FEATURE_CHANNEL)
         self.feat_affinity_layer3 = InnerpAffinity(cfg.NGM.FEATURE_CHANNEL)
         self.tau = 1 / cfg.NGM.VOTING_ALPHA
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.NGM.BS_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.BS_EPSILON)
+        self.bi_stochastic = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.SK_EPSILON)
         self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
 
