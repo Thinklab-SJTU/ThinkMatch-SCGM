@@ -6,7 +6,7 @@ import re
 import urllib
 
 
-inst_list = ['bur', 'chr', 'els', 'esc', 'had', 'kra', 'lipa', 'nug', 'rou', 'scr', 'sko', 'ste', 'tai', 'tho', 'wil']
+cls_list = ['bur', 'chr', 'els', 'esc', 'had', 'kra', 'lipa', 'nug', 'rou', 'scr', 'sko', 'ste', 'tai', 'tho', 'wil']
 
 class QAPLIB(BaseDataset):
     def __init__(self, sets, obj_resize, cls, fetch_online=False):
@@ -16,14 +16,14 @@ class QAPLIB(BaseDataset):
         self.sets = sets
 
         if cls is not None and cls != 'none':
-            idx = inst_list.index(cls)
-            self.inst_list = [inst_list[idx]]
+            idx = cls_list.index(cls)
+            self.cls_list = [cls_list[idx]]
         else:
-            self.inst_list = inst_list
+            self.cls_list = cls_list
 
         self.data_list = []
         self.qap_path = Path(cfg.QAPLIB.DIR)
-        for inst in self.inst_list:
+        for inst in self.cls_list:
             for dat_path in self.qap_path.glob(inst + '*.dat'):
                 name = dat_path.name[:-4]
                 prob_size = int(re.findall(r"\d+", name)[0])
@@ -32,10 +32,49 @@ class QAPLIB(BaseDataset):
                     continue
                 self.data_list.append(name)
 
-        self.data_list.sort()
+        # remove trivial instance esc16f
+        if 'esc16f' in self.data_list:
+            self.data_list.remove('esc16f')
 
-        #if sets == 'train':
-        #    self.data_list = ['tho40']
+        # define compare function
+        def name_cmp(a, b):
+            a = re.findall(r'[0-9]+|[a-z]+', a)
+            b = re.findall(r'[0-9]+|[a-z]+', b)
+            for _a, _b in zip(a, b):
+                if _a.isdigit() and _b.isdigit():
+                    _a = int(_a)
+                    _b = int(_b)
+                cmp = (_a > _b) - (_a < _b)
+                if cmp != 0:
+                    return cmp
+            if len(a) > len(b):
+                return -1
+            elif len(a) < len(b):
+                return 1
+            else:
+                return 0
+
+        def cmp_to_key(mycmp):
+            'Convert a cmp= function into a key= function'
+            class K:
+                def __init__(self, obj, *args):
+                    self.obj = obj
+                def __lt__(self, other):
+                    return mycmp(self.obj, other.obj) < 0
+                def __gt__(self, other):
+                    return mycmp(self.obj, other.obj) > 0
+                def __eq__(self, other):
+                    return mycmp(self.obj, other.obj) == 0
+                def __le__(self, other):
+                    return mycmp(self.obj, other.obj) <= 0
+                def __ge__(self, other):
+                    return mycmp(self.obj, other.obj) >= 0
+                def __ne__(self, other):
+                    return mycmp(self.obj, other.obj) != 0
+            return K
+
+        # sort data list according to the names
+        self.data_list.sort(key=cmp_to_key(name_cmp))
 
         fetched_flag = self.qap_path / 'fetched_online'
 
