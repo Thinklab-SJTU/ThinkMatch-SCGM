@@ -99,8 +99,9 @@ class Sinkhorn(nn.Module):
 
                 ret_log_s[b, row_slice, col_slice] = log_s
 
-            if dummy_row and dummy_shape[1] > 0:
-                ret_log_s = ret_log_s[:, :-dummy_shape[1]]
+            if dummy_row:
+                if dummy_shape[1] > 0:
+                    ret_log_s = ret_log_s[:, :-dummy_shape[1]]
                 for b in range(batch_size):
                     ret_log_s[b, ori_nrows[b]:nrows[b], :ncols[b]] = -float('inf')
 
@@ -182,8 +183,9 @@ class Sinkhorn(nn.Module):
                 tmp[b, row_slice, col_slice] = 1 / sum[b, row_slice, col_slice]
             s = s * tmp
 
-        if dummy_row and dummy_shape[1] > 0:
-            s = s[:, :-dummy_shape[1]]
+        if dummy_row:
+            if dummy_shape[1] > 0:
+                s = s[:, :-dummy_shape[1]]
             for b in range(batch_size):
                 s[b, ori_nrows[b]:nrows[b], :ncols[b]] = 0
 
@@ -201,9 +203,9 @@ class GumbelSinkhorn(nn.Module):
     Input: input matrix s
     Output: bi-stochastic matrix s
     """
-    def __init__(self, max_iter=10, tau=1., epsilon=1e-4):
+    def __init__(self, max_iter=10, tau=1., epsilon=1e-4, batched_operation=False):
         super(GumbelSinkhorn, self).__init__()
-        self.sinkhorn = Sinkhorn(max_iter, tau, epsilon)
+        self.sinkhorn = Sinkhorn(max_iter, tau, epsilon, batched_operation=batched_operation)
 
     def forward(self, s, nrows=None, ncols=None, sample_num=5, dummy_row=False, dtype=torch.float32):
         def sample_gumbel(t_like, eps=1e-20):
