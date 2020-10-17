@@ -57,7 +57,7 @@ def dsnorm(W, eps=1e-8):
 
 class GNNLayer(nn.Module):
     def __init__(self, in_node_features, in_edge_features, out_node_features, out_edge_features,
-                 sk_channel=0, sk_iter=20, sk_tau=20, edge_emb=False):
+                 sk_channel=0, sk_iter=20, sk_tau=0.05, edge_emb=False):
         super(GNNLayer, self).__init__()
         self.in_nfeat = in_node_features
         self.in_efeat = in_edge_features
@@ -66,7 +66,7 @@ class GNNLayer(nn.Module):
         if self.sk_channel > 0:
             assert out_node_features == out_edge_features + 1
             self.out_nfeat = out_node_features - self.sk_channel
-            self.sk = Sinkhorn(sk_iter, 1 / sk_tau)
+            self.sk = Sinkhorn(sk_iter, sk_tau)
             self.classifier = nn.Linear(self.out_nfeat, self.sk_channel)
         else:
             assert out_node_features == out_edge_features
