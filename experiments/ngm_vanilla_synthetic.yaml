@@ -83,7 +83,7 @@ VISUAL:
 # model parameters
 NGM:
   FIRST_ORDER: False
-  SK_EMB: 1
+  SK_EMB: 0
 
   EDGE_FEATURE: geo
 
