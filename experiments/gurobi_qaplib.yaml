@@ -79,4 +79,4 @@ NGM:
   GUMBEL_SK: True # Gumbel-Sinkhorn's tau = SK_TAU * 20
 
 GUROBI:
-  TIME_LIMIT: 1000
+  TIME_LIMIT: .inf

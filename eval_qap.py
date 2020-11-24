@@ -2,6 +2,7 @@ import torch
 import time
 from datetime import datetime
 from pathlib import Path
+import xlwt
 
 from src.lap_solvers.hungarian import hungarian
 from src.dataset.data_loader import QAPDataset, get_dataloader
@@ -35,6 +36,16 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
     pcks = torch.zeros(len(classes), len(alphas), device=device)
     accs = torch.zeros(len(classes), device=device)
+
+    wb = xlwt.Workbook()
+    sheet = wb.add_sheet('QAPLIB')
+    name_idx = 0
+    score_idx = 1
+    time_idx = 2
+    sheet.write(0, name_idx, 'instance')
+    sheet.write(0, score_idx, 'score')
+    sheet.write(0, time_idx, 'time')
+    wb_idx = 1
 
     for i, cls in enumerate(classes):
         if verbose:
@@ -114,6 +125,10 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                       format(n, x, y, z, x - z, rel, fwd_time))
                 if not torch.isnan(rel):
                     rel_sum += rel
+                sheet.write(wb_idx, name_idx, n)
+                sheet.write(wb_idx, score_idx, x.item())
+                sheet.write(wb_idx, time_idx, fwd_time)
+                wb_idx += 1
                 #rel_num += 1
 
             if iter_num % cfg.STATISTIC_STEP == 0 and verbose:
@@ -148,6 +163,9 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
     for cls, single_acc in zip(classes, accs):
         print('{} = {:.4f}'.format(cls, single_acc))
     print('average = {:.4f}'.format(torch.mean(accs)))
+
+    now_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    wb.save( str(Path(cfg.OUTPUT_PATH) / ('eval_' + now_time + '.xls')))
 
     return accs
 

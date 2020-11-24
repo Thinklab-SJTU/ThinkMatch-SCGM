@@ -51,12 +51,18 @@ def kronecker_torch(t1: Tensor, t2: Tensor):
     batch_num = t1.shape[0]
     t1dim1, t1dim2 = t1.shape[1], t1.shape[2]
     t2dim1, t2dim2 = t2.shape[1], t2.shape[2]
-    t1 = t1.reshape(batch_num, -1, 1)
-    t2 = t2.reshape(batch_num, 1, -1)
-    tt = torch.bmm(t1, t2)
-    tt = tt.reshape(batch_num, t1dim1, t1dim2, t2dim1, t2dim2)
-    tt = tt.permute([0, 1, 3, 2, 4])
-    tt = tt.reshape(batch_num, t1dim1 * t2dim1, t1dim2 * t2dim2)
+    if t1.is_sparse and t2.is_sparse:
+        tt_idx = torch.stack(t1._indices()[0, :] * t2dim1, t1._indices()[1, :] * t2dim2)
+        tt_idx = torch.repeat_interleave(tt_idx, t2._nnz(), dim=1) + t2._indices().repeat(1, t1._nnz())
+        tt_val = torch.repeat_interleave(t1._values(), t2._nnz(), dim=1) * t2._values().repeat(1, t1._nnz())
+        tt = torch.sparse.FloatTensor(tt_idx, tt_val, torch.Size(t1dim1 * t2dim1, t1dim2 * t2dim2))
+    else:
+        t1 = t1.reshape(batch_num, -1, 1)
+        t2 = t2.reshape(batch_num, 1, -1)
+        tt = torch.bmm(t1, t2)
+        tt = tt.reshape(batch_num, t1dim1, t1dim2, t2dim1, t2dim2)
+        tt = tt.permute([0, 1, 3, 2, 4])
+        tt = tt.reshape(batch_num, t1dim1 * t2dim1, t1dim2 * t2dim2)
     return tt
 
 

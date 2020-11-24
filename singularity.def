@@ -4,7 +4,7 @@ Stage: build
 
 %post
     apt-get update && apt-get install ninja-build
-    /opt/conda/bin/pip install tensorboardX scipy easydict pyyaml xlrd xlwt
+    /opt/conda/bin/pip install tensorboardX scipy easydict pyyaml xlrd xlwt pynvml
 
     export CUDA=cu101
     export TORCH=1.6.0

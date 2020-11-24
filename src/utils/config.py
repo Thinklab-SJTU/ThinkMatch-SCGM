@@ -134,7 +134,7 @@ __C.NGM.ORDER3_FEATURE = 'cat' # 'cat' or 'geo'
 __C.NGM.FIRST_ORDER = True
 __C.NGM.EDGE_EMB = False
 __C.NGM.SK_EMB = 1
-__C.NGM.GUMBEL_SK = False
+__C.NGM.GUMBEL_SK = 0 # 0 for no gumbel, other wise for number of gumbel samples
 
 # GANN model options
 __C.GANN = edict()

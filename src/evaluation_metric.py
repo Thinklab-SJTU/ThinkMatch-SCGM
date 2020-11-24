@@ -124,12 +124,12 @@ def format_metric(ms):
     return '{:.4f}+-{:.4f}'.format(torch.mean(ms), torch.std(ms))
 
 
-def objective_score(pmat_pred, affmtx, ns):
+def objective_score(pmat_pred, affmtx, ns=None):
     """
     Objective score given predicted permutation matrix and affinity matrix from the problem.
     :param pmat_pred: predicted permutation matrix
     :param affmtx: affinity matrix from the problem
-    :param ns: number of exact pairs
+    :param ns: number of exact pairs (no use here)
     :return: objective scores
     """
     batch_num = pmat_pred.shape[0]
