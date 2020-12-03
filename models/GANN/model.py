@@ -215,7 +215,7 @@ class Net(CNN):
                 else:
                     start_idx = mscum[b, i-1]
                 end_idx = mscum[b, i]
-                #U0_b.append(self.bi_stochastic(v[start_idx:end_idx, :], dummy_row=True))
+                #U0_b.append(self.sinkhorn(v[start_idx:end_idx, :], dummy_row=True))
                 U0_b.append(hungarian(v[start_idx:end_idx, :]))
             U0.append(torch.cat(U0_b, dim=0))
         '''
