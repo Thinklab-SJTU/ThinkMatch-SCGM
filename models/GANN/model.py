@@ -4,7 +4,7 @@ import torch.nn.functional as functional
 
 import numpy as np
 
-from src.lap_solvers.sinkhorn import Sinkhorn as Sinkhorn
+from src.lap_solvers.sinkhorn import Sinkhorn
 from models.GMN.displacement_layer import Displacement
 from src.feature_align import feature_align
 from models.PCA.affinity_layer import AffinityInp
