@@ -11,10 +11,6 @@ def parse_args(description):
                         help='batch size', default=None, type=int)
     parser.add_argument('--epoch', dest='epoch',
                         help='epoch number', default=None, type=int)
-    parser.add_argument('--model', dest='model',
-                        help='model name', default=None, type=str)
-    parser.add_argument('--dataset', dest='dataset',
-                        help='dataset name', default=None, type=str)
     args = parser.parse_args()
 
     # load cfg from file
@@ -27,10 +23,6 @@ def parse_args(description):
         cfg_from_list(['BATCH_SIZE', args.batch_size])
     if args.epoch is not None:
         cfg_from_list(['TRAIN.START_EPOCH', args.epoch, 'EVAL.EPOCH', args.epoch, 'VISUAL.EPOCH', args.epoch])
-    if args.model is not None:
-        cfg_from_list(['MODEL_NAME', args.model])
-    if args.dataset is not None:
-        cfg_from_list(['DATASET_NAME', args.dataset])
 
     if len(cfg.MODEL_NAME) != 0 and len(cfg.DATASET_NAME) != 0:
         outp_path = get_output_dir(cfg.MODEL_NAME, cfg.DATASET_NAME)
