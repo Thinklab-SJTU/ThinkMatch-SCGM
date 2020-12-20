@@ -7,12 +7,6 @@ import pickle
 
 from src.utils.config import cfg
 
-anno_path = cfg.VOC2011.KPT_ANNO_DIR
-img_path = cfg.VOC2011.ROOT_DIR + 'JPEGImages'
-ori_anno_path = cfg.VOC2011.ROOT_DIR + 'Annotations'
-set_path = cfg.VOC2011.SET_SPLIT
-cache_path = cfg.CACHE_PATH
-
 KPT_NAMES = {
     'cat': ['L_B_Elbow', 'L_B_Paw', 'L_EarBase', 'L_Eye', 'L_F_Elbow',
             'L_F_Paw', 'Nose', 'R_B_Elbow', 'R_B_Paw', 'R_EarBase', 'R_Eye',
@@ -87,8 +81,14 @@ class PascalVOC:
         :param sets: 'train' or 'test'
         :param obj_resize: resized object size
         """
-        self.classes = cfg.VOC2011.CLASSES
-        self.kpt_len = [len(KPT_NAMES[_]) for _ in cfg.VOC2011.CLASSES]
+        self.classes = cfg.PascalVOC.CLASSES
+        self.kpt_len = [len(KPT_NAMES[_]) for _ in cfg.PascalVOC.CLASSES]
+
+        anno_path = cfg.PascalVOC.KPT_ANNO_DIR
+        img_path = cfg.PascalVOC.ROOT_DIR + 'JPEGImages'
+        ori_anno_path = cfg.PascalVOC.ROOT_DIR + 'Annotations'
+        set_path = cfg.PascalVOC.SET_SPLIT
+        cache_path = cfg.CACHE_PATH
 
         self.classes_kpts = {cls: len(KPT_NAMES[cls]) for cls in self.classes}
 

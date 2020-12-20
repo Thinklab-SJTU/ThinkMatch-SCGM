@@ -12,6 +12,8 @@ Most tools in $ROOT/tools take a --cfg option to specify an override file.
 import os
 from easydict import EasyDict as edict
 import numpy as np
+import importlib
+import src.dataset
 
 __C = edict()
 # Consumers can get config by:
@@ -37,126 +39,6 @@ __C.PAIR.NUM_GRAPHS = 3
 __C.PAIR.NUM_CLUSTERS = 2
 __C.PAIR.TEST_ALL_GRAPHS = False
 __C.PAIR.TRAIN_ALL_GRAPHS = False
-
-# VOC2011-Keypoint Dataset
-__C.VOC2011 = edict()
-__C.VOC2011.KPT_ANNO_DIR = 'data/PascalVOC/annotations/'  # keypoint annotation
-__C.VOC2011.ROOT_DIR = 'data/PascalVOC/VOC2011/'  # original VOC2011 dataset
-__C.VOC2011.SET_SPLIT = 'data/PascalVOC/voc2011_pairs.npz'  # set split path
-__C.VOC2011.CLASSES = ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow',
-                       'diningtable', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train',
-                       'tvmonitor']
-
-# Willow-Object Dataset
-__C.WILLOW = edict()
-__C.WILLOW.ROOT_DIR = 'data/WILLOW-ObjectClass'
-__C.WILLOW.CLASSES = ['Car', 'Duck', 'Face', 'Motorbike', 'Winebottle']
-__C.WILLOW.KPT_LEN = 10
-__C.WILLOW.TRAIN_NUM = 20
-__C.WILLOW.SPLIT_OFFSET = 0
-__C.WILLOW.TRAIN_SAME_AS_TEST = False
-__C.WILLOW.RAND_OUTLIER = 0
-
-# Synthetic dataset
-__C.SYNTHETIC = edict()
-__C.SYNTHETIC.DIM = 1024
-__C.SYNTHETIC.TRAIN_NUM = 100  # training graphs
-__C.SYNTHETIC.TEST_NUM = 100  # testing graphs
-__C.SYNTHETIC.MIXED_DATA_NUM = 10  # num of samples in mixed synthetic test
-__C.SYNTHETIC.RANDOM_EXP_ID = 0  # id of random experiment
-__C.SYNTHETIC.EDGE_DENSITY = 0.3  # edge_num = X * node_num^2 / 4
-__C.SYNTHETIC.KPT_NUM = 10  # number of nodes (inliers)
-__C.SYNTHETIC.OUT_NUM = 0 # number of outliers
-__C.SYNTHETIC.FEAT_GT_UNIFORM = 1.  # reference node features in uniform(-X, X) for each dimension
-__C.SYNTHETIC.FEAT_NOISE_STD = 0.1  # corresponding node features add a random noise ~ N(0, X^2)
-__C.SYNTHETIC.POS_GT_UNIFORM = 256.  # reference keypoint position in image: uniform(0, X)
-__C.SYNTHETIC.POS_AFFINE_DXY = 50.  # corresponding position after affine transform: t_x, t_y ~ uniform(-X, X)
-__C.SYNTHETIC.POS_AFFINE_S_LOW = 0.8  # corresponding position after affine transform: s ~ uniform(S_LOW, S_HIGH)
-__C.SYNTHETIC.POS_AFFINE_S_HIGH = 1.2
-__C.SYNTHETIC.POS_AFFINE_DTHETA = 60.  # corresponding position after affine transform: theta ~ uniform(-X, X)
-__C.SYNTHETIC.POS_NOISE_STD = 10.  # corresponding position add a random noise ~ N(0, X^2) after affine transform
-
-# QAPLIB dataset
-__C.QAPLIB = edict()
-__C.QAPLIB.DIR = 'data/qapdata'
-__C.QAPLIB.FEED_TYPE = 'affmat' # 'affmat' (affinity matrix) or 'adj' (adjacency matrix)
-__C.QAPLIB.ONLINE_REPO = 'http://anjos.mgi.polymtl.ca/qaplib/'
-__C.QAPLIB.MAX_TRAIN_SIZE = 200
-__C.QAPLIB.MAX_TEST_SIZE = 100
-
-# CUB2011 dataset
-__C.CUB2011 = edict()
-__C.CUB2011.ROOT_PATH = 'data/CUB_200_2011'
-__C.CUB2011.CLASS_SPLIT = 'ori' # choose from 'ori' (original split), 'sup' (super class) or 'all' (all birds as one class)
-
-#  Sub-Rome16k dataset
-__C.ROME16K = edict()
-__C.ROME16K.DIR = 'data/Sub-Rome16K'
-__C.ROME16K.CLASSES = ['Colosseum', 'Pantheon', 'Ceiling']
-
-# GMN model options
-__C.GMN = edict()
-__C.GMN.FEATURE_CHANNEL = 512
-__C.GMN.PI_ITER_NUM = 50
-__C.GMN.PI_STOP_THRESH = 2e-7
-__C.GMN.BS_ITER_NUM = 10
-__C.GMN.BS_EPSILON = 1e-10
-__C.GMN.VOTING_ALPHA = 2e8
-__C.GMN.GM_SOLVER = 'SM'
-
-# PCA model options
-__C.PCA = edict()
-__C.PCA.FEATURE_CHANNEL = 512
-__C.PCA.BS_ITER_NUM = 20
-__C.PCA.BS_EPSILON = 1.0e-10
-__C.PCA.SK_TAU = 0.005
-__C.PCA.GNN_LAYER = 5
-__C.PCA.GNN_FEAT = 1024
-__C.PCA.LOSS_WEIGHTS = [0., 1.]  # [cross-module loss, final prediction loss]
-__C.PCA.CROSS_ITER = False
-__C.PCA.CROSS_ITER_NUM = 1
-
-# NGM model options
-__C.NGM = edict()
-__C.NGM.FEATURE_CHANNEL = 512
-__C.NGM.SK_ITER_NUM = 10
-__C.NGM.SK_EPSILON = 1e-10
-__C.NGM.SK_TAU = 0.005
-__C.NGM.GNN_FEAT = [16, 16, 16]
-__C.NGM.GNN_LAYER = 3
-__C.NGM.GAUSSIAN_SIGMA = 1.
-__C.NGM.SIGMA3 = 1.
-__C.NGM.WEIGHT2 = 1.
-__C.NGM.WEIGHT3 = 1.
-__C.NGM.EDGE_FEATURE = 'cat' # 'cat' or 'geo'
-__C.NGM.ORDER3_FEATURE = 'cat' # 'cat' or 'geo'
-#__C.NGM.OUTP_SCORE = True # output the scoring matrix as prediction in testing (no Sinkhorn applied in testing)
-__C.NGM.FIRST_ORDER = True
-__C.NGM.EDGE_EMB = False
-__C.NGM.SK_EMB = 1
-__C.NGM.GUMBEL_SK = 0 # 0 for no gumbel, other wise for number of gumbel samples
-
-# GANN model options
-__C.GANN = edict()
-__C.GANN.FEATURE_CHANNEL = 1024
-__C.GANN.SK_ITER_NUM = 20
-__C.GANN.SK_TAU = 0.05
-__C.GANN.SK_EPSILON = 1e-10
-__C.GANN.UNIV_SIZE = 10
-__C.GANN.MAX_ITER = [200, 200]
-__C.GANN.INIT_TAU = [0.5, 0.5]
-__C.GANN.GAMMA = 0.5
-__C.GANN.BETA = [1., 0.]
-__C.GANN.CONVERGE_TOL = 1e-5
-__C.GANN.MIN_TAU = [1e-2, 1e-2]
-__C.GANN.SCALE_FACTOR = 1.
-__C.GANN.QUAD_WEIGHT = 1.
-__C.GANN.CLUSTER_QUAD_WEIGHT = 1.
-__C.GANN.PROJECTOR = ['sinkhorn', 'sinkhorn']
-
-# GUROBI options
-__C.GUROBI = edict()
-__C.GUROBI.TIME_LIMIT = float('inf')
 
 #
 # Training options
@@ -336,6 +218,13 @@ def cfg_from_file(filename):
     import yaml
     with open(filename, 'r') as f:
         yaml_cfg = edict(yaml.full_load(f))
+
+    if 'MODULE' in yaml_cfg and yaml_cfg.MODULE not in __C:
+        mod = importlib.import_module(yaml_cfg.MODULE)
+        __C.update(mod.model_cfg)
+
+    if 'DATASET_FULL_NAME' in yaml_cfg and yaml_cfg.DATASET_FULL_NAME not in __C:
+        __C[yaml_cfg.DATASET_FULL_NAME] = src.dataset.dataset_cfg[yaml_cfg.DATASET_FULL_NAME]
 
     _merge_a_into_b(yaml_cfg, __C)
 
