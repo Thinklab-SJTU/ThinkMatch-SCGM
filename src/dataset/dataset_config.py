@@ -4,7 +4,6 @@ __C = edict()
 
 dataset_cfg = __C
 # Pascal VOC 2011 dataset with keypoint annotations
-__C = edict()
 __C.PascalVOC = edict()
 __C.PascalVOC.KPT_ANNO_DIR = 'data/PascalVOC/annotations/'  # keypoint annotation
 __C.PascalVOC.ROOT_DIR = 'data/PascalVOC/VOC2011/'  # original VOC2011 dataset
