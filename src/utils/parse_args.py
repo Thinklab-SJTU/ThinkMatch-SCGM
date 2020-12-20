@@ -24,6 +24,9 @@ def parse_args(description):
     if args.epoch is not None:
         cfg_from_list(['TRAIN.START_EPOCH', args.epoch, 'EVAL.EPOCH', args.epoch, 'VISUAL.EPOCH', args.epoch])
 
+    assert len(cfg.MODULE) != 0, 'Please specify a module name in your yaml file (e.g. MODULE: models.PCA.model).'
+    assert len(cfg.DATASET_FULL_NAME) != 0, 'Please specify the full name of dataset in your yaml file (e.g. DATASET_FULL_NAME: PascalVOC).'
+
     if len(cfg.MODEL_NAME) != 0 and len(cfg.DATASET_NAME) != 0:
         outp_path = get_output_dir(cfg.MODEL_NAME, cfg.DATASET_NAME)
         cfg_from_list(['OUTPUT_PATH', outp_path])

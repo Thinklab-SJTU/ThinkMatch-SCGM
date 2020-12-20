@@ -139,7 +139,7 @@ __C.CACHE_PATH = 'data/cache'
 # Model name and dataset name
 __C.MODEL_NAME = ''
 __C.DATASET_NAME = ''
-__C.DATASET_FULL_NAME = 'PascalVOC' # 'PascalVOC' or 'WillowObject'
+__C.DATASET_FULL_NAME = ''
 
 # Module path of module
 __C.MODULE = ''
