@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 
 from src.lap_solvers.sinkhorn import Sinkhorn, GumbelSinkhorn
-from models.GMN.displacement_layer import Displacement
 from src.build_graphs import reshape_edge_feature
 from src.feature_align import feature_align
 from src.factorize_graph_matching import construct_m
@@ -12,9 +11,13 @@ from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
 from src.evaluation_metric import objective_score
 from src.lap_solvers.hungarian import hungarian
 import math
-from src.utils.gpu_memory import free_gpu_memory
+from src.utils.gpu_memory import gpu_free_memory
+
+#from torch_geometric.data import Data, Batch
+#from torch_geometric.utils import dense_to_sparse, to_dense_batch
 
 from src.utils.config import cfg
+from models.NGM.model_config import model_cfg
 
 from src.backbone import *
 CNN = eval(cfg.BACKBONE)
@@ -31,15 +34,11 @@ class Net(CNN):
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
         self.tau = cfg.NGM.SK_TAU
         self.sinkhorn = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.SK_EPSILON)
-        self.gumbel_sinkhorn = GumbelSinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.SK_EPSILON)
-        #self.rrwm = PowerIteration()
-        self.displacement_layer = Displacement()
+        self.gumbel_sinkhorn = GumbelSinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau * 10, epsilon=cfg.NGM.SK_EPSILON, batched_operation=True)
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
 
         self.gnn_layer = cfg.NGM.GNN_LAYER
         for i in range(self.gnn_layer):
-            #self.register_parameter('alpha_{}'.format(i), nn.Parameter(torch.Tensor([cfg.NGM.VOTING_ALPHA / (2 ** (self.gnn_layer - i - 1))])))
-            #alpha = getattr(self, 'alpha_{}'.format(i))
             tau = cfg.NGM.SK_TAU
             if i == 0:
                 #gnn_layer = Gconv(1, cfg.NGM.GNN_FEAT)
@@ -59,9 +58,17 @@ class Net(CNN):
 
         self.classifier = nn.Linear(cfg.NGM.GNN_FEAT[-1] + (1 if cfg.NGM.SK_EMB else 0), 1)
 
-    def forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, ns_src, ns_tgt, K_G, K_H, type='img', **kwargs):
-        batch_size = src.shape[0]
-        if type == 'img' or type == 'image':
+    def forward(self, data_dict, **kwargs):
+        if 'images' in data_dict:
+            # real image data
+            src, tgt = data_dict['images']
+            P_src, P_tgt = data_dict['Ps']
+            ns_src, ns_tgt = data_dict['ns']
+            G_src, G_tgt = data_dict['Gs']
+            H_src, H_tgt = data_dict['Hs']
+            K_G, K_H = data_dict['Ks']
+            batch_size = src.shape[0]
+
             # extract feature
             src_node = self.node_layers(src)
             src_edge = self.edge_layers(src_node)
@@ -79,17 +86,27 @@ class Net(CNN):
             F_src = feature_align(src_edge, P_src, ns_src, cfg.PAIR.RESCALE)
             U_tgt = feature_align(tgt_node, P_tgt, ns_tgt, cfg.PAIR.RESCALE)
             F_tgt = feature_align(tgt_edge, P_tgt, ns_tgt, cfg.PAIR.RESCALE)
-        elif type == 'feat' or type == 'feature':
+        elif 'features' in data_dict:
+            # synthetic data
+            src, tgt = data_dict['features']
+            P_src, P_tgt = data_dict['Ps']
+            ns_src, ns_tgt = data_dict['ns']
+            G_src, G_tgt = data_dict['Gs']
+            H_src, H_tgt = data_dict['Hs']
+            K_G, K_H = data_dict['Ks']
+            batch_size = src.shape[0]
+
             U_src = src[:, :src.shape[1] // 2, :]
             F_src = src[:, src.shape[1] // 2:, :]
             U_tgt = tgt[:, :tgt.shape[1] // 2, :]
             F_tgt = tgt[:, tgt.shape[1] // 2:, :]
-        elif type == 'affmat':
-            pass
+        elif 'aff_mat' in data_dict:
+            K = data_dict['aff_mat']
+            batch_size = K.shape[0]
         else:
-            raise ValueError('unknown type string {}'.format(type))
+            raise ValueError('Unknown data type for this model.')
 
-        if type != 'affmat':
+        if 'images' in data_dict or 'features' in data_dict:
             tgt_len = P_tgt.shape[1]
             if cfg.NGM.EDGE_FEATURE == 'cat':
                 X = reshape_edge_feature(F_src, G_src, H_src)
@@ -112,8 +129,7 @@ class Net(CNN):
             else:
                 emb = torch.ones(K.shape[0], K.shape[1], 1, device=K.device)
         else:
-            tgt_len = int(math.sqrt(src.shape[2]))
-            K = src
+            tgt_len = int(math.sqrt(K.shape[2]))
             dmax = (torch.max(torch.sum(K, dim=2, keepdim=True), dim=1, keepdim=True).values + 1e-5)
             K = K / dmax * 1000
             A = (K > 0).to(K.dtype)
@@ -121,6 +137,7 @@ class Net(CNN):
 
         emb_K = K.unsqueeze(-1)
 
+        # NGM qap solver
         for i in range(self.gnn_layer):
             gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
             emb_K, emb = gnn_layer(A, emb_K, emb, ns_src, ns_tgt) #, norm=False)
@@ -129,28 +146,27 @@ class Net(CNN):
         s = v.view(v.shape[0], tgt_len, -1).transpose(1, 2)
 
         if self.training or cfg.NGM.GUMBEL_SK <= 0:
+        #if cfg.NGM.GUMBEL_SK <= 0:
             ss = self.sinkhorn(s, ns_src, ns_tgt, dummy_row=True)
         else:
-            #ss = self.sinkhorn(s, ns_src, ns_tgt, dummy_row=True)
-            #opt_obj_score = objective_score(hungarian(ss, ns_src, ns_tgt), K, ns_src)
-
             gumbel_sample_num = cfg.NGM.GUMBEL_SK
+            if self.training:
+                gumbel_sample_num //= 10
             ss_gumbel = self.gumbel_sinkhorn(s, ns_src, ns_tgt, sample_num=gumbel_sample_num, dummy_row=True)
-            
-            #for ri in range(0, gumbel_sample_num):
-            #    min_obj_score = torch.stack((opt_obj_score, objective_score(hungarian(ss_gumbel[ri::gumbel_sample_num], ns_src, ns_tgt), K, ns_src))).max(dim=0)
-            #    opt_obj_score = min_obj_score.values
-            #    ss = min_obj_score.indices.unsqueeze(-1).unsqueeze(-1) * ss_gumbel[ri::gumbel_sample_num] + (1 - min_obj_score.indices).unsqueeze(-1).unsqueeze(-1) * ss
 
             repeat = lambda x, rep_num=gumbel_sample_num: torch.repeat_interleave(x, rep_num, dim=0)
-            ss_gumbel = hungarian(ss_gumbel, repeat(ns_src), repeat(ns_tgt))
+            if not self.training:
+                ss_gumbel = hungarian(ss_gumbel, repeat(ns_src), repeat(ns_tgt))
             ss_gumbel = ss_gumbel.reshape(batch_size, gumbel_sample_num, ss_gumbel.shape[-2], ss_gumbel.shape[-1])
 
             if ss_gumbel.device.type == 'cuda':
                 dev_idx = ss_gumbel.device.index
-                free_mem = free_gpu_memory(dev_idx) - 500 * 1024 ** 2
+                free_mem = gpu_free_memory(dev_idx) - 100 * 1024 ** 2 # 100MB as buffer for other computations
                 K_mem_size = K.element_size() * K.nelement()
                 max_repeats = free_mem // K_mem_size
+                if max_repeats <= 0:
+                    print('Warning: GPU may not have enough memory')
+                    max_repeats = 1
             else:
                 max_repeats = gumbel_sample_num
 
@@ -167,15 +183,10 @@ class Net(CNN):
                     ).reshape(batch_size, -1)
                 )
             obj_score = torch.cat(obj_score, dim=1)
-            #obj_score = objective_score(ss_gumbel, repeat(K)).reshape(s.shape[0], gumbel_sample_num)
             min_obj_score = obj_score.min(dim=1)
             ss = ss_gumbel[torch.arange(batch_size), min_obj_score.indices.cpu(), :, :]
 
-            #opt_obj_score = objective_score(perm_mat, ori_affmtx, n1_gt)
-
-        if type != 'affmat':
-            d, _ = self.displacement_layer(ss, P_src, P_tgt)
-        else:
-            d = None
-
-        return ss, d, K
+        return {
+            'ds_mat': ss,
+            'aff_mat': K
+        }
