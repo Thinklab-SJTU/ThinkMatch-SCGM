@@ -11,6 +11,9 @@ class VGG16_base(nn.Module):
     def forward(self, *input):
         raise NotImplementedError
 
+    def device(self):
+        return next(self.parameters()).device
+
     @staticmethod
     def get_backbone(batch_norm):
         """
