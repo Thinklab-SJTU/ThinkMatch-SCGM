@@ -4,15 +4,15 @@ import torch.nn.functional as F
 from src.lap_solvers.hungarian import hungarian
 
 
-class CrossEntropyLoss(nn.Module):
+class PermutationLoss(nn.Module):
     """
-    Cross entropy loss between two permutations.
+    Binary cross entropy loss between two permutations.
     Proposed by Wang et al. Learning Combinatorial Embedding Networks for Deep Graph Matching. ICCV 2019.
     """
     def __init__(self):
-        super(CrossEntropyLoss, self).__init__()
+        super(PermutationLoss, self).__init__()
 
-    def forward(self, pred_perm, gt_perm, pred_ns, *gt_ns):
+    def forward(self, pred_perm, gt_perm, src_ns, tgt_ns):
         batch_num = pred_perm.shape[0]
 
         pred_perm = pred_perm.to(dtype=torch.float32)
@@ -27,14 +27,45 @@ class CrossEntropyLoss(nn.Module):
         loss = torch.tensor(0.).to(pred_perm.device)
         n_sum = torch.zeros_like(loss)
         for b in range(batch_num):
-            batch_slice = [b, slice(pred_ns[b])]
-            for gtn in gt_ns:
-                batch_slice.append(slice(gtn[b]))
+            batch_slice = [b, slice(src_ns[b]), slice(tgt_ns[b])]
             loss += F.binary_cross_entropy(
                 pred_perm[batch_slice],
                 gt_perm[batch_slice],
                 reduction='sum')
-            n_sum += pred_ns[b].to(n_sum.dtype).to(pred_perm.device)
+            n_sum += src_ns[b].to(n_sum.dtype).to(pred_perm.device)
+
+        return loss / n_sum
+
+
+class CrossEntropyLoss(nn.Module):
+    """
+    Multi-class cross entropy loss between two permutations.
+    """
+    def __init__(self):
+        super(CrossEntropyLoss, self).__init__()
+
+    def forward(self, pred_perm, gt_perm, src_ns, tgt_ns):
+        batch_num = pred_perm.shape[0]
+
+        pred_perm = pred_perm.to(dtype=torch.float32)
+
+        try:
+            assert torch.all((pred_perm >= 0) * (pred_perm <= 1))
+            assert torch.all((gt_perm >= 0) * (gt_perm <= 1))
+        except AssertionError as err:
+            print(pred_perm)
+            raise err
+
+        loss = torch.tensor(0.).to(pred_perm.device)
+        n_sum = torch.zeros_like(loss)
+        for b in range(batch_num):
+            batch_slice = [b, slice(src_ns[b]), slice(tgt_ns[b])]
+            gt_index = torch.max(gt_perm[batch_slice], dim=-1).indices
+            loss += F.nll_loss(
+                torch.log(pred_perm[batch_slice]),
+                gt_index,
+                reduction='sum')
+            n_sum += src_ns[b].to(n_sum.dtype).to(pred_perm.device)
 
         return loss / n_sum
 
@@ -47,7 +78,7 @@ class CrossEntropyLossHung(nn.Module):
     def __init__(self):
         super(CrossEntropyLossHung, self).__init__()
 
-    def forward(self, pred_perm, gt_perm, pred_ns, gt_ns):
+    def forward(self, pred_perm, gt_perm, src_ns, tgt_ns):
         batch_num = pred_perm.shape[0]
 
         assert torch.all((pred_perm >= 0) * (pred_perm <= 1))
@@ -55,7 +86,7 @@ class CrossEntropyLossHung(nn.Module):
 
         lap_solver = hungarian
 
-        dis_pred = lap_solver(pred_perm, pred_ns, gt_ns)
+        dis_pred = lap_solver(pred_perm, src_ns, tgt_ns)
         # dis_pred = dis_pred.detach()
 
         # pdb.set_trace()
@@ -69,10 +100,10 @@ class CrossEntropyLossHung(nn.Module):
         # pdb.set_trace()
         for b in range(batch_num):
             loss += F.binary_cross_entropy(
-                pred_perm[b, :pred_ns[b], :gt_ns[b]],
-                gt_perm[b, :pred_ns[b], :gt_ns[b]],
+                pred_perm[b, :src_ns[b], :tgt_ns[b]],
+                gt_perm[b, :src_ns[b], :tgt_ns[b]],
                 reduction='sum')
-            n_sum += pred_ns[b].to(n_sum.dtype).to(pred_perm.device)
+            n_sum += src_ns[b].to(n_sum.dtype).to(pred_perm.device)
         # pdb.set_trace()
         return loss / n_sum
 
@@ -121,7 +152,7 @@ class FocalLoss(nn.Module):
         self.gamma = gamma
         self.eps = eps
 
-    def forward(self, pred_perm, gt_perm, pred_ns, gt_ns):
+    def forward(self, pred_perm, gt_perm, src_ns, tgt_ns):
         batch_num = pred_perm.shape[0]
 
         pred_perm = pred_perm.to(dtype=torch.float32)
@@ -132,15 +163,15 @@ class FocalLoss(nn.Module):
         loss = torch.tensor(0.).to(pred_perm.device)
         n_sum = torch.zeros_like(loss)
         for b in range(batch_num):
-            x = pred_perm[b, :pred_ns[b], :gt_ns[b]]
-            y = gt_perm[b, :pred_ns[b], :gt_ns[b]]
+            x = pred_perm[b, :src_ns[b], :tgt_ns[b]]
+            y = gt_perm[b, :src_ns[b], :tgt_ns[b]]
             loss += torch.sum(
                 #- self.alpha * (1 - x) ** self.gamma * y * torch.log(x + self.eps)
                 #- (1 - self.alpha) * x ** self.gamma * (1 - y) * torch.log(1 - x + self.eps)
                 - (1 - x) ** self.gamma * y * torch.log(x + self.eps)
                 - x ** self.gamma * (1 - y) * torch.log(1 - x + self.eps)
             )
-            n_sum += pred_ns[b].to(n_sum.dtype).to(pred_perm.device)
+            n_sum += src_ns[b].to(n_sum.dtype).to(pred_perm.device)
 
         return loss / n_sum
 
@@ -152,7 +183,7 @@ class InnerProductLoss(nn.Module):
     def __init__(self):
         super(InnerProductLoss, self).__init__()
 
-    def forward(self, pred_perm, gt_perm, pred_ns, gt_ns):
+    def forward(self, pred_perm, gt_perm, src_ns, tgt_ns):
         batch_num = pred_perm.shape[0]
 
         pred_perm = pred_perm.to(dtype=torch.float32)
@@ -165,9 +196,9 @@ class InnerProductLoss(nn.Module):
         loss = torch.tensor(0.).to(pred_perm.device)
         n_sum = torch.zeros_like(loss)
         for b in range(batch_num):
-            batch_slice = [b, slice(pred_ns[b]), slice(gt_ns[b])]
+            batch_slice = [b, slice(src_ns[b]), slice(tgt_ns[b])]
             loss -= torch.sum(pred_perm[batch_slice] * gt_perm[batch_slice])
-            n_sum += pred_ns[b].to(n_sum.dtype).to(pred_perm.device)
+            n_sum += src_ns[b].to(n_sum.dtype).to(pred_perm.device)
 
         return loss / n_sum
 
