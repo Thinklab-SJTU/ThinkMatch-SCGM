@@ -102,6 +102,7 @@ class Net(CNN):
             F_tgt = tgt[:, tgt.shape[1] // 2:, :]
         elif 'aff_mat' in data_dict:
             K = data_dict['aff_mat']
+            ns_src, ns_tgt = data_dict['ns']
             batch_size = K.shape[0]
         else:
             raise ValueError('Unknown data type for this model.')
