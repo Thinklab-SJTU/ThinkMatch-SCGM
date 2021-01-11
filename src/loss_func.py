@@ -70,13 +70,13 @@ class CrossEntropyLoss(nn.Module):
         return loss / n_sum
 
 
-class CrossEntropyLossHung(nn.Module):
+class PermutationLossHung(nn.Module):
     """
-    Cross entropy loss between two permutations with Hungarian attention.
+    Binary cross entropy loss between two permutations with Hungarian attention.
     Proposed by Yu et al. Learning deep graph matching with channel-independent embedding and Hungarian attention. ICLR 2020.
     """
     def __init__(self):
-        super(CrossEntropyLossHung, self).__init__()
+        super(PermutationLossHung, self).__init__()
 
     def forward(self, pred_perm, gt_perm, src_ns, tgt_ns):
         batch_num = pred_perm.shape[0]

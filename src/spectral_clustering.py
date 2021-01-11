@@ -105,7 +105,7 @@ def kmeans(
         initial_state_pre = initial_state.clone()
 
         for index in range(num_clusters):
-            selected = torch.nonzero(choice_cluster == index).squeeze().to(device)
+            selected = torch.nonzero(choice_cluster == index, as_tuple=False).squeeze().to(device)
 
             selected = torch.index_select(X, 0, selected)
             initial_state[index] = selected.mean(dim=0)

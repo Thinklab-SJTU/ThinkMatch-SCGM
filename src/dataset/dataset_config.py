@@ -13,14 +13,14 @@ __C.PascalVOC.CLASSES = ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus'
                          'tvmonitor']
 
 # Willow-Object Class dataset
-__C.WILLOW = edict()
-__C.WILLOW.ROOT_DIR = 'data/WILLOW-ObjectClass'
-__C.WILLOW.CLASSES = ['Car', 'Duck', 'Face', 'Motorbike', 'Winebottle']
-__C.WILLOW.KPT_LEN = 10
-__C.WILLOW.TRAIN_NUM = 20
-__C.WILLOW.SPLIT_OFFSET = 0
-__C.WILLOW.TRAIN_SAME_AS_TEST = False
-__C.WILLOW.RAND_OUTLIER = 0
+__C.WillowObject = edict()
+__C.WillowObject.ROOT_DIR = 'data/WILLOW-ObjectClass'
+__C.WillowObject.CLASSES = ['Car', 'Duck', 'Face', 'Motorbike', 'Winebottle']
+__C.WillowObject.KPT_LEN = 10
+__C.WillowObject.TRAIN_NUM = 20
+__C.WillowObject.SPLIT_OFFSET = 0
+__C.WillowObject.TRAIN_SAME_AS_TEST = False
+__C.WillowObject.RAND_OUTLIER = 0
 
 # Synthetic dataset
 __C.SYNTHETIC = edict()

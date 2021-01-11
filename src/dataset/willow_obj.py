@@ -18,17 +18,17 @@ class WillowObject(BaseDataset):
         :param obj_resize: resized object size
         """
         super(WillowObject, self).__init__()
-        self.classes = cfg.WILLOW.CLASSES
-        self.kpt_len = [cfg.WILLOW.KPT_LEN for _ in cfg.WILLOW.CLASSES]
+        self.classes = cfg.WillowObject.CLASSES
+        self.kpt_len = [cfg.WillowObject.KPT_LEN for _ in cfg.WillowObject.CLASSES]
 
-        self.root_path = Path(cfg.WILLOW.ROOT_DIR)
+        self.root_path = Path(cfg.WillowObject.ROOT_DIR)
         self.obj_resize = obj_resize
 
         assert sets == 'train' or 'test', 'No match found for dataset {}'.format(sets)
         self.sets = sets
-        self.split_offset = cfg.WILLOW.SPLIT_OFFSET
-        self.train_len = cfg.WILLOW.TRAIN_NUM
-        self.rand_outlier = cfg.WILLOW.RAND_OUTLIER
+        self.split_offset = cfg.WillowObject.SPLIT_OFFSET
+        self.train_len = cfg.WillowObject.TRAIN_NUM
+        self.rand_outlier = cfg.WillowObject.RAND_OUTLIER
 
         self.mat_list = []
         for cls_name in self.classes:
@@ -39,7 +39,7 @@ class WillowObject(BaseDataset):
                 assert not self.root_path / cls_name / 'image_0160.mat' in cls_mat_list
             ori_len = len(cls_mat_list)
             if self.split_offset % ori_len + self.train_len <= ori_len:
-                if sets == 'train' and not cfg.WILLOW.TRAIN_SAME_AS_TEST:
+                if sets == 'train' and not cfg.WillowObject.TRAIN_SAME_AS_TEST:
                     self.mat_list.append(
                         cls_mat_list[self.split_offset % ori_len: (self.split_offset + self.train_len) % ori_len]
                     )
@@ -49,7 +49,7 @@ class WillowObject(BaseDataset):
                         cls_mat_list[(self.split_offset + self.train_len) % ori_len:]
                     )
             else:
-                if sets == 'train' and not cfg.WILLOW.TRAIN_SAME_AS_TEST:
+                if sets == 'train' and not cfg.WillowObject.TRAIN_SAME_AS_TEST:
                     self.mat_list.append(
                         cls_mat_list[:(self.split_offset + self.train_len) % ori_len - ori_len] +
                         cls_mat_list[self.split_offset % ori_len:]
@@ -208,8 +208,8 @@ class WillowObject(BaseDataset):
 
 
 if __name__ == '__main__':
-    cfg.WILLOW.ROOT_DIR = 'WILLOW-ObjectClass'
-    cfg.WILLOW.SPLIT_OFFSET = 0
+    cfg.WillowObject.ROOT_DIR = 'WILLOW-ObjectClass'
+    cfg.WillowObject.SPLIT_OFFSET = 0
     train = WillowObject('train', (256, 256))
     test = WillowObject('test', (256, 256))
     for train_cls_list, test_cls_list in zip(train.mat_list, test.mat_list):

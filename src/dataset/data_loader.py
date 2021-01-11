@@ -11,28 +11,38 @@ from src.dataset import *
 
 from src.utils.config import cfg
 
-from itertools import combinations
+from itertools import combinations, product
 
 
 class GMDataset(Dataset):
-    def __init__(self, name, length, pad=16, cls=None, problem='pairwise', **args):
+    def __init__(self, name, length, cls=None, problem='2GM', **args):
         self.name = name
         self.ds = eval(self.name)(**args)
         self.length = length  # NOTE images pairs are sampled randomly, so there is no exact definition of dataset size
                               # length here represents the iterations between two checkpoints
         self.obj_size = self.ds.obj_resize
-        self.classes = self.ds.classes
-        self.cls = None if cls == 'none' else cls
+        self.cls = None if cls in ['none', 'all'] else cls
+
+        if self.cls is None:
+            if problem == 'MGMC':
+                self.classes = list(combinations(self.ds.classes, cfg.PROBLEM.NUM_CLUSTERS))
+            else:
+                self.classes = self.ds.classes
+        else:
+            self.classes = [self.cls]
+
         self.problem_type = problem
 
     def __len__(self):
         return self.length
 
     def __getitem__(self, idx):
-        if self.problem_type == 'pairwise':
+        if self.problem_type == '2GM':
             return self.get_pair(idx, self.cls)
-        elif self.problem_type == 'multi':
+        elif self.problem_type == 'MGM':
             return self.get_multi(idx, self.cls)
+        elif self.problem_type == 'MGMC':
+            return self.get_multi_cluster(idx)
         else:
             raise NameError("Unknown problem type: {}".format(self.problem_type))
 
@@ -40,46 +50,37 @@ class GMDataset(Dataset):
         #anno_pair, perm_mat = self.ds.get_pair(self.cls if self.cls is not None else
         #                                       (idx % (cfg.BATCH_SIZE * len(self.classes))) // cfg.BATCH_SIZE)
         try:
-            anno_pair, perm_mat = self.ds.get_pair(cls, tgt_outlier=cfg.PAIR.REF_OUTLIER, src_outlier=cfg.PAIR.GT_OUTLIER)
+            anno_pair, perm_mat = self.ds.get_pair(cls, tgt_outlier=cfg.PROBLEM.TGT_OUTLIER, src_outlier=cfg.PROBLEM.SRC_OUTLIER)
         except TypeError:
             anno_pair, perm_mat = self.ds.get_pair(cls)
-        if perm_mat.shape[0] <= 2 or perm_mat.size >= cfg.PAIR.MAX_PROB_SIZE > 0:
+        if perm_mat.shape[0] <= 2 or perm_mat.size >= cfg.PROBLEM.MAX_PROB_SIZE > 0:
             return self.__getitem__(idx)
 
         cls = [anno['cls'] for anno in anno_pair]
-        P1_gt = [(kp['x'], kp['y']) for kp in anno_pair[0]['keypoints']]
-        P2_gt = [(kp['x'], kp['y']) for kp in anno_pair[1]['keypoints']]
+        P1 = [(kp['x'], kp['y']) for kp in anno_pair[0]['keypoints']]
+        P2 = [(kp['x'], kp['y']) for kp in anno_pair[1]['keypoints']]
 
-        n1_gt, n2_gt = len(P1_gt), len(P2_gt)
+        n1, n2 = len(P1), len(P2)
 
-        P1_gt = np.array(P1_gt)
-        P2_gt = np.array(P2_gt)
+        P1 = np.array(P1)
+        P2 = np.array(P2)
 
-        #P1 = P2 = make_grids((0, 0), cfg.PAIR.RESCALE, cfg.PAIR.CANDIDATE_SHAPE)
-        #n1 = n2 = P1.shape[0]
-        G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT, sym=cfg.PAIR.SYM_ADJACENCY)
-        if cfg.PAIR.REF_GRAPH_CONSTRUCT == 'same':
-            G2_gt = perm_mat.transpose().dot(G1_gt)
-            H2_gt = perm_mat.transpose().dot(H1_gt)
-            e2_gt= e1_gt
+        A1, G1, H1, e1 = build_graphs(P1, n1, stg=cfg.GRAPH.SRC_GRAPH_CONSTRUCT, sym=cfg.GRAPH.SYM_ADJACENCY)
+        if cfg.GRAPH.TGT_GRAPH_CONSTRUCT == 'same':
+            G2 = perm_mat.transpose().dot(G1)
+            H2 = perm_mat.transpose().dot(H1)
+            A2 = G2.dot(H2.transpose())
+            e2 = e1
         else:
-            G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT, sym=cfg.PAIR.SYM_ADJACENCY)
+            A2, G2, H2, e2 = build_graphs(P2, n2, stg=cfg.GRAPH.TGT_GRAPH_CONSTRUCT, sym=cfg.GRAPH.SYM_ADJACENCY)
 
-
-        #G2_gt = np.dot(perm_mat.transpose(), G1_gt)
-        #H2_gt = np.dot(perm_mat.transpose(), H1_gt)
-        #e2_gt = e1_gt
-        #G1_gt, H1_gt, e1_gt = build_graphs(P1_gt, n1_gt, stg='fc')
-        #G2_gt, H2_gt, e2_gt = build_graphs(P2_gt, n2_gt, stg='fc')
-        #G1,    H1   , e1    = build_graphs(P1,    n1,    stg='fc')
-        #G2,    H2   , e2    = build_graphs(P2,    n2,    stg='fc')
-
-        ret_dict = {'Ps': [torch.Tensor(x) for x in [P1_gt, P2_gt]], # P1, P2]],
-                    'ns': [torch.tensor(x) for x in [n1_gt, n2_gt]], # n1, n2]],
-                    'es': [torch.tensor(x) for x in [e1_gt, e2_gt]], # e1, e2]],
+        ret_dict = {'Ps': [torch.Tensor(x) for x in [P1, P2]],
+                    'ns': [torch.tensor(x) for x in [n1, n2]],
+                    'es': [torch.tensor(x) for x in [e1, e2]],
                     'gt_perm_mat': perm_mat,
-                    'Gs': [torch.Tensor(x) for x in [G1_gt, G2_gt]], # G1, G2]],
-                    'Hs': [torch.Tensor(x) for x in [H1_gt, H2_gt]]} #H1, H2]]}
+                    'Gs': [torch.Tensor(x) for x in [G1, G2]],
+                    'Hs': [torch.Tensor(x) for x in [H1, H2]],
+                    'As': [torch.Tensor(x) for x in [A1, A2]]}
 
         imgs = [anno['image'] for anno in anno_pair]
         if imgs[0] is not None:
@@ -97,64 +98,73 @@ class GMDataset(Dataset):
         return ret_dict
 
     def get_multi(self, idx, cls):
-        if (self.ds.sets == 'test' and cfg.PAIR.TEST_ALL_GRAPHS) or (self.ds.sets == 'train' and cfg.PAIR.TRAIN_ALL_GRAPHS):
+        if (self.ds.sets == 'test' and cfg.PROBLEM.TEST_ALL_GRAPHS) or (self.ds.sets == 'train' and cfg.PROBLEM.TRAIN_ALL_GRAPHS):
             num_graphs = self.ds.len(cls)
-            anno_list, perm_mat_list = self.ds.get_multi(cls, num=num_graphs)
         else:
-            anno_list, perm_mat_list = self.ds.get_multi(cls, num=cfg.PAIR.NUM_GRAPHS) # num_graphs)
+            num_graphs = cfg.PROBLEM.NUM_GRAPHS
+        anno_list, perm_mat_list = self.ds.get_multi(cls, num=num_graphs)
+
         assert isinstance(perm_mat_list, list)
         refetch = False
         for pm in perm_mat_list:
-            if pm.shape[0] <= 2 or pm.shape[1] <= 2 or pm.size >= cfg.PAIR.MAX_PROB_SIZE > 0:
+            if pm.shape[0] <= 2 or pm.shape[1] <= 2 or pm.size >= cfg.PROBLEM.MAX_PROB_SIZE > 0:
                 refetch = True
                 break
         if refetch:
             return self.__getitem__(idx)
 
         cls = [anno['cls'] for anno in anno_list]
-        Ps_gt = [[(kp['x'], kp['y']) for kp in anno_dict['keypoints']] for anno_dict in anno_list]
+        Ps = [[(kp['x'], kp['y']) for kp in anno_dict['keypoints']] for anno_dict in anno_list]
 
-        ns_gt = [len(P_gt) for P_gt in Ps_gt]
+        ns = [len(P) for P in Ps]
 
-        Ps_gt = [np.array(P_gt) for P_gt in Ps_gt]
+        Ps = [np.array(P) for P in Ps]
 
-        # P1 = P2 = make_grids((0, 0), cfg.PAIR.RESCALE, cfg.PAIR.CANDIDATE_SHAPE)
-        # n1 = n2 = P1.shape[0]
-        Gs_gt = []
-        Hs_gt = []
+        As = []
+        Gs = []
+        Hs = []
+        As_ref = []
         Gs_ref = []
         Hs_ref = []
-        es_gt = []
-        iterator = iter(zip(Ps_gt, ns_gt, perm_mat_list))
-        P_gt, n_gt, perm_mat = next(iterator)
-        G1_gt, H1_gt, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
-        Gs_gt.append(G1_gt)
-        Hs_gt.append(H1_gt)
-        Gs_ref.append(G1_gt)
-        Hs_ref.append(H1_gt)
-        for P_gt, n_gt, perm_mat in iterator:
-            if cfg.PAIR.REF_GRAPH_CONSTRUCT == 'same':
-                G_gt = perm_mat.dot(G1_gt)
-                H_gt = perm_mat.dot(H1_gt)
-                G_ref = G_gt
-                H_ref = H_gt
+        iterator = iter(zip(Ps, ns, perm_mat_list))
+        P, n, perm_mat = next(iterator)
+        A1, G1, H1, _ = build_graphs(P, n, stg=cfg.GRAPH.SRC_GRAPH_CONSTRUCT)
+        As.append(A1)
+        Gs.append(G1)
+        Hs.append(H1)
+        As_ref.append(A1)
+        Gs_ref.append(G1)
+        Hs_ref.append(H1)
+        for P, n, perm_mat in iterator:
+            if cfg.GRAPH.TGT_GRAPH_CONSTRUCT == 'same':
+                G = perm_mat.dot(G1)
+                H = perm_mat.dot(H1)
+                A = G.dot(H.transpose())
+                G_ref = G
+                H_ref = H
+                A_ref = G_ref.dot(H_ref.transpose())
             else:
-                G_gt, H_gt, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
-                G_ref, H_ref, _ = build_graphs(P_gt, n_gt, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
-            Gs_gt.append(G_gt)
-            Hs_gt.append(H_gt)
+                A, G, H, _ = build_graphs(P, n, stg=cfg.GRAPH.SRC_GRAPH_CONSTRUCT)
+                A_ref, G_ref, H_ref, _ = build_graphs(P, n, stg=cfg.GRAPH.TGT_GRAPH_CONSTRUCT)
+            As.append(A)
+            Gs.append(G)
+            Hs.append(H)
+            As_ref.append(A_ref)
             Gs_ref.append(G_ref)
             Hs_ref.append(H_ref)
 
-        ret_dict = {'Ps': [torch.Tensor(x) for x in Ps_gt],
-                    'ns': [torch.tensor(x) for x in ns_gt],
-                    'es': [torch.tensor(x) for x in es_gt],
-                    'gt_perm_mat': perm_mat_list,
-                    'Gs': [torch.Tensor(x) for x in Gs_gt],
-                    'Hs': [torch.Tensor(x) for x in Hs_gt],
-                    'Gs_ref': [torch.Tensor(x) for x in Gs_ref],
-                    'Hs_ref': [torch.Tensor(x) for x in Hs_ref],
-                    'cls': [str(x) for x in cls]}
+        ret_dict = {
+            'Ps': [torch.Tensor(x) for x in Ps],
+            'ns': [torch.tensor(x) for x in ns],
+            'gt_perm_mat': perm_mat_list,
+            'Gs': [torch.Tensor(x) for x in Gs],
+            'Hs': [torch.Tensor(x) for x in Hs],
+            'As': [torch.Tensor(x) for x in As],
+            'Gs_ref': [torch.Tensor(x) for x in Gs_ref],
+            'Hs_ref': [torch.Tensor(x) for x in Hs_ref],
+            'As_ref': [torch.Tensor(x) for x in As_ref],
+            'cls': [str(x) for x in cls],
+        }
 
         imgs = [anno['image'] for anno in anno_list]
         if imgs[0] is not None:
@@ -169,21 +179,6 @@ class GMDataset(Dataset):
             ret_dict['features'] = [torch.Tensor(x) for x in feats]
 
         return ret_dict
-
-class MGMCDataset(GMDataset):
-    """
-    Multi-Graph Matching and Clustering dataset
-    """
-    def __init__(self, name, length, pad=16, cls=None, problem='multi_cluster', **args):
-        super(MGMCDataset, self).__init__(name, length, pad, cls, problem, **args)
-        self.classes = list(combinations(self.ds.classes, cfg.PAIR.NUM_CLUSTERS))
-        assert self.problem_type == 'multi_cluster'
-
-    def __len__(self):
-        return self.length
-
-    def __getitem__(self, idx):
-        return self.get_multi_cluster(idx)
 
     def get_multi_cluster(self, idx):
         dicts = []
@@ -250,8 +245,8 @@ class GMRefDataset(Dataset):
 
         P_gt = np.array(P_gt)
 
-        G_gt, H_gt, e_gt = build_graphs(P_gt, n_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
-        G_ref, H_ref, e_ref = build_graphs(np.zeros((n_ref, 2)), n_ref, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
+        A_gt, G_gt, H_gt, e_gt = build_graphs(P_gt, n_gt, stg=cfg.GRAPH.SRC_GRAPH_CONSTRUCT)
+        A_ref, G_ref, H_ref, e_ref = build_graphs(np.zeros((n_ref, 2)), n_ref, stg=cfg.GRAPH.TGT_GRAPH_CONSTRUCT)
 
         ret_dict = {'Ps': torch.Tensor(P_gt),
                     'ns': [torch.tensor(x) for x in (n_gt, n_ref)],
@@ -298,8 +293,8 @@ class GMRefDataset(Dataset):
 
         P_gt = np.array(P_gt)
 
-        G_gt, H_gt, e_gt = build_graphs(P_gt, n_gt, stg=cfg.PAIR.GT_GRAPH_CONSTRUCT)
-        G_ref, H_ref, e_ref = build_graphs(np.zeros((n_ref, 2)), n_ref, stg=cfg.PAIR.REF_GRAPH_CONSTRUCT)
+        A_gt, G_gt, H_gt, e_gt = build_graphs(P_gt, n_gt, stg=cfg.GRAPH.SRC_GRAPH_CONSTRUCT)
+        A_ref, G_ref, H_ref, e_ref = build_graphs(np.zeros((n_ref, 2)), n_ref, stg=cfg.GRAPH.TGT_GRAPH_CONSTRUCT)
 
         ret_dict = {'Ps': torch.Tensor(P_gt),
                     'ns': [torch.tensor(x) for x in (n_gt, n_ref)],
@@ -339,7 +334,7 @@ class QAPDataset(Dataset):
 
     def __getitem__(self, idx):
         Fi, Fj, perm_mat, sol, name = self.ds.get_pair(idx % len(self.ds.data_list))
-        if perm_mat.size <= 2 * 2 or perm_mat.size >= cfg.PAIR.MAX_PROB_SIZE > 0:
+        if perm_mat.size <= 2 * 2 or perm_mat.size >= cfg.PROBLEM.MAX_PROB_SIZE > 0:
             return self.__getitem__(random.randint(0, len(self) - 1))
 
         #if np.max(ori_aff_mat) > 0:
@@ -397,7 +392,7 @@ def collate_fn(data: list):
             for kvs in zip(*[x.items() for x in inp]):
                 ks, vs = zip(*kvs)
                 for k in ks:
-                    assert k == ks[0], "Key value mismatch."
+                    assert k == ks[0], "Keys mismatch."
                 ret[k] = stack(vs)
         elif type(inp[0]) == torch.Tensor:
             new_t = pad_tensor(inp)
@@ -416,14 +411,14 @@ def collate_fn(data: list):
     # compute CPU-intensive matrix K1, K2 here to leverage multi-processing nature of dataloader
     if 'Gs' in ret and 'Hs' in ret:
         if len(ret['Gs']) == 2:
-            G1_gt, G2_gt = ret['Gs']
-            H1_gt, H2_gt = ret['Hs']
+            G1, G2 = ret['Gs']
+            H1, H2 = ret['Hs']
             if cfg.FP16:
                 sparse_dtype = np.float16
             else:
                 sparse_dtype = np.float32
-            K1G = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(G2_gt, G1_gt)]  # 1 as source graph, 2 as target graph
-            K1H = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(H2_gt, H1_gt)]
+            K1G = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(G2, G1)]  # 1 as source graph, 2 as target graph
+            K1H = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(H2, H1)]
             K1G = CSRMatrix3d(K1G)
             K1H = CSRMatrix3d(K1H).transpose()
 
@@ -431,27 +426,22 @@ def collate_fn(data: list):
         elif 'Gs_ref' in ret and 'Hs_ref' in ret:
             ret['KGs'] = dict()
             ret['KHs'] = dict()
-            '''
-            for idx_gt, idx_ref in combinations(range(len(ret['Gs'])), 2):
-            #for idx_gt, idx_ref in product(range(len(ret['Gs'])), repeat=2):
-                if idx_gt > idx_ref:
-                    idx_gt, idx_ref = idx_ref, idx_gt
-                G1_gt = ret['Gs'][idx_gt]
-                H1_gt = ret['Hs'][idx_gt]
-                G2_gt = ret['Gs_ref'][idx_ref]
-                H2_gt = ret['Hs_ref'][idx_ref]
+            for idx_1, idx_2 in product(range(len(ret['Gs'])), repeat=2):
+                # 1 as source graph, 2 as target graph
+                G1 = ret['Gs'][idx_1]
+                H1 = ret['Hs'][idx_1]
+                G2 = ret['Gs_ref'][idx_2]
+                H2 = ret['Hs_ref'][idx_2]
                 if cfg.FP16:
                     sparse_dtype = np.float16
                 else:
                     sparse_dtype = np.float32
-                KG = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in
-                       zip(G2_gt, G1_gt)]  # 1 as source graph, 2 as target graph
-                KH = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(H2_gt, H1_gt)]
+                KG = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(G2, G1)]
+                KH = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(H2, H1)]
                 KG = CSRMatrix3d(KG)
                 KH = CSRMatrix3d(KH).transpose()
-                ret['KGs']['{},{}'.format(idx_gt, idx_ref)] = KG
-                ret['KHs']['{},{}'.format(idx_gt, idx_ref)] = KH
-            '''
+                ret['KGs']['{},{}'.format(idx_1, idx_2)] = KG
+                ret['KHs']['{},{}'.format(idx_1, idx_2)] = KH
         else:
             raise ValueError('Data type not understood.')
 
@@ -459,7 +449,14 @@ def collate_fn(data: list):
         Fi = ret['Fi']
         Fj = ret['Fj']
         aff_mat = kronecker_torch(Fj, Fi)
-        ret['affmat'] = aff_mat
+        ret['aff_mat'] = aff_mat
+
+    ret['batch_size'] = len(data)
+
+    for v in ret.values():
+        if type(v) is list:
+            ret['num_graphs'] = len(v)
+            break
 
     return ret
 

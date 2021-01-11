@@ -20,7 +20,7 @@ def build_graphs(P_np: np.ndarray, n: int, n_pad: int=None, edge_pad: int=None, 
                 'near', fully-connected manner, but edges which are longer than max(w, h) is removed
                 'fc'(default), a fully-connected graph is constructed
     :param sym: True for a symmetric adjacency, False for half adjacency (A contains only the upper half).
-    :return: G, H, edge_num
+    :return: A, G, H, edge_num
     """
 
     assert stg in ('fc', 'tri', 'near'), 'No strategy named {} found.'.format(stg)
@@ -55,7 +55,7 @@ def build_graphs(P_np: np.ndarray, n: int, n_pad: int=None, edge_pad: int=None, 
                 H[j, edge_idx] = 1
                 edge_idx += 1
 
-    return G, H, edge_num
+    return A, G, H, edge_num
 
 
 def delaunay_triangulate(P: np.ndarray):

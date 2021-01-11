@@ -12,6 +12,7 @@ from src.parallel import DataParallel
 from src.utils.model_sl import load_model, save_model
 from eval import eval_model
 from src.lap_solvers.hungarian import hungarian
+from src.utils.data_to_cuda import data_to_cuda
 
 from src.utils.config import cfg
 
@@ -70,23 +71,8 @@ def train_eval_model(model,
 
         # Iterate over data.
         for inputs in dataloader['train']:
-            if 'images' in inputs:
-                data1, data2 = [_.cuda() for _ in inputs['images']]
-                inp_type = 'img'
-            elif 'features' in inputs:
-                data1, data2 = [_.cuda() for _ in inputs['features']]
-                inp_type = 'feat'
-            else:
-                raise ValueError('no valid data key (\'images\' or \'features\') found from dataloader!')
-            P1_gt, P2_gt = [_.cuda() for _ in inputs['Ps']]
-            n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
-            e1_gt, e2_gt = [_.cuda() for _ in inputs['es']]
-            G1_gt, G2_gt = [_.cuda() for _ in inputs['Gs']]
-            H1_gt, H2_gt = [_.cuda() for _ in inputs['Hs']]
-            KG, KH = [_.cuda() for _ in inputs['Ks']]
-            perm_mat = inputs['gt_perm_mat'].cuda()
-
-            batch_num = perm_mat.size(0)
+            if model.module.device != torch.device('cpu'):
+                inputs = data_to_cuda(inputs)
 
             iter_num = iter_num + 1
 
@@ -95,36 +81,57 @@ def train_eval_model(model,
 
             with torch.set_grad_enabled(True):
                 # forward
-                pred = \
-                    model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
-                if len(pred) == 2:
-                    s_pred, d_pred = pred
-                else:
-                    s_pred, d_pred, affmtx = pred
+                outputs = model(inputs)
 
-                num_repeat = s_pred.shape[0] // perm_mat.shape[0]
-                perm_mat = torch.repeat_interleave(perm_mat, num_repeat, dim=0)
-                n1_gt = torch.repeat_interleave(n1_gt, num_repeat, dim=0)
-                n2_gt = torch.repeat_interleave(n2_gt, num_repeat, dim=0)
+                if cfg.PROBLEM.TYPE == '2GM':
+                    assert 'ds_mat' in outputs
+                    assert 'perm_mat' in outputs
+                    assert 'gt_perm_mat' in outputs
 
-                multi_loss = []
-                if cfg.TRAIN.LOSS_FUNC == 'offset':
-                    d_gt, grad_mask = displacement(perm_mat, P1_gt, P2_gt, n1_gt)
-                    loss = criterion(d_pred, d_gt, grad_mask)
-                elif cfg.TRAIN.LOSS_FUNC == 'perm' or cfg.TRAIN.LOSS_FUNC == 'focal' or cfg.TRAIN.LOSS_FUNC == 'hung':
-                    loss = torch.zeros(1).cuda()
-                    if type(s_pred) is list:
-                        for _s_pred, weight in zip(s_pred, cfg.PCA.LOSS_WEIGHTS):
-                            l = criterion(_s_pred, perm_mat, n1_gt, n2_gt)
-                            multi_loss.append(l)
-                            loss += l * weight
+                    # compute loss
+                    if cfg.TRAIN.LOSS_FUNC == 'offset':
+                        d_gt, grad_mask = displacement(outputs['gt_perm_mat'], *outputs['Ps'], outputs['ns'][0])
+                        d_pred, _ = displacement(outputs['ds_mat'], *outputs['Ps'], outputs['ns'][0])
+                        loss = criterion(d_pred, d_gt, grad_mask)
+                    elif cfg.TRAIN.LOSS_FUNC in ['perm', 'ce', 'hung']:
+                        loss = criterion(outputs['ds_mat'], outputs['gt_perm_mat'], *outputs['ns'])
+                    elif cfg.TRAIN.LOSS_FUNC == 'plain':
+                        loss = torch.sum(outputs['loss'])
                     else:
-                        loss = criterion(s_pred, perm_mat, n1_gt, n2_gt)
-                else:
-                    raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
+                        raise ValueError('Unsupported loss function {} for problem type {}'.format(cfg.TRAIN.LOSS_FUNC, cfg.PROBLEM.TYPE))
 
-                if type(s_pred) is list:
-                    s_pred = s_pred[-1]
+                    # compute accuracy
+                    acc, _, __ = matching_accuracy(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
+
+                elif cfg.PROBLEM.TYPE in ['MGM', 'MGMC']:
+                    assert 'ds_mat_list' in outputs
+                    assert 'graph_indices' in outputs
+                    assert 'perm_mat_list' in outputs
+                    assert 'gt_perm_mat_list' in outputs
+
+                    # compute loss & accuracy
+                    if cfg.TRAIN.LOSS_FUNC in ['perm', 'ce' 'hung']:
+                        loss = torch.zeros(1, device=model.module.device)
+                        ns = outputs['ns']
+                        for s_pred, x_gt, (idx_src, idx_tgt) in \
+                                zip(outputs['ds_mat_list'], outputs['gt_perm_mat_list'], outputs['graph_indices']):
+                            l = criterion(s_pred, x_gt, ns[idx_src], ns[idx_tgt])
+                            loss += l
+                        loss /= len(outputs['ds_mat_list'])
+                    elif cfg.TRAIN.LOSS_FUNC == 'plain':
+                        loss = torch.sum(outputs['loss'])
+                    else:
+                        raise ValueError('Unsupported loss function {} for problem type {}'.format(cfg.TRAIN.LOSS_FUNC, cfg.PROBLEM.TYPE))
+
+                    # compute accuracy
+                    acc = torch.zeros(1, device=model.module.device)
+                    for x_pred, x_gt, (idx_src, idx_tgt) in \
+                            zip(outputs['perm_mat_list'], outputs['gt_perm_mat_list'], outputs['graph_indices']):
+                        a, _, __ = matching_accuracy(x_pred, x_gt, ns[idx_src])
+                        acc += torch.sum(a)
+                    acc /= len(outputs['perm_mat_list'])
+                else:
+                    raise ValueError('Unknown problem type {}'.format(cfg.PROBLEM.TYPE))
 
                 # backward + optimize
                 if cfg.FP16:
@@ -134,25 +141,13 @@ def train_eval_model(model,
                     loss.backward()
                 optimizer.step()
 
-                if cfg.MODULE == 'NGM.hypermodel':
-                    tfboard_writer.add_scalars(
-                        'weight',
-                        {'w2': model.module.weight2, 'w3': model.module.weight3},
-                        epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
-                    )
-
-                # training accuracy statistic
-                thres = torch.empty(batch_num, len(alphas)).cuda()
-                for b in range(batch_num):
-                    thres[b] = alphas * cfg.EVAL.PCK_L
-                #pck, _, __ = eval_pck(P2, P2_gt, s_pred, thres, n1_gt)
-                acc, _, __ = matching_accuracy(lap_solver(s_pred, n1_gt, n2_gt), perm_mat, n1_gt)
+                batch_num = inputs['batch_size']
 
                 # tfboard writer
-                loss_dict = {'loss_{}'.format(i): l.item() for i, l in enumerate(multi_loss)}
+                loss_dict = dict()
                 loss_dict['loss'] = loss.item()
                 tfboard_writer.add_scalars('loss', loss_dict, epoch * cfg.TRAIN.EPOCH_ITERS + iter_num)
-                #accdict = {'PCK@{:.2f}'.format(a): p for a, p in zip(alphas, pck)}
+
                 accdict = dict()
                 accdict['matching accuracy'] = torch.mean(acc)
                 tfboard_writer.add_scalars(
@@ -193,7 +188,7 @@ def train_eval_model(model,
 
         # Eval in each epoch
         accs = eval_model(model, alphas, dataloader['test'])
-        acc_dict = {"{}".format(cls): single_acc for cls, single_acc in zip(dataloader['train'].dataset.classes, accs)}
+        acc_dict = {"{}".format(cls): single_acc for cls, single_acc in zip(dataloader['test'].dataset.classes, accs)}
         acc_dict['average'] = torch.mean(accs)
         tfboard_writer.add_scalars(
             'Eval acc',
@@ -227,10 +222,10 @@ if __name__ == '__main__':
     image_dataset = {
         x: GMDataset(cfg.DATASET_FULL_NAME,
                      sets=x,
+                     problem=cfg.PROBLEM.TYPE,
                      length=dataset_len[x],
-                     pad=cfg.PAIR.PADDING,
-                     cls=cfg.TRAIN.CLASS if x == 'train' else None,
-                     obj_resize=cfg.PAIR.RESCALE)
+                     cls=cfg.TRAIN.CLASS if x == 'train' else cfg.EVAL.CLASS,
+                     obj_resize=cfg.PROBLEM.RESCALE)
         for x in ('train', 'test')}
     dataloader = {x: get_dataloader(image_dataset[x], fix_seed=(x == 'test'))
         for x in ('train', 'test')}
@@ -243,11 +238,15 @@ if __name__ == '__main__':
     if cfg.TRAIN.LOSS_FUNC == 'offset':
         criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
     elif cfg.TRAIN.LOSS_FUNC == 'perm':
+        criterion = PermutationLoss()
+    elif cfg.TRAIN.LOSS_FUNC == 'ce':
         criterion = CrossEntropyLoss()
     elif cfg.TRAIN.LOSS_FUNC == 'focal':
         criterion = FocalLoss(alpha=.5, gamma=0.)
     elif cfg.TRAIN.LOSS_FUNC == 'hung':
-        criterion = CrossEntropyLossHung()
+        criterion = PermutationLossHung()
+    elif cfg.TRAIN.LOSS_FUNC == 'hamming':
+        criterion = HammingLoss()
     else:
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 

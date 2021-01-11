@@ -1,0 +1,79 @@
+# VGG16 model with Pascal VOC dataset
+
+MODEL_NAME: vgg16_cie
+DATASET_NAME: voc
+
+DATASET_FULL_NAME: PascalVOC
+
+MODULE: models.CIE.model
+
+BACKBONE: VGG16_bn
+
+BATCH_SIZE: 8
+DATALOADER_NUM: 2
+
+RANDOM_SEED: 123
+
+# available GPU ids
+GPUS:
+  - 0
+  #- 1
+
+# Problem configuration
+PROBLEM:
+  TYPE: 2GM
+  RESCALE:  # rescaled image size
+    - 256
+    - 256
+
+# Graph construction settings
+GRAPH:
+  SRC_GRAPH_CONSTRUCT: tri
+  TGT_GRAPH_CONSTRUCT: tri
+  SYM_ADJACENCY: True
+
+# Training settings
+TRAIN:
+  # start, end epochs
+  START_EPOCH: 0
+  NUM_EPOCHS: 40
+
+  LOSS_FUNC: hung
+
+  # learning rate
+  LR: 1.0e-4
+  MOMENTUM: 0.9
+  LR_DECAY: 0.2
+  LR_STEP:  # (in epochs)
+    #- 10
+    - 20
+    - 30
+
+  EPOCH_ITERS: 2000  # iterations per epoch
+
+  CLASS: none
+
+# Evaluation settings and PCK metric
+EVAL:
+  EPOCH: 23  # epoch to be tested
+  SAMPLES: 1000  # number of tested pairs for each class
+
+# Visualization settings
+VISUAL:
+  EPOCH: 0  # epoch to be visualized
+  WEIGHT_PATH: ''  # path to weight to be loaded. If you want to use this, VISUAL.EPOCH must be 0.
+  CLASS: person  # none for random choosing classes, else specify a class name
+  SAVE: True  # save images as files, else plot images via matplotlib
+  NUM_IMGS: 100  # number of images to be visualized
+
+# CIE model parameters
+CIE:
+  FEATURE_CHANNEL: 512
+  SK_ITER_NUM: 20
+  SK_EPSILON: 1.0e-10
+  SK_TAU: .005
+  GNN_FEAT: 2048
+  GNN_LAYER: 2
+  LOSS_WEIGHTS:
+    - 0.  # cross-module loss
+    - 1.  # final prediction loss

@@ -2,11 +2,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from src.lap_solvers.hungarian import hungarian
 from src.dataset.data_loader import GMDataset, get_dataloader
 from src.evaluation_metric import *
 from src.parallel import DataParallel
 from src.utils.model_sl import load_model
+from src.utils.data_to_cuda import data_to_cuda
+from src.utils.timer import Timer
 
 from src.utils.config import cfg
 
@@ -27,16 +28,18 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
     ds = dataloader.dataset
     classes = ds.classes
-    cls_cache = ds.cls
-
-    #lap_solver = BiStochastic(max_iter=20)
-    lap_solver = hungarian
 
     pcks = torch.zeros(len(classes), len(alphas), device=device)
     accs = []
     precisions = []
     f1s = []
+    pred_time = []
     objs = torch.zeros(len(classes), device=device)
+    cluster_acc = []
+    cluster_purity = []
+    cluster_ri = []
+
+    timer = Timer()
 
     for i, cls in enumerate(classes):
         if verbose:
@@ -51,25 +54,17 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         acc_list = []
         precision_list = [] 
         f1_list = []
+        pred_time_list = []
         obj_total_num = torch.zeros(1, device=device)
-        for inputs in dataloader:
-            if 'images' in inputs:
-                data1, data2 = [_.cuda() for _ in inputs['images']]
-                inp_type = 'img'
-            elif 'features' in inputs:
-                data1, data2 = [_.cuda() for _ in inputs['features']]
-                inp_type = 'feat'
-            else:
-                raise ValueError('no valid data key (\'images\' or \'features\') found from dataloader!')
-            P1_gt, P2_gt = [_.cuda() for _ in inputs['Ps']]
-            n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
-            e1_gt, e2_gt = [_.cuda() for _ in inputs['es']]
-            G1_gt, G2_gt = [_.cuda() for _ in inputs['Gs']]
-            H1_gt, H2_gt = [_.cuda() for _ in inputs['Hs']]
-            KG, KH = [_.cuda() for _ in inputs['Ks']]
-            perm_mat = inputs['gt_perm_mat'].cuda()
+        cluster_acc_list = []
+        cluster_purity_list = []
+        cluster_ri_list = []
 
-            batch_num = data1.size(0)
+        for inputs in dataloader:
+            if model.module.device != torch.device('cpu'):
+                inputs = data_to_cuda(inputs)
+
+            batch_num = inputs['batch_size']
 
             iter_num = iter_num + 1
 
@@ -78,35 +73,63 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 thres[b] = alphas * cfg.EVAL.PCK_L
 
             with torch.set_grad_enabled(False):
-                pred = \
-                    model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
-                if len(pred) == 2:
-                    s_pred_score, d_pred = pred
-                    affmtx = None
-                else:
-                    s_pred_score, d_pred, affmtx = pred
+                timer.tick()
+                outputs = model(inputs)
+                pred_time_list.append(torch.full((batch_num,), timer.toc() / batch_num))
 
-            if type(s_pred_score) is list:
-                s_pred_score = s_pred_score[-1]
-            s_pred_perm = lap_solver(s_pred_score, n1_gt, n2_gt)
+            # Evaluate matching accuracy
+            if cfg.PROBLEM.TYPE == '2GM':
+                assert 'perm_mat' in outputs
+                assert 'gt_perm_mat' in outputs
 
-            #_, _pck_match_num, _pck_total_num = pck(P2_gt, P2_gt, torch.bmm(s_pred_perm, perm_mat.transpose(1, 2)), thres, n1_gt)
-            #pck_match_num += _pck_match_num
-            #pck_total_num += _pck_total_num
+                # _, _pck_match_num, _pck_total_num = pck(P2_gt, P2_gt, torch.bmm(s_pred_perm, perm_mat.transpose(1, 2)), thres, n1_gt)
+                # pck_match_num += _pck_match_num
+                # pck_total_num += _pck_total_num
 
-            acc, _, __ = matching_accuracy(s_pred_perm, perm_mat, n1_gt)
-            acc_list.append(acc)
-            precision, _, __ = matching_precision(s_pred_perm, perm_mat, n1_gt)
-            precision_list.append(precision)
-            precision_list.append(precision)
-            f1 = 2 * (precision * acc) / (precision + acc)
-            f1[torch.isnan(f1)] = 0
-            f1_list.append(f1)
+                acc, _, __ = matching_accuracy(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
+                acc_list.append(acc)
+                precision, _, __ = matching_precision(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
+                precision_list.append(precision)
+                precision_list.append(precision)
+                f1 = 2 * (precision * acc) / (precision + acc)
+                f1[torch.isnan(f1)] = 0
+                f1_list.append(f1)
 
-            if affmtx is not None:
-                obj_score = objective_score(s_pred_perm, affmtx, n1_gt)
-                objs[i] += torch.sum(obj_score)
-            obj_total_num += batch_num
+                if 'aff_mtx' in outputs:
+                    obj_score = objective_score(outputs['perm_mat'], outputs['aff_mtx'], outputs['ns'][0])
+                    objs[i] += torch.sum(obj_score)
+                    obj_total_num += batch_num
+            elif cfg.PROBLEM.TYPE in ['MGM', 'MGMC']:
+                assert 'graph_indices' in outputs
+                assert 'perm_mat_list' in outputs
+                assert 'gt_perm_mat_list' in outputs
+
+                ns = outputs['ns']
+                for x_pred, x_gt, (idx_src, idx_tgt) in \
+                        zip(outputs['perm_mat_list'], outputs['gt_perm_mat_list'], outputs['graph_indices']):
+                    acc, _, __ = matching_accuracy(x_pred, x_gt, ns[idx_src])
+                    acc_list.append(acc)
+                    precision, _, __ = matching_precision(x_pred, x_gt, ns[idx_src])
+                    precision_list.append(precision)
+                    f1 = 2 * (precision * acc) / (precision + acc)
+                    f1[torch.isnan(f1)] = 0
+                    f1_list.append(f1)
+            else:
+                raise ValueError('Unknown problem type {}'.format(cfg.PROBLEM.TYPE))
+
+            # Evaluate clustering accuracy
+            if cfg.PROBLEM.TYPE == 'MGMC':
+                assert 'pred_cluster' in outputs
+                assert 'cls' in outputs
+
+                pred_cluster = outputs['pred_cluster']
+                cls_gt_transpose = [[] for _ in range(batch_num)]
+                for batched_cls in outputs['cls']:
+                    for b, _cls in enumerate(batched_cls):
+                        cls_gt_transpose[b].append(_cls)
+                cluster_acc_list.append(clustering_accuracy(pred_cluster, cls_gt_transpose))
+                cluster_purity_list.append(clustering_purity(pred_cluster, cls_gt_transpose))
+                cluster_ri_list.append(rand_index(pred_cluster, cls_gt_transpose))
 
             if iter_num % cfg.STATISTIC_STEP == 0 and verbose:
                 running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)
@@ -118,18 +141,28 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         precisions.append(torch.cat(precision_list))
         f1s.append(torch.cat(f1_list))
         objs[i] = objs[i] / obj_total_num
+        pred_time.append(torch.mean(torch.cat(pred_time_list)))
+        if cfg.PROBLEM.TYPE == 'MGMC':
+            cluster_acc.append(torch.cat(cluster_acc_list))
+            cluster_purity.append(torch.cat(cluster_purity_list))
+            cluster_ri.append(torch.cat(cluster_ri_list))
+
         if verbose:
             print('Class {} PCK@{{'.format(cls) +
                   ', '.join(list(map('{:.2f}'.format, alphas.tolist()))) + '} = {' +
                   ', '.join(list(map('{:.4f}'.format, pcks[i].tolist()))) + '}')
             print('Class {} {}'.format(cls, format_accuracy_metric(precisions[i], accs[i], f1s[i])))
             print('Class {} obj score = {:.4f}'.format(cls, objs[i]))
+            print('Class {} pred time = {:.4f}s'.format(cls, pred_time[i]))
+            if cfg.PROBLEM.TYPE == 'MGMC':
+                print('Class {} cluster acc={}'.format(cls, format_metric(cluster_acc[i])))
+                print('Class {} cluster purity={}'.format(cls, format_metric(cluster_purity[i])))
+                print('Class {} cluster rand index={}'.format(cls, format_metric(cluster_ri[i])))
 
     time_elapsed = time.time() - since
     print('Evaluation complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
 
     model.train(mode=was_training)
-    ds.cls = cls_cache
 
     # print result
     for i in range(len(alphas)):
@@ -149,6 +182,26 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
             print('{} = {:.4f}'.format(cls, cls_obj))
         print('average objscore = {:.4f}'.format(torch.mean(objs)))
 
+    if cfg.PROBLEM.TYPE == 'MGMC':
+        print('Clustering accuracy')
+        for cls, cls_acc in zip(classes, cluster_acc):
+            print('{} = {}'.format(cls, format_metric(cls_acc)))
+        print('average clustering accuracy = {}'.format(format_metric(torch.cat(cluster_acc))))
+
+        print('Clustering purity')
+        for cls, cls_acc in zip(classes, cluster_purity):
+            print('{} = {}'.format(cls, format_metric(cls_acc)))
+        print('average clustering purity = {}'.format(format_metric(torch.cat(cluster_purity))))
+
+        print('Clustering rand index')
+        for cls, cls_acc in zip(classes, cluster_ri):
+            print('{} = {}'.format(cls, format_metric(cls_acc)))
+        print('average rand index = {}'.format(format_metric(torch.cat(cluster_ri))))
+
+    print('Predict time')
+    for cls, cls_time in zip(classes, pred_time):
+        print('{} = {:.4f}'.format(cls, torch.mean(cls_time)))
+
     return torch.Tensor(list(map(torch.mean, accs)))
 
 
@@ -167,9 +220,10 @@ if __name__ == '__main__':
 
     image_dataset = GMDataset(cfg.DATASET_FULL_NAME,
                               sets='test',
+                              problem=cfg.PROBLEM.TYPE,
                               length=cfg.EVAL.SAMPLES,
-                              pad=cfg.PAIR.PADDING,
-                              obj_resize=cfg.PAIR.RESCALE)
+                              cls=cfg.EVAL.CLASS,
+                              obj_resize=cfg.PROBLEM.RESCALE)
     dataloader = get_dataloader(image_dataset)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -184,7 +238,6 @@ if __name__ == '__main__':
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('eval_log_' + now_time + '.log'))) as _:
         print_easydict(cfg)
         alphas = torch.tensor(cfg.EVAL.PCK_ALPHAS, dtype=torch.float32, device=device)
-        classes = dataloader.dataset.classes
         pcks = eval_model(model, alphas, dataloader,
                           eval_epoch=cfg.EVAL.EPOCH if cfg.EVAL.EPOCH != 0 else None,
                           verbose=True)

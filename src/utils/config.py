@@ -23,22 +23,62 @@ cfg = __C
 # Minibatch size
 __C.BATCH_SIZE = 4
 
-# Pairwise data loader settings.
-__C.PAIR = edict()
-__C.PAIR.RESCALE = (256, 256)  # rescaled image size
-__C.PAIR.PADDING = 23  # padding length of keypoint pairs for batch operation
-__C.PAIR.CANDIDATE_SHAPE = (16, 16)  # shape of candidates
-__C.PAIR.CANDIDATE_LENGTH = np.cumprod(__C.PAIR.CANDIDATE_SHAPE)[-1]
-__C.PAIR.GT_GRAPH_CONSTRUCT = 'tri'
-__C.PAIR.REF_GRAPH_CONSTRUCT = 'fc'
-__C.PAIR.MAX_PROB_SIZE = -1
-__C.PAIR.GT_OUTLIER = False  # allow outlier in source graph
-__C.PAIR.REF_OUTLIER = False  # allow outlier in reference graph (aka target graph)
-__C.PAIR.SYM_ADJACENCY = True # build a symmetric adjacency matrix, else only upper right of adjacency matrix will be filled.
-__C.PAIR.NUM_GRAPHS = 3
-__C.PAIR.NUM_CLUSTERS = 2
-__C.PAIR.TEST_ALL_GRAPHS = False
-__C.PAIR.TRAIN_ALL_GRAPHS = False
+#
+# Problem settings. Set these parameters the same for fair comparison.
+#
+__C.PROBLEM = edict()
+
+# Problem type.
+# Candidates can be '2GM' (two graph matching), 'MGM' (multi-graph matching), 'MGMC' (multi-graph matching and clustering)
+__C.PROBLEM.TYPE = '2GM'
+
+# If UNSUPERVISED==True, ground truth permutations will not be provided during training.
+__C.PROBLEM.UNSUPERVISED = False
+
+# Rescaled image size
+__C.PROBLEM.RESCALE = (256, 256)
+
+# Do not include the problem if n_1 x n_2 > MAX_PROB_SIZE. -1 for no filtering
+__C.PROBLEM.MAX_PROB_SIZE = -1
+
+# Allow outlier in source graph. Useful for 2GM
+__C.PROBLEM.SRC_OUTLIER = False
+
+# Allow outlier in target graph. Useful for 2GM
+__C.PROBLEM.TGT_OUTLIER = False
+
+# Number of graphs in a MGM/MGMC problem. Useful for MGM & MGMC
+# No effect if TEST_ALL_GRAPHS/TRAIN_ALL_GRAPHS=True
+__C.PROBLEM.NUM_GRAPHS = 3
+
+# Number of clusters in MGMC problem. Useful for MGMC
+__C.PROBLEM.NUM_CLUSTERS = 1
+
+# During testing, jointly match all graphs from the same class. Useful for MGM & MGMC
+__C.PROBLEM.TEST_ALL_GRAPHS = False
+
+# During training, jointly match all graphs from the same class. Useful for MGM & MGMC
+__C.PROBLEM.TRAIN_ALL_GRAPHS = False
+
+# Shape of candidates, useful for the setting in Zanfir et al CVPR2018
+#__C.PROBLEM.CANDIDATE_SHAPE = (16, 16)
+#__C.PROBLEM.CANDIDATE_LENGTH = np.cumprod(__C.PAIR.CANDIDATE_SHAPE)[-1]
+
+#
+# Graph construction settings.
+#
+__C.GRAPH = edict()
+
+# The ways of constructing source graph/target graph.
+# Candidates can be 'tri' (Delaunay triangulation), 'fc' (Fully-connected)
+__C.GRAPH.SRC_GRAPH_CONSTRUCT = 'tri'
+__C.GRAPH.TGT_GRAPH_CONSTRUCT = 'fc'
+
+# Build a symmetric adjacency matrix, else only the upper right triangle of adjacency matrix will be filled
+__C.GRAPH.SYM_ADJACENCY = True
+
+# Padding length on number of keypoints for batched operation
+__C.GRAPH.PADDING = 23
 
 #
 # Training options
@@ -68,7 +108,7 @@ __C.TRAIN.LR_STEP = [10, 20]
 __C.TRAIN.MOMENTUM = 0.9
 
 # RobustLoss normalization
-__C.TRAIN.RLOSS_NORM = max(__C.PAIR.RESCALE)
+__C.TRAIN.RLOSS_NORM = max(__C.PROBLEM.RESCALE)
 
 # Specify a class for training
 __C.TRAIN.CLASS = 'none'
@@ -88,10 +128,13 @@ __C.EVAL.EPOCH = 30
 
 # PCK metric
 __C.EVAL.PCK_ALPHAS = []
-__C.EVAL.PCK_L = float(max(__C.PAIR.RESCALE))  # PCK reference.
+__C.EVAL.PCK_L = float(max(__C.PROBLEM.RESCALE))  # PCK reference.
 
 # Number of samples for testing. Stands for number of image pairs in each classes (VOC)
 __C.EVAL.SAMPLES = 1000
+
+# Evaluated classes
+__C.EVAL.CLASS = 'all'
 
 
 #
@@ -198,9 +241,8 @@ def _merge_a_into_b(a, b):
             if type(b[k]) is float and type(v) is int:
                 v = float(v)
             else:
-                raise ValueError(('Type mismatch ({} vs. {}) '
-                              'for config key: {}').format(type(b[k]),
-                                                           type(v), k))
+                if not k in ['CLASS']:
+                    raise ValueError('Type mismatch ({} vs. {}) for config key: {}'.format(type(b[k]), type(v), k))
 
         # recursively merge dicts
         if type(v) is edict:
