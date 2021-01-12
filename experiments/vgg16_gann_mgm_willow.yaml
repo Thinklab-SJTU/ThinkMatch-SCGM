@@ -1,6 +1,6 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_hippi_multi
+MODEL_NAME: vgg16_gann_mgm
 DATASET_NAME: willow
 
 DATASET_FULL_NAME: WillowObject
@@ -20,24 +20,22 @@ GPUS:
   - 0
 #  - 1
 
-# Pairwise data configuration
-PAIR:
+# Problem configuration
+PROBLEM:
+  TYPE: MGM
   RESCALE:  # rescaled image size
     - 256
     - 256
-  CANDIDATE_SHAPE:  # target candidate grid
-    - 16
-    - 16
-  GT_GRAPH_CONSTRUCT: fc
-  REF_GRAPH_CONSTRUCT: fc
-  SYM_ADJACENCY: True
-  #MAX_PROB_SIZE: 225
   NUM_GRAPHS: 8
-  NUM_CLUSTERS: 1
   TEST_ALL_GRAPHS: True
 
+# Graph construction settings
+GRAPH:
+  SRC_GRAPH_CONSTRUCT: fc
+  SYM_ADJACENCY: True
+
 # Willow dataset settings
-WILLOW:
+WillowObject:
   TRAIN_NUM: 0
   TRAIN_SAME_AS_TEST: True
 
@@ -45,7 +43,7 @@ WILLOW:
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 20
+  NUM_EPOCHS: 10
 
   LOSS_FUNC: perm
 
@@ -54,10 +52,7 @@ TRAIN:
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
-    #- 2
-    #- 5
     - 2
-    - 10
 
   EPOCH_ITERS: 100  # iterations per epoch
 
@@ -65,8 +60,8 @@ TRAIN:
 
 # Evaluation settings and PCK metric
 EVAL:
-  EPOCH: 0  # epoch to be tested
-  SAMPLES: 50 # 20 # number of tests for each class
+  EPOCH: 10  # epoch to be tested
+  SAMPLES: 1 # number of tests for each class
 
 # Visualization settings
 VISUAL:
@@ -83,7 +78,7 @@ GANN:
   SK_TAU: 0.05
   SK_EPSILON: 1.0e-10
   UNIV_SIZE: 10
-  MAX_ITER:
+  MGM_ITER:
     - 500
   INIT_TAU:
     - 0.1

@@ -14,7 +14,13 @@ class Timer:
     def tic(self):
         self.start_time = time.time()
     def toc(self, str=""):
-        print('{:.5f}sec {}'.format(time.time()-self.start_time, str))
+        print_helper('{:.5f}sec {}'.format(time.time()-self.start_time, str))
+
+DEBUG=False
+
+def print_helper(*args):
+    if DEBUG:
+        print(*args)
 
 
 class GA_MGMC(nn.Module):
@@ -23,7 +29,7 @@ class GA_MGMC(nn.Module):
 
     This operation does not support batched input, and all input tensors should not have the first batch dimension.
 
-    Parameter: maximum iteration max_iter
+    Parameter: maximum iteration mgm_iter
                sinkhorn iteration sk_iter
                initial sinkhorn regularization sk_tau0
                sinkhorn regularization decaying factor sk_gamma
@@ -36,9 +42,10 @@ class GA_MGMC(nn.Module):
            (optional) projector to doubly-stochastic matrix (sinkhorn) or permutation matrix (hungarian)
     Output: multi-matching matrix U
     """
-    def __init__(self, max_iter=(200,), sk_iter=20, sk_tau0=(0.5,), sk_gamma=0.5, cluster_beta=(1., 0.), converge_tol=1e-5, min_tau=(1e-2,), projector0=('sinkhorn',)):
+    def __init__(self, mgm_iter=(200,), cluster_iter=10, sk_iter=20, sk_tau0=(0.5,), sk_gamma=0.5, cluster_beta=(1., 0.), converge_tol=1e-5, min_tau=(1e-2,), projector0=('sinkhorn',)):
         super(GA_MGMC, self).__init__()
-        self.max_iter = max_iter
+        self.mgm_iter = mgm_iter
+        self.cluster_iter = cluster_iter
         self.sk_iter = sk_iter
         self.sk_tau0 = sk_tau0
         self.sk_gamma = sk_gamma
@@ -67,7 +74,7 @@ class GA_MGMC(nn.Module):
         cluster_M = torch.ones(num_graphs, num_graphs, device=A.device)
         cluster_M01 = cluster_M
 
-        U = self.gagm(A, W, U, ms, n_univ, cluster_M, self.sk_tau0[0], self.min_tau[0], self.max_iter[0], self.projector0[0],
+        U = self.gagm(A, W, U, ms, n_univ, cluster_M, self.sk_tau0[0], self.min_tau[0], self.mgm_iter[0], self.projector0[0],
                       quad_weight=quad_weight, hung_iter=(num_clusters == 1))
         Us.append(U)
 
@@ -76,11 +83,11 @@ class GA_MGMC(nn.Module):
         #Us.append(U)
 
         for beta, sk_tau0, min_tau, max_iter, projector0 in \
-                zip(self.cluster_beta, self.sk_tau0, self.min_tau, self.max_iter, self.projector0):
-            for i in range(10):
+                zip(self.cluster_beta, self.sk_tau0, self.min_tau, self.mgm_iter, self.projector0):
+            for i in range(self.cluster_iter):
                 lastU = U
 
-                #U = self.igm(A, W, U, ms, n_univ, cluster_M, sk_tau0, min_tau, max_iter,
+                #U = self.igm(A, W, U, ms, n_univ, cluster_M, sk_tau0, min_tau, mgm_iter,
                 #             projector='hungarian' if i != 0 else projector0, hung_iter=(beta == self.cluster_beta[-1]))
 
                 # clustering
@@ -145,7 +152,7 @@ class GA_MGMC(nn.Module):
                               projector='hungarian' if i != 0 else projector0, quad_weight=quad_weight,
                               hung_iter=(beta == self.cluster_beta[-1]))
 
-                print('beta = {:.2f}, delta U = {:.4f}, delta M = {:.4f}'.format(beta, torch.norm(lastU - U), torch.norm(last_cluster_M01 - cluster_M01)))
+                print_helper('beta = {:.2f}, delta U = {:.4f}, delta M = {:.4f}'.format(beta, torch.norm(lastU - U), torch.norm(last_cluster_M01 - cluster_M01)))
 
                 Us.append(U)
                 clusters.append(cluster_v)
@@ -201,7 +208,7 @@ class GA_MGMC(nn.Module):
                 V /= num_graphs
                 '''
 
-                # print(U.sum(dim=-2))
+                # print_helper(U.sum(dim=-2))
                 U_list = []
                 if projector == 'hungarian':
                     m_start = 0
@@ -238,7 +245,7 @@ class GA_MGMC(nn.Module):
 
                 U = torch.cat(U_list, dim=0)
 
-                # print('d1 = {:.4f}, d2 = {:.4f}, d3 = {:.4f}'.format(torch.norm(U-lastU), torch.norm(U-lastU2), torch.norm(U-lastU3)))
+                # print_helper('d1 = {:.4f}, d2 = {:.4f}, d3 = {:.4f}'.format(torch.norm(U-lastU), torch.norm(U-lastU2), torch.norm(U-lastU3)))
 
                 if torch.norm(U - lastU) < self.converge_tol or torch.norm(U - lastU2) == 0:
                     break
@@ -249,17 +256,17 @@ class GA_MGMC(nn.Module):
                 else:
                     U_list = [hungarian(_) for _ in U_list]
                     U = torch.cat(U_list, dim=0)
-                    print(i, 'max iter')
+                    print_helper(i, 'max iter')
                     break
 
             if projector == 'hungarian':
-                print(i, 'hungarian')
+                print_helper(i, 'hungarian')
                 break
             elif sinkhorn_tau > min_tau:
-                print(i, sinkhorn_tau)
+                print_helper(i, sinkhorn_tau)
                 sinkhorn_tau *= self.sk_gamma
             else:
-                print(i, sinkhorn_tau)
+                print_helper(i, sinkhorn_tau)
                 if hung_iter:
                     projector = 'hungarian'
                 else:
@@ -268,7 +275,7 @@ class GA_MGMC(nn.Module):
                     break
 
         '''
-        for i in range(max_iter):
+        for i in range(mgm_iter):
                 lastU3 = lastU2
                 lastU2 = lastU
                 lastU = U
@@ -279,7 +286,7 @@ class GA_MGMC(nn.Module):
                 V = torch.chain_matmul(A, UUt * cluster_weight, A, U) * quad_weight + torch.mm(W * cluster_weight, U)
                 V /= num_graphs
 
-                #print(U.sum(dim=-2))
+                #print_helper(U.sum(dim=-2))
                 U_list = []
                 if projector == 'hungarian':
                     m_start = 0
@@ -289,7 +296,7 @@ class GA_MGMC(nn.Module):
                 elif projector == 'sinkhorn':
                     if n_univ * num_graphs == m_indices[-1]:
                         U_list.append(
-                            BiStochastic(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True)\
+                            BiStochastic(mgm_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True)\
                             (V.reshape(num_graphs, -1, n_univ), dummy_row=True).reshape(-1, n_univ))
                     else:
                         V_list = []
@@ -300,7 +307,7 @@ class GA_MGMC(nn.Module):
                             n1.append(m_end-m_start)
                             m_start = m_end
                         n1 = torch.tensor(n1)
-                        U = BiStochastic(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True)\
+                        U = BiStochastic(mgm_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True)\
                             (torch.stack(pad_tensor(V_list), dim=0), n1, dummy_row=True)
                         m_start = 0
                         for idx, m_end in enumerate(m_indices):
@@ -311,23 +318,23 @@ class GA_MGMC(nn.Module):
 
                 U = torch.cat(U_list, dim=0)
 
-                #print('d1 = {:.4f}, d2 = {:.4f}, d3 = {:.4f}'.format(torch.norm(U-lastU), torch.norm(U-lastU2), torch.norm(U-lastU3)))
+                #print_helper('d1 = {:.4f}, d2 = {:.4f}, d3 = {:.4f}'.format(torch.norm(U-lastU), torch.norm(U-lastU2), torch.norm(U-lastU3)))
 
                 if torch.norm(U - lastU) < self.converge_tol or torch.norm(U - lastU2) == 0:
                     if projector == 'hungarian':
-                        print(i, 'hungarian')
+                        print_helper(i, 'hungarian')
                         iter_flag = False
                         break
                     elif sinkhorn_tau > min_tau:
-                        print(i, sinkhorn_tau)
+                        print_helper(i, sinkhorn_tau)
                         sinkhorn_tau *= self.sk_gamma
                     else:
-                        print(i, sinkhorn_tau)
+                        print_helper(i, sinkhorn_tau)
                         projector = 'hungarian'
-                if i + 1 == max_iter and projector != 'hungarian':
+                if i + 1 == mgm_iter and projector != 'hungarian':
                     U_list = [hungarian(_) for _ in U_list]
                     U = torch.cat(U_list, dim=0)
-                    print(i, 'max iter')
+                    print_helper(i, 'max iter')
         '''
 
         return U
@@ -343,7 +350,7 @@ class GA_MGMC(nn.Module):
         stage = 'matching'
         sinkhorn_tau = self.sk_tau0
         beta = 1.
-        for i in range(self.max_iter):
+        for i in range(self.mgm_iter):
             lastU = U
             V = torch.zeros_like(U)
 
@@ -394,26 +401,26 @@ class GA_MGMC(nn.Module):
                         Alpha[idx1, idx2] = Alpha_ij
                     cluster_v = spectral_clustering(Alpha, num_clusters)
                     if torch.sum(cluster_v) != 8:
-                        print('!')
+                        print_helper('!')
                     cluster_M = (cluster_v.unsqueeze(0) == cluster_v.unsqueeze(1)).to(dtype=Alpha.dtype)
                     beta = 0.
                     cluster_M = (1 - beta) * cluster_M + beta
                 #else:
                     if projector == 'hungarian':
                         #beta -= 0.1
-                        #print(i)
+                        #print_helper(i)
                         break
                     elif sinkhorn_tau > self.min_tau:
-                        #print(i, sinkhorn_tau)
+                        #print_helper(i, sinkhorn_tau)
                         sinkhorn_tau *= self.sk_gamma
                         #beta -= 0.1
                     else:
-                        #print(i, sinkhorn_tau)
+                        #print_helper(i, sinkhorn_tau)
                         projector = 'hungarian'
                     stage = 'matching'
 
 
-            if i + 1 == self.max_iter:
+            if i + 1 == self.mgm_iter:
                 U_list = [hungarian(_) for _ in U_list]
                 U = torch.cat(U_list, dim=0)
 
@@ -426,7 +433,7 @@ class HiPPI(nn.Module):
 
     This operation does not support batched input, and all input tensors should not have the first batch dimension.
 
-    Parameter: maximum iteration max_iter
+    Parameter: maximum iteration mgm_iter
                sinkhorn iteration sk_iter
                sinkhorn regularization sk_tau
     Input: multi-graph similarity matrix W
@@ -471,10 +478,10 @@ class HiPPI(nn.Module):
                 m_start = m_end
             U = torch.cat(U, dim=0)
 
-            #print('iter={}, diff={}, var={}, vmean={}, vvar={}'.format(i, torch.norm(U-lastU), torch.var(torch.sum(U, dim=0)), V_mean, V_var))
+            #print_helper('iter={}, diff={}, var={}, vmean={}, vvar={}'.format(i, torch.norm(U-lastU), torch.var(torch.sum(U, dim=0)), V_mean, V_var))
 
             if torch.norm(U - lastU) < 1e-5:
-                print(i)
+                print_helper(i)
                 break
 
         return U

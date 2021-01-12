@@ -5,7 +5,6 @@ import torch.nn.functional as functional
 import numpy as np
 
 from src.lap_solvers.sinkhorn import Sinkhorn
-from models.GMN.displacement_layer import Displacement
 from src.feature_align import feature_align
 from models.PCA.affinity_layer import AffinityInp
 from models.GMN.affinity_layer import InnerpAffinity as QuadInnerpAffinity
@@ -18,6 +17,7 @@ from src.utils.pad_tensor import pad_tensor
 from itertools import combinations, product, chain
 
 from src.utils.config import cfg
+from models.GANN.model_config import model_cfg
 
 from src.backbone import *
 CNN = eval(cfg.BACKBONE)
@@ -30,64 +30,87 @@ class Net(CNN):
         self.tau = cfg.GANN.SK_TAU
         self.bi_stochastic = Sinkhorn(max_iter=cfg.GANN.SK_ITER_NUM,
                                       tau=self.tau, epsilon=cfg.GANN.SK_EPSILON, batched_operation=False)
-        self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.GANN.FEATURE_CHANNEL * 2, alpha=cfg.GANN.FEATURE_CHANNEL * 2, beta=0.5, k=0)
-        #self.hippi = GANN(sk_iter=41, sk_tau=1./20)
         self.univ_size = torch.tensor(cfg.GANN.UNIV_SIZE)
         self.quad_weight = cfg.GANN.QUAD_WEIGHT
         self.cluster_quad_weight = cfg.GANN.CLUSTER_QUAD_WEIGHT
-        self.gamgm = GA_MGMC(
-            max_iter=cfg.GANN.MAX_ITER,
+        self.ga_mgmc = GA_MGMC(
+            mgm_iter=cfg.GANN.MGM_ITER, cluster_iter=cfg.GANN.CLUSTER_ITER,
             sk_iter=cfg.GANN.SK_ITER_NUM, sk_tau0=cfg.GANN.INIT_TAU, sk_gamma=cfg.GANN.GAMMA,
             cluster_beta=cfg.GANN.BETA,
             converge_tol=cfg.GANN.CONVERGE_TOL, min_tau=cfg.GANN.MIN_TAU, projector0=cfg.GANN.PROJECTOR
         )
+        self.rescale = cfg.PROBLEM.RESCALE
 
-        if cfg.NGM.EDGE_FEATURE == 'cat':
-            self.quad_affinity_layer = QuadInnerpAffinity(cfg.NGM.FEATURE_CHANNEL)
-        elif cfg.NGM.EDGE_FEATURE == 'geo':
-            self.quad_affinity_layer = QuadGaussianAffinity(1, sigma=1.)
+        #self.graph_learning_layer = nn.Sequential(
+        #    nn.Linear(cfg.GANN.FEATURE_CHANNEL, cfg.GANN.FEATURE_CHANNEL, bias=False),
+        #    nn.ReLU(),
+        #    #nn.Linear(cfg.GANN.FEATURE_CHANNEL, cfg.GANN.FEATURE_CHANNEL)
+        #)
 
-        self.graph_learning_layer = nn.Sequential(
-            nn.Linear(cfg.GANN.FEATURE_CHANNEL, cfg.GANN.FEATURE_CHANNEL, bias=False),
-            nn.ReLU(),
-            #nn.Linear(cfg.GANN.FEATURE_CHANNEL, cfg.GANN.FEATURE_CHANNEL)
-        )
+        #self.gnn_layer = 3
+        #GNN_FEAT = 2048
+        #for i in range(self.gnn_layer):
+        #    if i == 0:
+        #        gnn_layer = Siamese_Gconv(cfg.GANN.FEATURE_CHANNEL, GNN_FEAT)
+        #    else:
+        #       gnn_layer = Siamese_Gconv(GNN_FEAT, GNN_FEAT)
+        #    self.add_module('gnn_layer_{}'.format(i), gnn_layer)
 
-        self.gnn_layer = 3
-        GNN_FEAT = 2048
-        for i in range(self.gnn_layer):
-            if i == 0:
-                gnn_layer = Siamese_Gconv(cfg.GANN.FEATURE_CHANNEL, GNN_FEAT)
-            else:
-                gnn_layer = Siamese_Gconv(GNN_FEAT, GNN_FEAT)
-            self.add_module('gnn_layer_{}'.format(i), gnn_layer)
-
-        #self.bi_stochastic2 = BiStochastic(max_iter=cfg.NGM.BS_ITER_NUM, epsilon=cfg.NGM.BS_EPSILON, tau=1/20.)
-    def forward(self, data, Ps, Gs, Hs, Gs_ref, Hs_ref, KGs, KHs, ns, gt_cls=None, type='img', pretrain_backbone=False, num_clusters=2, return_cluster=False, **kwargs):
+        #self.bi_stochastic2 = BiStochastic(mgm_iter=cfg.NGM.BS_ITER_NUM, epsilon=cfg.NGM.BS_EPSILON, tau=1/20.)
+    def forward(self, data_dict, **kwargs):
         """
-        wrapper function of forward pass, ground truth class information is input to output intra-class matching results
+        wrapper function of forward pass, ground truth class information is taken to output intra-class matching results
         """
-        assert num_clusters == 1 or data[0].shape[0] == 1, "Only batch size == 1 is allowed given multiple clusters"
-        U, cluster_v, Wds, mscum = \
-            self.real_forward(data, Ps, Gs, Hs, Gs_ref, Hs_ref, KGs, KHs, ns, type, pretrain_backbone, num_clusters)
-        if gt_cls is not None:
+        num_clusters = cfg.PROBLEM.NUM_CLUSTERS
+        if cfg.PROBLEM.TYPE == '2GM':
+            raise ValueError('Unsupported problem type 2GM for GANN model.')
+        elif cfg.PROBLEM.TYPE == 'MGM':
+            assert num_clusters == 1
+        else:
+            assert num_clusters > 1
+
+        assert data_dict['batch_size'] == 1, "Only batch size == 1 is supported."
+
+        U, cluster_v, Wds, mscum = self.real_forward(data_dict, num_clusters)
+
+        if self.training:
+            cls_indicator = cluster_v.cpu().numpy().tolist()
+        else:
+            assert 'cls' in data_dict
+            gt_cls = data_dict['cls']
             cls_indicator = []
             for b in range(len(gt_cls[0])):
                 cls_indicator.append([])
                 for i in range(len(gt_cls)):
                     cls_indicator[b].append(gt_cls[i][b])
+
+        sinkhorn_pairwise_preds, hungarian_pairwise_preds, multi_graph_preds, indices = \
+            self.collect_intra_class_matching_wrapper(U[0], Wds[0], mscum[0], cls_indicator[0]) # we assume batch_size=1
+
+        if self.training:
+            data_dict.update({
+                'ds_mat_list': sinkhorn_pairwise_preds,
+                'perm_mat_list': hungarian_pairwise_preds,
+                'gt_perm_mat_list': multi_graph_preds, # pseudo label during training
+                'graph_indices': indices,
+            })
         else:
-            cls_indicator = cluster_v.cpu().numpy().tolist()
-        pred_s, indices, pred_s_discrete = \
-            self.collect_in_class_matching_wrapper(U, Wds, mscum, cls_indicator[0])
-        if return_cluster:
-            return pred_s, indices, pred_s_discrete, cluster_v
-        else:
-            return pred_s, indices, pred_s_discrete
+            gt_perm_mats = data_dict['gt_perm_mat']
+            gt_x = [torch.bmm(gt_perm_mats[idx1], gt_perm_mats[idx2].transpose(1, 2)) for idx1, idx2 in indices]
+            data_dict.update({
+                'perm_mat_list': multi_graph_preds,
+                'gt_perm_mat_list': gt_x,
+                'graph_indices': indices,
+            })
+
+        if num_clusters > 1:
+            data_dict['pred_cluster'] = cluster_v
+
+        return data_dict
 
 
-    def real_forward(self, data, Ps, Gs, Hs, Gs_ref, Hs_ref, KGs, KHs, ns, type='img', pretrain_backbone=False, num_clusters=2, **kwargs):
+    def real_forward(self, data_dict, num_clusters, **kwargs):
         """
         the real forward function.
         :return U: stacked multi-matching matrix
@@ -95,19 +118,24 @@ class Net(CNN):
         :return Wds: doubly-stochastic pairwise matching results
         :return mscum: cumsum of number of nodes in graphs
         """
-        batch_size = data[0].shape[0]
-        num_graphs = len(data)
-        device = data[0].device
+        batch_size = data_dict['batch_size']
+        num_graphs = data_dict['num_graphs']
 
         # extract graph feature
-        if type == 'img' or type == 'image':
+        if 'images' in data_dict:
+            # real image data
+            data = data_dict['images']
+            Ps = data_dict['Ps']
+            ns = data_dict['ns']
+            As_src = data_dict['As']
+
             data_cat = torch.cat(data, dim=0)
             P_cat = torch.cat(pad_tensor(Ps), dim=0)
             n_cat = torch.cat(ns, dim=0)
             node = self.node_layers(data_cat)
             edge = self.edge_layers(node)
-            U = feature_align(node, P_cat, n_cat, cfg.PAIR.RESCALE)
-            F = feature_align(edge, P_cat, n_cat, cfg.PAIR.RESCALE)
+            U = feature_align(node, P_cat, n_cat, self.rescale)
+            F = feature_align(edge, P_cat, n_cat, self.rescale)
             feats = torch.cat((U, F), dim=1)
             feats = self.l2norm(feats)
             feats[torch.isnan(feats)] = 0.
@@ -123,19 +151,17 @@ class Net(CNN):
             #feats = feats.transpose(1, 2)
 
             feats = torch.split(feats, batch_size, dim=0)
-        elif type == 'feat' or type == 'feature':
-            feats = data
         else:
-            raise ValueError('unknown type string {}'.format(type))
+            raise ValueError('Unknown data type for this model.')
 
         # store features and variables in feat_list
         feat_list = []
         global_feat = []
-        iterator = zip(feats, Ps, Gs, Hs, Gs_ref, Hs_ref, ns)
-        ms = torch.zeros(batch_size, num_graphs, dtype=torch.int, device=device)
-        for idx, (feat, P, G, H, G_ref, H_ref, n) in enumerate(iterator):
+        iterator = zip(feats, Ps, As_src, ns)
+        ms = torch.zeros(batch_size, num_graphs, dtype=torch.int, device=self.device)
+        for idx, (feat, P, As_src, n) in enumerate(iterator):
             global_feat.append(functional.max_pool1d(feat, kernel_size=feat.shape[-1]).squeeze(-1))
-            feat_list.append((idx, feat, P, G, H, G_ref, H_ref, n))
+            feat_list.append((idx, feat, P, As_src, n))
             ms[:, idx] = n
         msmax = torch.max(ms, dim=1).values
         mscum = torch.cumsum(ms, dim=1)
@@ -143,16 +169,14 @@ class Net(CNN):
         global_feat = torch.stack(global_feat, dim=1)
 
         # compute multi-adjacency matrix A
-        A = [torch.zeros(m.item(), m.item(), device=device) for m in mssum]
-        #Adj_s = {}
-        for idx, feat, P, G, H, G_ref, H_ref, n in feat_list:
-            edge_lens = torch.sqrt(torch.sum((P.unsqueeze(1) - P.unsqueeze(2)) ** 2, dim=-1)) * torch.bmm(G, H.transpose(1, 2))
+        A = [torch.zeros(m.item(), m.item(), device=self.device) for m in mssum]
+        for idx, feat, P, As_src, n in feat_list:
+            edge_lens = torch.sqrt(torch.sum((P.unsqueeze(1) - P.unsqueeze(2)) ** 2, dim=-1)) * As_src
             median_lens = torch.median(torch.flatten(edge_lens, start_dim=-2), dim=-1).values
             median_lens = median_lens.unsqueeze(-1).unsqueeze(-1)
             A_ii = torch.exp(- edge_lens ** 2 / median_lens ** 2 / cfg.GANN.SCALE_FACTOR)
             diag_A_ii = torch.diagonal(A_ii, dim1=-2, dim2=-1)
             diag_A_ii[:] = 0
-            #A_ii = edge_lens ** 2 / median_lens ** 2 / cfg.GANN.SCALE_FACTOR #todo
 
             #Adj_s['{}'.format(idx)] = torch.bmm(G, H.transpose(1,2))
 
@@ -163,13 +187,13 @@ class Net(CNN):
                 start_idx = mscum[b, idx] - n[b]
                 end_idx = mscum[b, idx]
                 A[b][start_idx:end_idx, start_idx:end_idx] += A_ii[b, :n[b], :n[b]]
+
         # compute similarity matrix W
-        W = [torch.zeros(m.item(), m.item(), device=device) for m in mssum]
-        Wds = [torch.zeros(m.item(), m.item(), device=device) for m in mssum]
-        #P = [torch.zeros(m.item(), m.item(), device=device) for m in mssum]
+        W = [torch.zeros(m.item(), m.item(), device=self.device) for m in mssum]
+        Wds = [torch.zeros(m.item(), m.item(), device=self.device) for m in mssum]
         for src, tgt in product(feat_list, repeat=2):
-            src_idx, src_feat, P_src, G_src, H_src, _, __, n_src = src
-            tgt_idx, tgt_feat, P_tgt, _, __, G_tgt, H_tgt, n_tgt = tgt
+            src_idx, src_feat, P_src, A_src, n_src = src
+            tgt_idx, tgt_feat, P_tgt, A_tgt, n_tgt = tgt
             if src_idx < tgt_idx:
                 continue
             W_ij = self.affinity_layer(src_feat.transpose(1, 2), tgt_feat.transpose(1, 2))
@@ -197,8 +221,7 @@ class Net(CNN):
         # compute fused similarity W_bar
         W_bar = []
         for A_, W_ in zip(A, Wds):
-            W_bar.append(torch.chain_matmul(W_.t(), A_, W_))# / num_graphs ** 2)
-            #W_bar.append(A_)
+            W_bar.append(torch.chain_matmul(W_.t(), A_, W_))
 
         '''
         U0 = []
@@ -226,10 +249,10 @@ class Net(CNN):
         cluster_v = []
         for b in range(batch_size):
             #U0_b = torch.rand(torch.sum(ms[b]), self.univ_size, device=device) / self.univ_size.to(dtype=torch.float) * 2
-            U0_b = torch.full((torch.sum(ms[b]), self.univ_size), 1 / self.univ_size.to(dtype=torch.float), device=device)
+            U0_b = torch.full((torch.sum(ms[b]), self.univ_size), 1 / self.univ_size.to(dtype=torch.float), device=self.device)
             U0_b += torch.randn_like(U0_b) / 1000
             #U0_b = U0[b]
-            U_b, cluster_v_b = self.gamgm(A[b], Wds[b], U0_b, ms[b], self.univ_size, self.quad_weight, self.cluster_quad_weight, num_clusters)
+            U_b, cluster_v_b = self.ga_mgmc(A[b], Wds[b], U0_b, ms[b], self.univ_size, self.quad_weight, self.cluster_quad_weight, num_clusters)
             #U_b, Beta = hippi(A[b], W[b], (Beta * (1 - beta) + beta)[b], U0b, ms[b], torch.ceil(msmax[b] * self.univ_factor).to(dtype=torch.int64))
             #U_b = U0[b]
 
@@ -251,17 +274,17 @@ class Net(CNN):
         return U, cluster_v, Wds, mscum
 
     @staticmethod
-    def collect_in_class_matching_wrapper(U, Wds, mscum, gt_cls):
+    def collect_intra_class_matching_wrapper(U, Wds, mscum, gt_cls):
         """
         :param U: Stacked matching-to-universe matrix
         :param Wds: pairwise matching result in doubly-stochastic matrix
         :param mscum: cumsum of number of nodes in graphs
         :param gt_cls: ground truth classes
         """
-        batch_size = len(U)
         # collect results
-        pred_s = []
-        pred_s_discrete = []
+        pairwise_pred_s = []
+        pairwise_pred_x = []
+        mgm_pred_x = []
         indices = []
         unique_gt_cls = set(gt_cls)
 
@@ -272,27 +295,24 @@ class Net(CNN):
         intra_class_iterator = chain(*intra_class_iterator)
 
         for idx1, idx2 in intra_class_iterator:
-            s = []
-            for b in range(batch_size):
-                #b = 0 # todo
-                start_x = mscum[b, idx1 - 1] if idx1 != 0 else 0
-                end_x = mscum[b, idx1]
-                start_y = mscum[b, idx2 - 1] if idx2 != 0 else 0
-                end_y = mscum[b, idx2]
-                if end_y - start_y >= end_x - start_x:
-                    s.append(Wds[b][start_x:end_x, start_y:end_y])
-                else:
-                    s.append(Wds[b][start_y:end_y, start_x:end_x].t())
-            pred_s.append(torch.stack(pad_tensor(s), dim=0))
-            #s = [hungarian(_) for _ in s]
-            s = []
-            for b in range(batch_size):
-                #s.append(self.bi_stochastic2(torch.mm(U[b][idx1], U[b][idx2].t())))
-                s.append(torch.mm(U[b][idx1], U[b][idx2].t()))
-            pred_s_discrete.append(torch.stack(pad_tensor(s), dim=0))
+            start_x = mscum[idx1 - 1] if idx1 != 0 else 0
+            end_x = mscum[idx1]
+            start_y = mscum[idx2 - 1] if idx2 != 0 else 0
+            end_y = mscum[idx2]
+            if end_y - start_y >= end_x - start_x:
+                s = Wds[start_x:end_x, start_y:end_y]
+            else:
+                s = Wds[start_y:end_y, start_x:end_x].t()
+
+            pairwise_pred_s.append(s.unsqueeze(0))
+            x = hungarian(s)
+            pairwise_pred_x.append(x.unsqueeze(0))
+
+            mgm_x = torch.mm(U[idx1], U[idx2].t())
+            mgm_pred_x.append(mgm_x.unsqueeze(0))
             indices.append((idx1, idx2))
 
-        return pred_s, indices, pred_s_discrete
+        return pairwise_pred_s, pairwise_pred_x, mgm_pred_x, indices
 
 
 def lawlers_iter(Ms, U0, ms, d):
