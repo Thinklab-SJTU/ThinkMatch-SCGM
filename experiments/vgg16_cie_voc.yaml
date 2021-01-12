@@ -74,6 +74,3 @@ CIE:
   SK_TAU: .005
   GNN_FEAT: 2048
   GNN_LAYER: 2
-  LOSS_WEIGHTS:
-    - 0.  # cross-module loss
-    - 1.  # final prediction loss
