@@ -1,5 +1,5 @@
 """
-My DataParallel Implementation for GMN
+DataParallel wrapper with customized scatter/gather functions
 """
 
 import torch
