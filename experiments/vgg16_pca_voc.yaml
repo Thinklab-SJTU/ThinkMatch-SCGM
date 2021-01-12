@@ -19,18 +19,18 @@ GPUS:
   - 0
 #  - 1
 
-# Pairwise data configuration
-PAIR:
+# Problem configuration
+PROBLEM:
+  TYPE: 2GM
   RESCALE:  # rescaled image size
     - 256
     - 256
-  CANDIDATE_SHAPE:  # target candidate grid
-    - 16
-    - 16
-  GT_GRAPH_CONSTRUCT: tri
-  REF_GRAPH_CONSTRUCT: tri
 
-  REF_OUTLIER: False
+# Graph construction settings
+GRAPH:
+  SRC_GRAPH_CONSTRUCT: tri
+  TGT_GRAPH_CONSTRUCT: tri
+  SYM_ADJACENCY: True
 
 # Training settings
 TRAIN:
@@ -71,12 +71,9 @@ VISUAL:
 # PCA model parameters
 PCA:
   FEATURE_CHANNEL: 512
-  BS_ITER_NUM: 20
-  BS_EPSILON: 1.0e-10
+  SK_ITER_NUM: 20
+  SK_EPSILON: 1.0e-10
   CROSS_ITER: False
   SK_TAU: 0.05
   GNN_FEAT: 2048
   GNN_LAYER: 2
-  LOSS_WEIGHTS:
-    - 0.  # cross-module loss
-    - 1.  # final prediction loss
