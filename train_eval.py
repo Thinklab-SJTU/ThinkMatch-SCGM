@@ -233,7 +233,7 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     model = Net()
-    model = model.cuda()
+    model = model.to(device)
 
     if cfg.TRAIN.LOSS_FUNC == 'offset':
         criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
