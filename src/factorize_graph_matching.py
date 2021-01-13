@@ -7,9 +7,9 @@ import scipy.sparse as ssp
 import numpy as np
 
 
-def construct_m(Me: Tensor, Mp: Tensor, KG: CSRMatrix3d, KH: CSCMatrix3d, KGt: CSRMatrix3d=None, KHt: CSCMatrix3d=None):
+def construct_aff_mat(Me: Tensor, Mp: Tensor, KG: CSRMatrix3d, KH: CSCMatrix3d, KGt: CSRMatrix3d=None, KHt: CSCMatrix3d=None):
     """
-    Construct full affinity matrix M with edge matrix Me, point matrix Mp and graph structures G1, H1, G2, H2
+    Construct full affinity matrix with edge matrix Me, point matrix Mp and graph structures G1, H1, G2, H2
     :param Me: edge affinity matrix
     :param Mp: point affinity matrix
     :param KG: kronecker product of G2, G1
