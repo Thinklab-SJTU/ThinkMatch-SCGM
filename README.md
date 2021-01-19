@@ -90,9 +90,9 @@ python train_eval.py --cfg experiments/vgg16_pca_voc.yaml
 Default configuration files are stored in``experiments/`` and you are welcomed to try your own configurations! If you find a better yaml configuration, please let us know by raising an issue or a PR and we will update the benchmark!
 
 ## Pretrained Models
-_ThinkMatch_ provides pretrained models. The model weights are available via [google drive]() and [SJTU jbox]()
+_ThinkMatch_ provides pretrained models. The model weights are available via [google drive](https://drive.google.com/drive/folders/11xAQlaEsMrRlIVc00nqWrjHf8VOXUxHQ?usp=sharing) and [SJTU jbox](https://jbox.sjtu.edu.cn/l/L04xX3)
 
-To use the pretrained models, add the following line to your yaml file:
+To use the pretrained models, firstly download the weight files, then add the following line to your yaml file:
 ```yaml
 PRETRAINED_PATH: path/to/your/pretrained/weights
 ```
