@@ -18,8 +18,12 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
     device = next(model.parameters()).device
 
+    model_path = ''
     if eval_epoch is not None:
         model_path = str(Path(cfg.OUTPUT_PATH) / 'params' / 'params_{:04}.pt'.format(eval_epoch))
+    if len(cfg.PRETRAINED_PATH) > 0:
+        model_path = cfg.PRETRAINED_PATH
+    if len(model_path) > 0:
         print('Loading model parameters from {}'.format(model_path))
         load_model(model, model_path)
 

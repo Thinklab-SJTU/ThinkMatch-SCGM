@@ -23,7 +23,6 @@ def train_eval_model(model,
                      dataloader,
                      tfboard_writer,
                      num_epochs=25,
-                     resume=False,
                      start_epoch=0):
     print('Start training...')
 
@@ -41,13 +40,16 @@ def train_eval_model(model,
     if not checkpoint_path.exists():
         checkpoint_path.mkdir(parents=True)
 
-    if resume:
-        assert start_epoch != 0
+    model_path, optim_path = '',''
+    if start_epoch != 0:
         model_path = str(checkpoint_path / 'params_{:04}.pt'.format(start_epoch))
+        optim_path = str(checkpoint_path / 'optim_{:04}.pt'.format(start_epoch))
+    if len(cfg.PRETRAINED_PATH) > 0:
+        model_path = cfg.PRETRAINED_PATH
+    if len(model_path) > 0:
         print('Loading model parameters from {}'.format(model_path))
         load_model(model, model_path)
-
-        optim_path = str(checkpoint_path / 'optim_{:04}.pt'.format(start_epoch))
+    if len(optim_path) > 0:
         print('Loading optimizer state from {}'.format(optim_path))
         optimizer.load_state_dict(torch.load(optim_path))
 
@@ -291,5 +293,4 @@ if __name__ == '__main__':
         print_easydict(cfg)
         model = train_eval_model(model, criterion, optimizer, dataloader, tfboardwriter,
                                  num_epochs=cfg.TRAIN.NUM_EPOCHS,
-                                 resume=cfg.TRAIN.START_EPOCH != 0,
                                  start_epoch=cfg.TRAIN.START_EPOCH)
