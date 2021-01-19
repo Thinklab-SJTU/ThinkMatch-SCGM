@@ -1,0 +1,85 @@
+# VGG16 model with Pascal VOC dataset
+
+MODEL_NAME: vgg16_bbgm
+DATASET_NAME: voc
+
+DATASET_FULL_NAME: PascalVOC
+
+MODULE: models.BBGM.model
+
+BACKBONE: VGG16_bn_final
+
+BATCH_SIZE: 8
+DATALOADER_NUM: 2
+FP16: False
+
+RANDOM_SEED: 123
+
+STATISTIC_STEP: 100
+
+# available GPU ids
+GPUS:
+  - 0
+#  - 1
+
+# Problem configuration
+PROBLEM:
+  TYPE: 2GM
+  RESCALE:  # rescaled image size
+    - 256
+    - 256
+
+# Graph construction settings
+GRAPH:
+  SRC_GRAPH_CONSTRUCT: tri
+  TGT_GRAPH_CONSTRUCT: tri
+  SYM_ADJACENCY: True
+
+# Training settings
+TRAIN:
+  # start, end epochs
+  START_EPOCH: 0
+  NUM_EPOCHS: 20
+
+  LOSS_FUNC: hamming
+
+  OPTIMIZER: Adam
+
+  # learning rate
+  LR: 2.e-3
+  SEPARATE_BACKBONE_LR: True
+  BACKBONE_LR: 2.e-5
+  MOMENTUM: 0.9
+  LR_DECAY: 0.5
+  LR_STEP:  # (in epochs)
+    - 2
+    - 4
+    - 6
+    - 8
+    - 10
+
+  EPOCH_ITERS: 2000  # iterations per epoch
+
+  CLASS: none
+
+# Evaluation settings and PCK metric
+EVAL:
+  EPOCH: 30  # epoch to be tested
+  SAMPLES: 1000  # number of tested pairs for each class
+
+# Visualization settings
+VISUAL:
+  EPOCH: 0  # epoch to be visualized
+  WEIGHT_PATH: ''  # path to weight to be loaded. If you want to use this, VISUAL.EPOCH must be 0.
+  CLASS: none  # none for random choosing classes, else specify a class name
+  SAVE: True  # save images as files, else plot images via matplotlib
+  NUM_IMGS: 20  # number of images to be visualized
+
+# model parameters
+BBGM:
+  SOLVER_NAME: LPMP
+  LAMBDA_VAL: 80.0
+  SOLVER_PARAMS:
+    timeout: 1000
+    primalComputationInterval: 10
+    maxIter: 100

@@ -1,5 +1,6 @@
 import torch
 from src.sparse_torch.csx_matrix import CSRMatrix3d, CSCMatrix3d
+import torch_geometric as pyg
 
 def data_to_cuda(inputs):
     """
@@ -21,6 +22,8 @@ def data_to_cuda(inputs):
         inputs = inputs
     elif type(inputs) in [torch.Tensor, CSRMatrix3d, CSCMatrix3d]:
         inputs = inputs.cuda()
+    elif type(inputs) in [pyg.data.Data, pyg.data.Batch]:
+        inputs = inputs.to('cuda')
     else:
         raise TypeError('Unknown type of inputs: {}'.format(type(inputs)))
     return inputs

@@ -95,6 +95,8 @@ def train_eval_model(model,
                         loss = criterion(d_pred, d_gt, grad_mask)
                     elif cfg.TRAIN.LOSS_FUNC in ['perm', 'ce', 'hung']:
                         loss = criterion(outputs['ds_mat'], outputs['gt_perm_mat'], *outputs['ns'])
+                    elif cfg.TRAIN.LOSS_FUNC == 'hamming':
+                        loss = criterion(outputs['perm_mat'], outputs['gt_perm_mat'])
                     elif cfg.TRAIN.LOSS_FUNC == 'plain':
                         loss = torch.sum(outputs['loss'])
                     else:
@@ -169,14 +171,15 @@ def train_eval_model(model,
                         {'speed': running_speed},
                         epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
                     )
+
+                    tfboard_writer.add_scalars(
+                        'learning rate',
+                        {'lr_{}'.format(i): x['lr'] for i, x in enumerate(optimizer.param_groups)},
+                        epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
+                    )
+
                     running_loss = 0.0
                     running_since = time.time()
-
-                tfboard_writer.add_scalars(
-                    'learning rate',
-                    {'lr_{}'.format(i): x['lr'] for i, x in enumerate(optimizer.param_groups)},
-                    epoch * cfg.TRAIN.EPOCH_ITERS + iter_num
-                )
 
         epoch_loss = epoch_loss / dataset_size
 
@@ -235,22 +238,39 @@ if __name__ == '__main__':
     model = Net()
     model = model.to(device)
 
-    if cfg.TRAIN.LOSS_FUNC == 'offset':
+    if cfg.TRAIN.LOSS_FUNC.lower() == 'offset':
         criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
-    elif cfg.TRAIN.LOSS_FUNC == 'perm':
+    elif cfg.TRAIN.LOSS_FUNC.lower() == 'perm':
         criterion = PermutationLoss()
-    elif cfg.TRAIN.LOSS_FUNC == 'ce':
+    elif cfg.TRAIN.LOSS_FUNC.lower() == 'ce':
         criterion = CrossEntropyLoss()
-    elif cfg.TRAIN.LOSS_FUNC == 'focal':
+    elif cfg.TRAIN.LOSS_FUNC.lower() == 'focal':
         criterion = FocalLoss(alpha=.5, gamma=0.)
-    elif cfg.TRAIN.LOSS_FUNC == 'hung':
+    elif cfg.TRAIN.LOSS_FUNC.lower() == 'hung':
         criterion = PermutationLossHung()
-    elif cfg.TRAIN.LOSS_FUNC == 'hamming':
+    elif cfg.TRAIN.LOSS_FUNC.lower() == 'hamming':
         criterion = HammingLoss()
     else:
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-    optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM, nesterov=True)
+
+    if cfg.TRAIN.SEPARATE_BACKBONE_LR:
+        backbone_ids = [id(item) for item in model.backbone_params]
+        other_params = [param for param in model.parameters() if id(param) not in backbone_ids]
+
+        model_params = [
+            {'params': other_params},
+            {'params': model.backbone_params, 'lr': cfg.TRAIN.BACKBONE_LR}
+        ]
+    else:
+        model_params = model.parameters()
+
+    if cfg.TRAIN.OPTIMIZER.lower() == 'sgd':
+        optimizer = optim.SGD(model_params, lr=cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM, nesterov=True)
+    elif cfg.TRAIN.OPTIMIZER.lower() == 'adam':
+        optimizer = optim.Adam(model_params, lr=cfg.TRAIN.LR)
+    else:
+        raise ValueError('Unknown optimizer {}'.format(cfg.TRAIN.OPTIMIZER))
 
     if cfg.FP16:
         try:

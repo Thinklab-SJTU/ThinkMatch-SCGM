@@ -4,9 +4,11 @@ from torchvision import models
 
 
 class VGG16_base(nn.Module):
-    def __init__(self, batch_norm=True):
+    def __init__(self, batch_norm=True, final_layers=False):
         super(VGG16_base, self).__init__()
-        self.node_layers, self.edge_layers = self.get_backbone(batch_norm)
+        self.node_layers, self.edge_layers, self.final_layers = self.get_backbone(batch_norm)
+        if not final_layers: self.final_layers = None
+        self.backbone_params = list(self.parameters())
 
     def forward(self, *input):
         raise NotImplementedError
@@ -47,29 +49,40 @@ class VGG16_base(nn.Module):
             #elif cnt_m == 5 and cnt_r == 1 and isinstance(module, nn.ReLU):
             elif cnt_m == 5 and cnt_r == 2 and isinstance(module, nn.Conv2d):
                 edge_list = conv_list
-                break
+                conv_list = []
 
         assert len(node_list) > 0 and len(edge_list) > 0
 
         # Set the layers as a nn.Sequential module
         node_layers = nn.Sequential(*node_list)
         edge_layers = nn.Sequential(*edge_list)
+        final_layers = nn.Sequential(*conv_list, nn.AdaptiveMaxPool2d((1, 1), return_indices=False)) # this final layer follows Rolink et al. ECCV20
 
-        return node_layers, edge_layers
+        return node_layers, edge_layers, final_layers
     
+
+class VGG16_bn_final(VGG16_base):
+    def __init__(self):
+        super(VGG16_bn_final, self).__init__(True, True)
+
 
 class VGG16_bn(VGG16_base):
     def __init__(self):
-        super(VGG16_bn, self).__init__(True)
+        super(VGG16_bn, self).__init__(True, False)
+
+
+class VGG16_final(VGG16_base):
+    def __init__(self):
+        super(VGG16_final, self).__init__(False, True)
 
 
 class VGG16(VGG16_base):
     def __init__(self):
-        super(VGG16, self).__init__(False)
+        super(VGG16, self).__init__(False, False)
 
 
 class NoBackbone(nn.Module):
-    def __init__(self, batch_norm=True):
+    def __init__(self, *args, **kwargs):
         super(NoBackbone, self).__init__()
         self.node_layers, self.edge_layers = None, None
 

@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torchvision import transforms
+import torch_geometric as pyg
 import numpy as np
 import random
 from src.build_graphs import build_graphs
@@ -46,6 +47,24 @@ class GMDataset(Dataset):
         else:
             raise NameError("Unknown problem type: {}".format(self.problem_type))
 
+    @staticmethod
+    def to_pyg_graph(A, P):
+        rescale = max(cfg.PROBLEM.RESCALE)
+
+        edge_feat = 0.5 * (np.expand_dims(P, axis=1) - np.expand_dims(P, axis=0)) / rescale + 0.5  # from Rolink's paper
+        edge_index = np.nonzero(A)
+        edge_attr = edge_feat[edge_index]
+
+        edge_attr = np.clip(edge_attr, 0, 1)
+        assert (edge_attr > -1e-5).all(), P
+
+        pyg_graph = pyg.data.Data(
+            x=torch.tensor(P / rescale).to(torch.float32),
+            edge_index=torch.tensor(np.array(edge_index), dtype=torch.long),
+            edge_attr=torch.tensor(edge_attr).to(torch.float32)
+        )
+        return pyg_graph
+
     def get_pair(self, idx, cls):
         #anno_pair, perm_mat = self.ds.get_pair(self.cls if self.cls is not None else
         #                                       (idx % (cfg.BATCH_SIZE * len(self.classes))) // cfg.BATCH_SIZE)
@@ -74,13 +93,18 @@ class GMDataset(Dataset):
         else:
             A2, G2, H2, e2 = build_graphs(P2, n2, stg=cfg.GRAPH.TGT_GRAPH_CONSTRUCT, sym=cfg.GRAPH.SYM_ADJACENCY)
 
+        pyg_graph1 = self.to_pyg_graph(A1, P1)
+        pyg_graph2 = self.to_pyg_graph(A2, P2)
+
         ret_dict = {'Ps': [torch.Tensor(x) for x in [P1, P2]],
                     'ns': [torch.tensor(x) for x in [n1, n2]],
                     'es': [torch.tensor(x) for x in [e1, e2]],
                     'gt_perm_mat': perm_mat,
                     'Gs': [torch.Tensor(x) for x in [G1, G2]],
                     'Hs': [torch.Tensor(x) for x in [H1, H2]],
-                    'As': [torch.Tensor(x) for x in [A1, A2]]}
+                    'As': [torch.Tensor(x) for x in [A1, A2]],
+                    'pyg_graphs': [pyg_graph1, pyg_graph2]
+                    }
 
         imgs = [anno['image'] for anno in anno_pair]
         if imgs[0] is not None:
@@ -400,6 +424,8 @@ def collate_fn(data: list):
         elif type(inp[0]) == np.ndarray:
             new_t = pad_tensor([torch.from_numpy(x) for x in inp])
             ret = torch.stack(new_t, 0)
+        elif type(inp[0]) == pyg.data.Data:
+            ret = pyg.data.Batch.from_data_list(inp)
         elif type(inp[0]) == str:
             ret = inp
         else:

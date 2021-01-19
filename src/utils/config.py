@@ -95,8 +95,17 @@ __C.TRAIN.START_EPOCH = 0
 # Total epochs
 __C.TRAIN.NUM_EPOCHS = 30
 
+# Optimizer type
+__C.TRAIN.OPTIMIZER = 'SGD'
+
 # Start learning rate
 __C.TRAIN.LR = 0.01
+
+# Use separate learning rate for the CNN backbone
+__C.TRAIN.SEPARATE_BACKBONE_LR = False
+
+# Start learning rate for backbone
+__C.TRAIN.BACKBONE_LR = __C.TRAIN.LR
 
 # Learning rate decay
 __C.TRAIN.LR_DECAY = 0.1

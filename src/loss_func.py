@@ -202,3 +202,14 @@ class InnerProductLoss(nn.Module):
 
         return loss / n_sum
 
+class HammingLoss(torch.nn.Module):
+    """
+    Hamming loss.
+    Used by Rolinek et al. Deep Graph Matching via Blackbox Differentiation of Combinatorial Solvers. ECCV 2020.
+    """
+    def __init__(self):
+        super(HammingLoss, self).__init__()
+
+    def forward(self, suggested, target):
+        errors = suggested * (1.0 - target) + (1.0 - suggested) * target
+        return errors.mean(dim=0).sum()
