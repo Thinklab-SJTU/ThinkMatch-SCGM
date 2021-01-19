@@ -65,12 +65,7 @@ class GA_MGMC(nn.Module):
         Us = []
         clusters = []
 
-        #if cluster_sim_mat is not None:
-        #    cluster_v = spectral_clustering(cluster_sim_mat, num_clusters, normalized=True)
-        #    cluster_M01 = (cluster_v.unsqueeze(0) == cluster_v.unsqueeze(1)).to(dtype=cluster_sim_mat.dtype)
-        #    beta = 1.
-        #    cluster_M = (1 - beta) * cluster_M01 + beta
-        #else:
+        # initialize U with no clusters
         cluster_M = torch.ones(num_graphs, num_graphs, device=A.device)
         cluster_M01 = cluster_M
 
@@ -78,19 +73,16 @@ class GA_MGMC(nn.Module):
                       quad_weight=quad_weight, hung_iter=(num_clusters == 1))
         Us.append(U)
 
+        # MGM problem
         if num_clusters == 1:
             return U, torch.zeros(num_graphs, dtype=torch.int)
-        #Us.append(U)
 
         for beta, sk_tau0, min_tau, max_iter, projector0 in \
                 zip(self.cluster_beta, self.sk_tau0, self.min_tau, self.mgm_iter, self.projector0):
             for i in range(self.cluster_iter):
                 lastU = U
 
-                #U = self.igm(A, W, U, ms, n_univ, cluster_M, sk_tau0, min_tau, mgm_iter,
-                #             projector='hungarian' if i != 0 else projector0, hung_iter=(beta == self.cluster_beta[-1]))
-
-                # clustering
+                # clustering step
                 def get_alpha(scale=1., qw=1.):
                     Alpha = torch.zeros(num_graphs, num_graphs, device=A.device)
                     for idx1, idx2 in product(range(num_graphs), repeat=2):
@@ -112,42 +104,15 @@ class GA_MGMC(nn.Module):
                     return Alpha
                 Alpha = get_alpha(qw=cluster_quad_weight)
 
-                #val, idx = torch.topk(Alpha, 80, dim=1)
-                #mask = torch.zeros_like(Alpha)
-                #mask[torch.arange(idx.shape[0]).unsqueeze(-1), idx] = 1
-                #mask[idx, torch.arange(idx.shape[0]).unsqueeze(-1)] = 1
-                #Alpha = Alpha * mask
-
-                #Alpha_np_csr = minimum_spanning_tree(-Alpha.detach().cpu().numpy(), overwrite=True)
-                #Alpha = -torch.from_numpy(Alpha_np_csr.todense()).to(U.device)
-                #Alpha += Alpha.t()
-
                 last_cluster_M01 = cluster_M01
-                #if beta != self.cluster_beta[-1]:
                 cluster_v = spectral_clustering(Alpha, num_clusters, normalized=True)
                 cluster_M01 = (cluster_v.unsqueeze(0) == cluster_v.unsqueeze(1)).to(dtype=Alpha.dtype)
                 cluster_M = (1 - beta) * cluster_M01 + beta
 
-                '''
-                last_cluster_M01 = cluster_M01
-                cluster_M = torch.zeros(num_graphs, num_graphs, device=A.device)
-                for clstr_n in range(10):
-                    cluster_v = spectral_clustering(Alpha, num_clusters, normalized=True)
-                    #last_cluster_M01 = cluster_M01
-                    cluster_M01 = (cluster_v.unsqueeze(0) == cluster_v.unsqueeze(1)).to(dtype=Alpha.dtype)
-                    cluster_M += cluster_M01#(1 - beta) * cluster_M01 + beta
-                cluster_M /= 10
-                cluster_M01 = torch.round(cluster_M)
-                cluster_M = (1 - beta) * cluster_M + beta
-                '''
-
                 if beta == self.cluster_beta[0] and i == 0:
                     clusters.append(cluster_v)
-                    #clusters.append(cluster_v)
 
-                # matching
-                #U = self.igm(A, W, U, ms, n_univ, cluster_M, projector='hungarian' if (i != 0 and beta != 0.9) else 'sinkhorn')
-                #U = self.igm(A, W, U, ms, n_univ, cluster_M, self.sk_tau0 if i == 0 else self.sk_tau0 * 0.5) #, projector='hungarian' if i != 0 else 'sinkhorn')
+                # matching step
                 U = self.gagm(A, W, U, ms, n_univ, cluster_M, sk_tau0, min_tau, max_iter,
                               projector='hungarian' if i != 0 else projector0, quad_weight=quad_weight,
                               hung_iter=(beta == self.cluster_beta[-1]))
@@ -171,9 +136,7 @@ class GA_MGMC(nn.Module):
         U = U0
         m_indices = torch.cumsum(ms, dim=0)
 
-        timer = Timer()
         lastU = torch.zeros_like(U)
-        lastU2 = torch.zeros_like(U)
 
         sinkhorn_tau = init_tau
         #beta = 0.9
@@ -181,16 +144,16 @@ class GA_MGMC(nn.Module):
 
         while iter_flag:
             for i in range(max_iter):
-                lastU3 = lastU2
                 lastU2 = lastU
                 lastU = U
 
-
+                # compact matrix form update of V
                 UUt = torch.mm(U, U.t())
                 cluster_weight = torch.repeat_interleave(cluster_M, ms.to(dtype=torch.long), dim=0)
                 cluster_weight = torch.repeat_interleave(cluster_weight, ms.to(dtype=torch.long), dim=1)
                 V = torch.chain_matmul(A, UUt * cluster_weight, A, U) * quad_weight * 2 + torch.mm(W * cluster_weight, U)
                 V /= num_graphs
+
                 '''
                 V = torch.zeros_like(U)
                 for idx1, idx2 in product(range(num_graphs), repeat=2):
@@ -208,7 +171,6 @@ class GA_MGMC(nn.Module):
                 V /= num_graphs
                 '''
 
-                # print_helper(U.sum(dim=-2))
                 U_list = []
                 if projector == 'hungarian':
                     m_start = 0
@@ -245,12 +207,10 @@ class GA_MGMC(nn.Module):
 
                 U = torch.cat(U_list, dim=0)
 
-                # print_helper('d1 = {:.4f}, d2 = {:.4f}, d3 = {:.4f}'.format(torch.norm(U-lastU), torch.norm(U-lastU2), torch.norm(U-lastU3)))
-
                 if torch.norm(U - lastU) < self.converge_tol or torch.norm(U - lastU2) == 0:
                     break
 
-            if i == max_iter - 1:
+            if i == max_iter - 1: # not converged
                 if hung_iter:
                     pass
                 else:
@@ -259,6 +219,7 @@ class GA_MGMC(nn.Module):
                     print_helper(i, 'max iter')
                     break
 
+            # projection control
             if projector == 'hungarian':
                 print_helper(i, 'hungarian')
                 break
@@ -274,157 +235,7 @@ class GA_MGMC(nn.Module):
                     U = torch.cat(U_list, dim=0)
                     break
 
-        '''
-        for i in range(mgm_iter):
-                lastU3 = lastU2
-                lastU2 = lastU
-                lastU = U
-
-                UUt = torch.mm(U, U.t())
-                cluster_weight = torch.repeat_interleave(cluster_M, ms.to(dtype=torch.long), dim=0)
-                cluster_weight = torch.repeat_interleave(cluster_weight, ms.to(dtype=torch.long), dim=1)
-                V = torch.chain_matmul(A, UUt * cluster_weight, A, U) * quad_weight + torch.mm(W * cluster_weight, U)
-                V /= num_graphs
-
-                #print_helper(U.sum(dim=-2))
-                U_list = []
-                if projector == 'hungarian':
-                    m_start = 0
-                    for m_end in m_indices:
-                        U_list.append(hungarian(V[m_start:m_end, :n_univ]))
-                        m_start = m_end
-                elif projector == 'sinkhorn':
-                    if n_univ * num_graphs == m_indices[-1]:
-                        U_list.append(
-                            BiStochastic(mgm_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True)\
-                            (V.reshape(num_graphs, -1, n_univ), dummy_row=True).reshape(-1, n_univ))
-                    else:
-                        V_list = []
-                        n1 = []
-                        m_start = 0
-                        for m_end in m_indices:
-                            V_list.append(V[m_start:m_end, :n_univ])
-                            n1.append(m_end-m_start)
-                            m_start = m_end
-                        n1 = torch.tensor(n1)
-                        U = BiStochastic(mgm_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True)\
-                            (torch.stack(pad_tensor(V_list), dim=0), n1, dummy_row=True)
-                        m_start = 0
-                        for idx, m_end in enumerate(m_indices):
-                            U_list.append(U[idx, :m_end-m_start, :])
-                            m_start = m_end
-                else:
-                    raise NameError('Unknown projecter name: {}'.format(projector))
-
-                U = torch.cat(U_list, dim=0)
-
-                #print_helper('d1 = {:.4f}, d2 = {:.4f}, d3 = {:.4f}'.format(torch.norm(U-lastU), torch.norm(U-lastU2), torch.norm(U-lastU3)))
-
-                if torch.norm(U - lastU) < self.converge_tol or torch.norm(U - lastU2) == 0:
-                    if projector == 'hungarian':
-                        print_helper(i, 'hungarian')
-                        iter_flag = False
-                        break
-                    elif sinkhorn_tau > min_tau:
-                        print_helper(i, sinkhorn_tau)
-                        sinkhorn_tau *= self.sk_gamma
-                    else:
-                        print_helper(i, sinkhorn_tau)
-                        projector = 'hungarian'
-                if i + 1 == mgm_iter and projector != 'hungarian':
-                    U_list = [hungarian(_) for _ in U_list]
-                    U = torch.cat(U_list, dim=0)
-                    print_helper(i, 'max iter')
-        '''
-
         return U
-
-    def forward_grad_match_cluster(self, A, W, U0, ms, n_univ, num_clusters=3):
-        num_graphs = ms.shape[0]
-        U = U0
-        m_indices = torch.cumsum(ms, dim=0)
-
-        cluster_M = torch.ones(num_graphs, num_graphs, device=A.device)
-
-        projector = 'sinkhorn'
-        stage = 'matching'
-        sinkhorn_tau = self.sk_tau0
-        beta = 1.
-        for i in range(self.mgm_iter):
-            lastU = U
-            V = torch.zeros_like(U)
-
-            for idx1, idx2 in product(range(num_graphs), repeat=2):
-                start_x = m_indices[idx1 - 1] if idx1 != 0 else 0
-                end_x = m_indices[idx1]
-                start_y = m_indices[idx2 - 1] if idx2 != 0 else 0
-                end_y = m_indices[idx2]
-                A_i = A[start_x:end_x, start_x:end_x]
-                A_j = A[start_y:end_y, start_y:end_y]
-                W_ij = W[start_x:end_x, start_y:end_y]
-                U_i = U[start_x:end_x, :]
-                U_j = U[start_y:end_y, :]
-                V_i_update = torch.mm(W_ij, U_j) + torch.chain_matmul(A_i, U_i, U_j.t(), A_j, U_j)
-                V[start_x:end_x, :] += V_i_update * cluster_M[idx1, idx2]
-            U_list = []
-            m_start = 0
-            for m_end in m_indices:
-                if projector == 'hungarian':
-                    U_list.append(hungarian(V[m_start:m_end, :n_univ]))
-                elif projector == 'sinkhorn':
-                    U_list.append(Sinkhorn(max_iter=self.sk_iter, tau=sinkhorn_tau, batched_operation=True)\
-                                  (V[m_start:m_end, :n_univ], dummy_row=True))
-                else:
-                    raise NameError('Unknown projecter name: {}'.format(projector))
-                m_start = m_end
-            U = torch.cat(U_list, dim=0)
-            if torch.norm(U - lastU) < self.converge_tol:
-                #if stage == 'matching':
-                    stage = 'clustering'
-                    # clustering
-                    Alpha = torch.zeros(num_graphs, num_graphs, device=A.device)
-                    for idx1, idx2 in product(range(num_graphs), repeat=2):
-                        if idx1 == idx2:
-                            continue
-                        start_x = m_indices[idx1 - 1] if idx1 != 0 else 0
-                        end_x = m_indices[idx1]
-                        start_y = m_indices[idx2 - 1] if idx2 != 0 else 0
-                        end_y = m_indices[idx2]
-                        A_i = A[start_x:end_x, start_x:end_x]
-                        A_j = A[start_y:end_y, start_y:end_y]
-                        W_ij = W[start_x:end_x, start_y:end_y]
-                        U_i = U[start_x:end_x, :]
-                        U_j = U[start_y:end_y, :]
-                        X_ij = torch.mm(U_i, U_j.t())
-                        Alpha_ij = torch.sum(W_ij * X_ij) \
-                               + torch.exp(-torch.norm(torch.chain_matmul(X_ij.t(), A_i, X_ij) - A_j))
-                        Alpha[idx1, idx2] = Alpha_ij
-                    cluster_v = spectral_clustering(Alpha, num_clusters)
-                    if torch.sum(cluster_v) != 8:
-                        print_helper('!')
-                    cluster_M = (cluster_v.unsqueeze(0) == cluster_v.unsqueeze(1)).to(dtype=Alpha.dtype)
-                    beta = 0.
-                    cluster_M = (1 - beta) * cluster_M + beta
-                #else:
-                    if projector == 'hungarian':
-                        #beta -= 0.1
-                        #print_helper(i)
-                        break
-                    elif sinkhorn_tau > self.min_tau:
-                        #print_helper(i, sinkhorn_tau)
-                        sinkhorn_tau *= self.sk_gamma
-                        #beta -= 0.1
-                    else:
-                        #print_helper(i, sinkhorn_tau)
-                        projector = 'hungarian'
-                    stage = 'matching'
-
-
-            if i + 1 == self.mgm_iter:
-                U_list = [hungarian(_) for _ in U_list]
-                U = torch.cat(U_list, dim=0)
-
-        return U, cluster_v
 
 
 class HiPPI(nn.Module):
