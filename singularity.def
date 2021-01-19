@@ -3,8 +3,18 @@ From: pytorch/pytorch:1.6.0-cuda10.1-cudnn7-devel
 Stage: build
 
 %post
-    apt-get update && apt-get install ninja-build
+    apt-get update
+    apt-get install -y software-properties-common
+    add-apt-repository ppa:ubuntu-toolchain-r/test
+    apt-get install -y gcc-9 g++-9
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9
+    apt-get install -y ninja-build findutils libhdf5-serial-dev git wget libssl-dev
+
+    wget https://github.com/Kitware/CMake/releases/download/v3.19.1/cmake-3.19.1.tar.gz && tar zxvf cmake-3.19.1.tar.gz
+    cd cmake-3.19.1 && ./bootstrap && make && make install
+
     /opt/conda/bin/pip install tensorboardX scipy easydict pyyaml xlrd xlwt pynvml
+    /opt/conda/bin/python -m pip install git+https://git@github.com/rogerwwww/lpmp.git
 
     export CUDA=cu101
     export TORCH=1.6.0
