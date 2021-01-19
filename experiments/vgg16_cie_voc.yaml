@@ -36,7 +36,7 @@ GRAPH:
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 40
+  NUM_EPOCHS: 30
 
   LOSS_FUNC: hung
 
@@ -45,9 +45,7 @@ TRAIN:
   MOMENTUM: 0.9
   LR_DECAY: 0.2
   LR_STEP:  # (in epochs)
-    #- 10
     - 20
-    - 30
 
   EPOCH_ITERS: 2000  # iterations per epoch
 
