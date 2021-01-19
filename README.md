@@ -1,6 +1,6 @@
 # Think Match
 
-_ThinkMatch_ is developed and maintained by [ThinkLab](thinklab.sjtu.edu.cn) at Shanghai Jiao Tong University. 
+_ThinkMatch_ is developed and maintained by [ThinkLab](http://thinklab.sjtu.edu.cn) at Shanghai Jiao Tong University. 
 This repository is developed for the following purposes:
 * **Providing source code** for state-of-the-art deep graph matching methods to facilitate future research.
 * **Benchmarking** existing deep graph matching algorithms under different dataset & experiment settings, for the purpose of fair comparison.
