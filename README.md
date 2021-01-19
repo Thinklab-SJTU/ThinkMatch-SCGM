@@ -1,6 +1,6 @@
 # Think Match
 
-_ThinkMatch_ is developed and maintained by ThinkLab at Shanghai Jiao Tong University. 
+_ThinkMatch_ is developed and maintained by [ThinkLab](thinklab.sjtu.edu.cn) at Shanghai Jiao Tong University. 
 This repository is developed for the following purposes:
 * **Providing source code** for state-of-the-art deep graph matching methods to facilitate future research.
 * **Benchmarking** existing deep graph matching algorithms under different dataset & experiment settings, for the purpose of fair comparison.
@@ -87,7 +87,7 @@ and replace ``path/to/your/yaml`` by path to your configuration file, e.g.
 python train_eval.py --cfg experiments/vgg16_pca_voc.yaml
 ```
 
-Default configuration files are stored in``experiments/`` and you are welcomed to try your own configurations! If you find a better yaml configuration, please let us know by raising an issue or a PR and we will update the benchmark!
+Default configuration files are stored in``experiments/`` and you are welcomed to try your own configurations. If you find a better yaml configuration, please let us know by raising an issue or a PR and we will update the benchmark!
 
 ## Pretrained Models
 _ThinkMatch_ provides pretrained models. The model weights are available via [google drive](https://drive.google.com/drive/folders/11xAQlaEsMrRlIVc00nqWrjHf8VOXUxHQ?usp=sharing) and [SJTU jbox](https://jbox.sjtu.edu.cn/l/L04xX3)
