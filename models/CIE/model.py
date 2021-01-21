@@ -8,7 +8,6 @@ from models.PCA.affinity_layer import Affinity
 from src.lap_solvers.hungarian import hungarian
 
 from src.utils.config import cfg
-from models.CIE.model_config import model_cfg
 
 from src.backbone import *
 CNN = eval(cfg.BACKBONE)

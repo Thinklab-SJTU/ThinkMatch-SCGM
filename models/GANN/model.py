@@ -14,7 +14,6 @@ from src.utils.pad_tensor import pad_tensor
 from itertools import combinations, product, chain
 
 from src.utils.config import cfg
-from models.GANN.model_config import model_cfg
 
 from src.backbone import *
 CNN = eval(cfg.BACKBONE)

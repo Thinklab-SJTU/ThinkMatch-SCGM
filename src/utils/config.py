@@ -271,7 +271,8 @@ def cfg_from_file(filename):
         yaml_cfg = edict(yaml.full_load(f))
 
     if 'MODULE' in yaml_cfg and yaml_cfg.MODULE not in __C:
-        mod = importlib.import_module(yaml_cfg.MODULE)
+        model_cfg_module = '.'.join(yaml_cfg.MODULE.split('.')[:-1] + ['model_config'])
+        mod = importlib.import_module(model_cfg_module)
         __C.update(mod.model_cfg)
 
     if 'DATASET_FULL_NAME' in yaml_cfg and yaml_cfg.DATASET_FULL_NAME not in __C:

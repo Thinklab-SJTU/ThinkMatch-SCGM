@@ -17,7 +17,6 @@ from src.utils.gpu_memory import gpu_free_memory
 #from torch_geometric.utils import dense_to_sparse, to_dense_batch
 
 from src.utils.config import cfg
-from models.NGM.model_config import model_cfg
 
 from src.backbone import *
 CNN = eval(cfg.BACKBONE)

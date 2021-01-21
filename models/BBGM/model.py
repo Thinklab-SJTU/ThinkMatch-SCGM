@@ -8,7 +8,6 @@ from lpmp_py import MultiGraphMatchingModule
 from src.feature_align import feature_align
 
 from src.utils.config import cfg
-from models.BBGM.model_config import model_cfg
 
 from src.backbone import *
 CNN = eval(cfg.BACKBONE)
