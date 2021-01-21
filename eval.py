@@ -99,9 +99,10 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 f1[torch.isnan(f1)] = 0
                 f1_list.append(f1)
 
-                if 'aff_mtx' in outputs:
-                    obj_score = objective_score(outputs['perm_mat'], outputs['aff_mtx'], outputs['ns'][0])
-                    objs[i] += torch.sum(obj_score)
+                if 'aff_mat' in outputs:
+                    pred_obj_score = objective_score(outputs['perm_mat'], outputs['aff_mat'], outputs['ns'][0])
+                    gt_obj_score = objective_score(outputs['gt_perm_mat'], outputs['aff_mat'], outputs['ns'][0])
+                    objs[i] += torch.sum(pred_obj_score / gt_obj_score)
                     obj_total_num += batch_num
             elif cfg.PROBLEM.TYPE in ['MGM', 'MGMC']:
                 assert 'graph_indices' in outputs
@@ -156,7 +157,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                   ', '.join(list(map('{:.2f}'.format, alphas.tolist()))) + '} = {' +
                   ', '.join(list(map('{:.4f}'.format, pcks[i].tolist()))) + '}')
             print('Class {} {}'.format(cls, format_accuracy_metric(precisions[i], accs[i], f1s[i])))
-            print('Class {} obj score = {:.4f}'.format(cls, objs[i]))
+            print('Class {} norm obj score = {:.4f}'.format(cls, objs[i]))
             print('Class {} pred time = {:.4f}s'.format(cls, pred_time[i]))
             if cfg.PROBLEM.TYPE == 'MGMC':
                 print('Class {} cluster acc={}'.format(cls, format_metric(cluster_acc[i])))
@@ -181,7 +182,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
     print('average accuracy: {}'.format(format_accuracy_metric(torch.cat(precisions), torch.cat(accs), torch.cat(f1s))))
 
     if not torch.any(torch.isnan(objs)):
-        print('Objective score')
+        print('Normalized objective score')
         for cls, cls_obj in zip(classes, objs):
             print('{} = {:.4f}'.format(cls, cls_obj))
         print('average objscore = {:.4f}'.format(torch.mean(objs)))
