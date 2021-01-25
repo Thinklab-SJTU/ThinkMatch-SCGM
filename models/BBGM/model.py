@@ -29,11 +29,11 @@ def concat_features(embeddings, num_vertices):
 class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
-        self.message_pass_node_features = SiameseSConvOnNodes(input_node_dim=1024)
+        self.message_pass_node_features = SiameseSConvOnNodes(input_node_dim=cfg.BBGM.FEATURE_CHANNEL)
         self.build_edge_features_from_node_features = SiameseNodeFeaturesToEdgeFeatures(
             total_num_nodes=self.message_pass_node_features.num_node_features
         )
-        self.global_state_dim = 1024
+        self.global_state_dim = cfg.BBGM.FEATURE_CHANNEL
         self.vertex_affinity = InnerProductWithWeightsAffinity(
             self.global_state_dim, self.message_pass_node_features.num_node_features)
         self.edge_affinity = InnerProductWithWeightsAffinity(
