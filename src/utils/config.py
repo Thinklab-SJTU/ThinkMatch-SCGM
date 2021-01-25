@@ -181,6 +181,9 @@ __C.GPUS = [0]
 # num of dataloader processes
 __C.DATALOADER_NUM = __C.BATCH_SIZE
 
+# path to load pretrained model weights
+__C.PRETRAINED_PATH = ''
+
 # Mean and std to normalize images
 __C.NORM_MEANS = [0.485, 0.456, 0.406]
 __C.NORM_STD = [0.229, 0.224, 0.225]
