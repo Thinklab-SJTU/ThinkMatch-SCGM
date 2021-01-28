@@ -146,7 +146,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         precisions.append(torch.cat(precision_list))
         f1s.append(torch.cat(f1_list))
         objs[i] = objs[i] / obj_total_num
-        pred_time.append(torch.mean(torch.cat(pred_time_list)))
+        pred_time.append(torch.cat(pred_time_list))
         if cfg.PROBLEM.TYPE == 'MGMC':
             cluster_acc.append(torch.cat(cluster_acc_list))
             cluster_purity.append(torch.cat(cluster_purity_list))
@@ -158,7 +158,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                   ', '.join(list(map('{:.4f}'.format, pcks[i].tolist()))) + '}')
             print('Class {} {}'.format(cls, format_accuracy_metric(precisions[i], accs[i], f1s[i])))
             print('Class {} norm obj score = {:.4f}'.format(cls, objs[i]))
-            print('Class {} pred time = {:.4f}s'.format(cls, pred_time[i]))
+            print('Class {} pred time = {}s'.format(cls, format_metric(pred_time[i])))
             if cfg.PROBLEM.TYPE == 'MGMC':
                 print('Class {} cluster acc={}'.format(cls, format_metric(cluster_acc[i])))
                 print('Class {} cluster purity={}'.format(cls, format_metric(cluster_purity[i])))
@@ -205,7 +205,8 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
     print('Predict time')
     for cls, cls_time in zip(classes, pred_time):
-        print('{} = {:.4f}'.format(cls, torch.mean(cls_time)))
+        print('{} = {}'.format(cls, format_metric(cls_time)))
+    print('average time = {}'.format(format_metric(torch.cat(pred_time))))
 
     return torch.Tensor(list(map(torch.mean, accs)))
 
