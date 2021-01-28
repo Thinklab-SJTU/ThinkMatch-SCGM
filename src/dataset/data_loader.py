@@ -147,35 +147,28 @@ class GMDataset(Dataset):
         As = []
         Gs = []
         Hs = []
-        As_ref = []
-        Gs_ref = []
-        Hs_ref = []
-        iterator = iter(zip(Ps, ns, perm_mat_list))
-        P, n, perm_mat = next(iterator)
-        A1, G1, H1, _ = build_graphs(P, n, stg=cfg.GRAPH.SRC_GRAPH_CONSTRUCT)
-        As.append(A1)
-        Gs.append(G1)
-        Hs.append(H1)
-        As_ref.append(A1)
-        Gs_ref.append(G1)
-        Hs_ref.append(H1)
-        for P, n, perm_mat in iterator:
-            if cfg.GRAPH.TGT_GRAPH_CONSTRUCT == 'same':
-                G = perm_mat.dot(G1)
-                H = perm_mat.dot(H1)
+        As_tgt = []
+        Gs_tgt = []
+        Hs_tgt = []
+        for P, n, perm_mat in zip(Ps, ns, perm_mat_list):
+            # In multi-graph matching (MGM), when a graph is regarded as target graph, its topology may be different
+            # from when it is regarded as source graph. These are represented by suffix "tgt".
+            if cfg.GRAPH.TGT_GRAPH_CONSTRUCT == 'same' and len(Gs) > 0:
+                G = perm_mat.dot(Gs[0])
+                H = perm_mat.dot(Hs[0])
                 A = G.dot(H.transpose())
-                G_ref = G
-                H_ref = H
-                A_ref = G_ref.dot(H_ref.transpose())
+                G_tgt = G
+                H_tgt = H
+                A_tgt = G_tgt.dot(H_tgt.transpose())
             else:
                 A, G, H, _ = build_graphs(P, n, stg=cfg.GRAPH.SRC_GRAPH_CONSTRUCT)
-                A_ref, G_ref, H_ref, _ = build_graphs(P, n, stg=cfg.GRAPH.TGT_GRAPH_CONSTRUCT)
+                A_tgt, G_tgt, H_tgt, _ = build_graphs(P, n, stg=cfg.GRAPH.TGT_GRAPH_CONSTRUCT)
             As.append(A)
             Gs.append(G)
             Hs.append(H)
-            As_ref.append(A_ref)
-            Gs_ref.append(G_ref)
-            Hs_ref.append(H_ref)
+            As_tgt.append(A_tgt)
+            Gs_tgt.append(G_tgt)
+            Hs_tgt.append(H_tgt)
 
         ret_dict = {
             'Ps': [torch.Tensor(x) for x in Ps],
@@ -184,9 +177,9 @@ class GMDataset(Dataset):
             'Gs': [torch.Tensor(x) for x in Gs],
             'Hs': [torch.Tensor(x) for x in Hs],
             'As': [torch.Tensor(x) for x in As],
-            'Gs_ref': [torch.Tensor(x) for x in Gs_ref],
-            'Hs_ref': [torch.Tensor(x) for x in Hs_ref],
-            'As_ref': [torch.Tensor(x) for x in As_ref],
+            'Gs_tgt': [torch.Tensor(x) for x in Gs_tgt],
+            'Hs_tgt': [torch.Tensor(x) for x in Hs_tgt],
+            'As_tgt': [torch.Tensor(x) for x in As_tgt],
             'cls': [str(x) for x in cls],
         }
 
@@ -434,9 +427,9 @@ def collate_fn(data: list):
 
     ret = stack(data)
 
-    # compute CPU-intensive matrix K1, K2 here to leverage multi-processing nature of dataloader
+    # compute CPU-intensive Kronecker product here to leverage multi-processing nature of dataloader
     if 'Gs' in ret and 'Hs' in ret:
-        if len(ret['Gs']) == 2:
+        if cfg.PROBLEM.TYPE == '2GM' and len(ret['Gs']) == 2 and len(ret['Hs']) == 2:
             G1, G2 = ret['Gs']
             H1, H2 = ret['Hs']
             if cfg.FP16:
@@ -448,16 +441,15 @@ def collate_fn(data: list):
             K1G = CSRMatrix3d(K1G)
             K1H = CSRMatrix3d(K1H).transpose()
 
-            ret['Ks'] = K1G, K1H #, K1G.transpose(keep_type=True), K1H.transpose(keep_type=True)
-        elif 'Gs_ref' in ret and 'Hs_ref' in ret:
-            ret['KGs'] = dict()
-            ret['KHs'] = dict()
+            ret['KGHs'] = K1G, K1H
+        elif cfg.PROBLEM.TYPE in ['MGM', 'MGMC'] and 'Gs_tgt' in ret and 'Hs_tgt' in ret:
+            ret['KGHs'] = dict()
             for idx_1, idx_2 in product(range(len(ret['Gs'])), repeat=2):
                 # 1 as source graph, 2 as target graph
                 G1 = ret['Gs'][idx_1]
                 H1 = ret['Hs'][idx_1]
-                G2 = ret['Gs_ref'][idx_2]
-                H2 = ret['Hs_ref'][idx_2]
+                G2 = ret['Gs_tgt'][idx_2]
+                H2 = ret['Hs_tgt'][idx_2]
                 if cfg.FP16:
                     sparse_dtype = np.float16
                 else:
@@ -466,8 +458,7 @@ def collate_fn(data: list):
                 KH = [kronecker_sparse(x, y).astype(sparse_dtype) for x, y in zip(H2, H1)]
                 KG = CSRMatrix3d(KG)
                 KH = CSRMatrix3d(KH).transpose()
-                ret['KGs']['{},{}'.format(idx_1, idx_2)] = KG
-                ret['KHs']['{},{}'.format(idx_1, idx_2)] = KH
+                ret['KGHs']['{},{}'.format(idx_1, idx_2)] = KG, KH
         else:
             raise ValueError('Data type not understood.')
 
