@@ -170,6 +170,9 @@ class GMDataset(Dataset):
             Gs_tgt.append(G_tgt)
             Hs_tgt.append(H_tgt)
 
+        pyg_graphs = [self.to_pyg_graph(A, P) for A, P in zip(As, Ps)]
+        pyg_graphs_tgt = [self.to_pyg_graph(A, P) for A, P in zip(As_tgt, Ps)]
+
         ret_dict = {
             'Ps': [torch.Tensor(x) for x in Ps],
             'ns': [torch.tensor(x) for x in ns],
@@ -180,6 +183,8 @@ class GMDataset(Dataset):
             'Gs_tgt': [torch.Tensor(x) for x in Gs_tgt],
             'Hs_tgt': [torch.Tensor(x) for x in Hs_tgt],
             'As_tgt': [torch.Tensor(x) for x in As_tgt],
+            'pyg_graphs': pyg_graphs,
+            'pyg_graphs_tgt': pyg_graphs_tgt,
             'cls': [str(x) for x in cls],
         }
 
