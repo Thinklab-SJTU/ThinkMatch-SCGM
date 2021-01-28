@@ -1,4 +1,7 @@
-# Think Match
+# Think Match - Internal Version
+
+## This repository is confidential for Thinklab research. DO NOT DISTRIBUTE!
+## 本代码仓库仅用于Thinklab内部研究使用，禁止扩散！
 
 _ThinkMatch_ is developed and maintained by [ThinkLab](http://thinklab.sjtu.edu.cn) at Shanghai Jiao Tong University. 
 This repository is developed for the following purposes:
@@ -10,14 +13,10 @@ _ThinkMatch_ currently contains pytorch source code of the following deep graph 
 
 * **GMN** Andrei Zanfir and Cristian Sminchisescu. "Deep Learning of 
 Graph Matching." _CVPR 2018_.
-* **PCA-GM & IPCA-GM** Runzhong Wang, Junchi Yan and Xiaokang Yang. "Learning 
-Combinatorial Embedding Network for Deep Graph Matching." _ICCV 2019_. 
-and Runzhong Wang, Junchi Yan and Xiaokang Yang. "Combinatorial Learning of Robust Deep Graph Matching: an Embedding based Approach."
- _TPAMI_.
+* **PCA-GM & IPCA-GM** Runzhong Wang, Junchi Yan and Xiaokang Yang. "Combinatorial Learning of Robust Deep Graph Matching: an Embedding based Approach." _TPAMI_.
+& Runzhong Wang, Junchi Yan and Xiaokang Yang. "Learning Combinatorial Embedding Network for Deep Graph Matching." _ICCV 2019_. 
 * **CIE-H** Tianshu Yu, Runzhong Wang, Junchi Yan, Baoxin Li. "Learning deep graph matching with channel-independent embedding and Hungarian attention." _ICLR 2020_.
 * **GANN** Runzhong Wang, Junchi Yan and Xiaokang Yang. "Graduated Assignment for Joint Multi-Graph Matching and Clustering with Application to Unsupervised Graph Matching Network Learning." _NeurIPS 2020_.
-
-**TODO** We also plan to include the following research works in the future:
 * **BBGM** Michal Rolínek, Paul Swoboda, Dominik Zietlow, Anselm Paulus, Vít Musil, Georg Martius. "Deep Graph Matching via Blackbox Differentiation of Combinatorial Solvers." _ECCV 2020_.
 * **NGM** Runzhong Wang, Junchi Yan, Xiaokang Yang. "Neural Graph Matching Network: Learning Lawler's Quadratic Assignment Problem with Extension to Hypergraph and Multiple-graph Matching." _Manuscript_.
 
@@ -101,4 +100,5 @@ PRETRAINED_PATH: path/to/your/pretrained/weights
 * add new deep graph matching method
 * add new dataset
 * add documentation
+* more efficient sparse implementation
 * automatically download dataset & pretrained weights
