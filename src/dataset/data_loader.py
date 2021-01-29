@@ -72,7 +72,7 @@ class GMDataset(Dataset):
             anno_pair, perm_mat = self.ds.get_pair(cls, tgt_outlier=cfg.PROBLEM.TGT_OUTLIER, src_outlier=cfg.PROBLEM.SRC_OUTLIER)
         except TypeError:
             anno_pair, perm_mat = self.ds.get_pair(cls)
-        if perm_mat.shape[0] <= 2 or perm_mat.size >= cfg.PROBLEM.MAX_PROB_SIZE > 0:
+        if min(perm_mat.shape[0], perm_mat.shape[1]) <= 2 or perm_mat.size >= cfg.PROBLEM.MAX_PROB_SIZE > 0:
             return self.__getitem__(idx)
 
         cls = [anno['cls'] for anno in anno_pair]
