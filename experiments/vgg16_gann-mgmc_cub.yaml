@@ -1,6 +1,6 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_gann_mgmc
+MODEL_NAME: vgg16_gann-mgmc
 DATASET_NAME: cub
 
 DATASET_FULL_NAME: CUB2011
