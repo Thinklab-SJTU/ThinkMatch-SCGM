@@ -1,6 +1,6 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_gann_mgm
+MODEL_NAME: vgg16_gann-mgm
 DATASET_NAME: willow
 
 DATASET_FULL_NAME: WillowObject

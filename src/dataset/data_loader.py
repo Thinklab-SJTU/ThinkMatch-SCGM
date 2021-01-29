@@ -72,7 +72,7 @@ class GMDataset(Dataset):
             anno_pair, perm_mat = self.ds.get_pair(cls, tgt_outlier=cfg.PROBLEM.TGT_OUTLIER, src_outlier=cfg.PROBLEM.SRC_OUTLIER)
         except TypeError:
             anno_pair, perm_mat = self.ds.get_pair(cls)
-        if perm_mat.shape[0] <= 2 or perm_mat.size >= cfg.PROBLEM.MAX_PROB_SIZE > 0:
+        if min(perm_mat.shape[0], perm_mat.shape[1]) <= 2 or perm_mat.size >= cfg.PROBLEM.MAX_PROB_SIZE > 0:
             return self.__getitem__(idx)
 
         cls = [anno['cls'] for anno in anno_pair]
@@ -170,6 +170,9 @@ class GMDataset(Dataset):
             Gs_tgt.append(G_tgt)
             Hs_tgt.append(H_tgt)
 
+        pyg_graphs = [self.to_pyg_graph(A, P) for A, P in zip(As, Ps)]
+        pyg_graphs_tgt = [self.to_pyg_graph(A, P) for A, P in zip(As_tgt, Ps)]
+
         ret_dict = {
             'Ps': [torch.Tensor(x) for x in Ps],
             'ns': [torch.tensor(x) for x in ns],
@@ -180,6 +183,8 @@ class GMDataset(Dataset):
             'Gs_tgt': [torch.Tensor(x) for x in Gs_tgt],
             'Hs_tgt': [torch.Tensor(x) for x in Hs_tgt],
             'As_tgt': [torch.Tensor(x) for x in As_tgt],
+            'pyg_graphs': pyg_graphs,
+            'pyg_graphs_tgt': pyg_graphs_tgt,
             'cls': [str(x) for x in cls],
         }
 
