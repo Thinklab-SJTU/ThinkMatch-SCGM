@@ -59,6 +59,19 @@ _ThinkMatch_ also supports the following graph matching settings:
 
 ## Get Started
 
+### Singularity (RECOMMENDED)
+
+1. Build the singularity container from the provided definition file:
+    ```bash
+    singularity build dl-of-gm.sif singularity.def
+    ```
+2. Run training by the script ``singularity_run.sh``:
+    ```bash
+    ./singularity_run.sh <gpuid> <path/to/your/yaml> [main/file (optional, defualt is train_eval.py)]
+    ```
+
+### Manual configuration
+
 1. Install and configure Pytorch 1.6 (with GPU support). This repository is developed and tested with Python3.7, Pytorch1.6, cuda10.1 and cudnn7. 
 1. Install ninja-build: ``apt-get install ninja-build``
 1. Install python packages: ``pip install tensorboardX scipy easydict pyyaml xlrd xlwt pynvml``
