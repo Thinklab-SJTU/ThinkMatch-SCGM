@@ -155,9 +155,6 @@ __C.VISUAL = edict()
 # Load model from a specific epoch number for visualization
 __C.VISUAL.EPOCH = 0
 
-# Load model from file for visualization. If you want to use this, VISUAL.EPOCH must be 0.
-__C.VISUAL.WEIGHT_PATH = ''
-
 # Number of images for visualization
 __C.VISUAL.NUM_IMGS = 20
 

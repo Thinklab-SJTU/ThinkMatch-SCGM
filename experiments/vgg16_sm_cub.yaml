@@ -62,7 +62,6 @@ EVAL:
 # Visualization settings
 VISUAL:
   EPOCH: 0  # epoch to be visualized
-  WEIGHT_PATH: ''  # path to weight to be loaded. If you want to use this, VISUAL.EPOCH must be 0.
   CLASS: 'none'  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
   NUM_IMGS: 20  # number of images to be visualized
