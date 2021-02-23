@@ -1,6 +1,7 @@
 import time
 from datetime import datetime
 from pathlib import Path
+import xlwt
 
 from src.dataset.data_loader import GMDataset, get_dataloader
 from src.evaluation_metric import *
@@ -12,7 +13,7 @@ from src.utils.timer import Timer
 from src.utils.config import cfg
 
 
-def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
+def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False, xls_sheet=None):
     print('Start evaluation...')
     since = time.time()
 
@@ -34,7 +35,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
     classes = ds.classes
 
     pcks = torch.zeros(len(classes), len(alphas), device=device)
-    accs = []
+    recalls = []
     precisions = []
     f1s = []
     pred_time = []
@@ -55,7 +56,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         ds.cls = cls
         pck_match_num = torch.zeros(len(alphas), device=device)
         pck_total_num = torch.zeros(len(alphas), device=device)
-        acc_list = []
+        recall_list = []
         precision_list = [] 
         f1_list = []
         pred_time_list = []
@@ -90,12 +91,12 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 # pck_match_num += _pck_match_num
                 # pck_total_num += _pck_total_num
 
-                acc, _, __ = matching_accuracy(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
-                acc_list.append(acc)
+                recall, _, __ = matching_accuracy(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
+                recall_list.append(recall)
                 precision, _, __ = matching_precision(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
                 precision_list.append(precision)
                 precision_list.append(precision)
-                f1 = 2 * (precision * acc) / (precision + acc)
+                f1 = 2 * (precision * recall) / (precision + recall)
                 f1[torch.isnan(f1)] = 0
                 f1_list.append(f1)
 
@@ -112,11 +113,11 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 ns = outputs['ns']
                 for x_pred, x_gt, (idx_src, idx_tgt) in \
                         zip(outputs['perm_mat_list'], outputs['gt_perm_mat_list'], outputs['graph_indices']):
-                    acc, _, __ = matching_accuracy(x_pred, x_gt, ns[idx_src])
-                    acc_list.append(acc)
+                    recall, _, __ = matching_accuracy(x_pred, x_gt, ns[idx_src])
+                    recall_list.append(recall)
                     precision, _, __ = matching_precision(x_pred, x_gt, ns[idx_src])
                     precision_list.append(precision)
-                    f1 = 2 * (precision * acc) / (precision + acc)
+                    f1 = 2 * (precision * recall) / (precision + recall)
                     f1[torch.isnan(f1)] = 0
                     f1_list.append(f1)
             else:
@@ -142,7 +143,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
                 running_since = time.time()
 
         pcks[i] = pck_match_num / pck_total_num
-        accs.append(torch.cat(acc_list))
+        recalls.append(torch.cat(recall_list))
         precisions.append(torch.cat(precision_list))
         f1s.append(torch.cat(f1_list))
         objs[i] = objs[i] / obj_total_num
@@ -156,7 +157,7 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
             print('Class {} PCK@{{'.format(cls) +
                   ', '.join(list(map('{:.2f}'.format, alphas.tolist()))) + '} = {' +
                   ', '.join(list(map('{:.4f}'.format, pcks[i].tolist()))) + '}')
-            print('Class {} {}'.format(cls, format_accuracy_metric(precisions[i], accs[i], f1s[i])))
+            print('Class {} {}'.format(cls, format_accuracy_metric(precisions[i], recalls[i], f1s[i])))
             print('Class {} norm obj score = {:.4f}'.format(cls, objs[i]))
             print('Class {} pred time = {}s'.format(cls, format_metric(pred_time[i])))
             if cfg.PROBLEM.TYPE == 'MGMC':
@@ -169,46 +170,96 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
     model.train(mode=was_training)
 
-    # print result
+    if xls_sheet:
+        for idx, cls in enumerate(classes):
+            xls_sheet.write(0, idx+1, cls)
+        xls_sheet.write(0, idx+2, 'mean')
+
+    xls_row = 1
+
+    # show result
     for i in range(len(alphas)):
         print('PCK@{:.2f}'.format(alphas[i]))
-        for cls, single_pck in zip(classes, pcks[:, i]):
+        if xls_sheet: xls_sheet.write(xls_row, 0, 'PCK@{:.2f}'.format(alphas[i]))
+        for idx, (cls, single_pck) in enumerate(zip(classes, pcks[:, i])):
             print('{} = {:.4f}'.format(cls, single_pck))
+            if xls_sheet: xls_sheet.write(xls_row, idx+1, single_pck.item()) #'{:.4f}'.format(single_pck))
         print('average PCK = {:.4f}'.format(torch.mean(pcks[:, i])))
+        if xls_sheet:
+            xls_sheet.write(xls_row, idx+2, '{:.4f}'.format(torch.mean(pcks[:, i])))
+            xls_row += 1
 
     print('Matching accuracy')
-    for cls, cls_p, cls_acc, cls_f1 in zip(classes, precisions, accs, f1s):
-        print('{}: {}'.format(cls, format_accuracy_metric(cls_p, cls_acc, cls_f1)))
-    print('average accuracy: {}'.format(format_accuracy_metric(torch.cat(precisions), torch.cat(accs), torch.cat(f1s))))
+    if xls_sheet:
+        xls_sheet.write(xls_row, 0, 'precision')
+        xls_sheet.write(xls_row+1, 0, 'recall')
+        xls_sheet.write(xls_row+2, 0, 'f1')
+    for idx, (cls, cls_p, cls_r, cls_f1) in enumerate(zip(classes, precisions, recalls, f1s)):
+        print('{}: {}'.format(cls, format_accuracy_metric(cls_p, cls_r, cls_f1)))
+        if xls_sheet:
+            xls_sheet.write(xls_row, idx+1, torch.mean(cls_p).item()) #'{:.4f}'.format(torch.mean(cls_p)))
+            xls_sheet.write(xls_row+1, idx+1, torch.mean(cls_r).item()) #'{:.4f}'.format(torch.mean(cls_r)))
+            xls_sheet.write(xls_row+2, idx+1, torch.mean(cls_f1).item()) #'{:.4f}'.format(torch.mean(cls_f1)))
+    print('average accuracy: {}'.format(format_accuracy_metric(torch.cat(precisions), torch.cat(recalls), torch.cat(f1s))))
+    if xls_sheet:
+        xls_sheet.write(xls_row, idx+2, torch.mean(torch.cat(precisions)).item()) #'{:.4f}'.format(torch.mean(torch.cat(precisions))))
+        xls_sheet.write(xls_row+1, idx+2, torch.mean(torch.cat(recalls)).item()) #'{:.4f}'.format(torch.mean(torch.cat(recalls))))
+        xls_sheet.write(xls_row+2, idx+2, torch.mean(torch.cat(f1s)).item()) #'{:.4f}'.format(torch.mean(torch.cat(f1s))))
+        xls_row += 3
 
     if not torch.any(torch.isnan(objs)):
         print('Normalized objective score')
-        for cls, cls_obj in zip(classes, objs):
+        if xls_sheet: xls_sheet.write(xls_row, 0, 'norm objscore')
+        for idx, (cls, cls_obj) in enumerate(zip(classes, objs)):
             print('{} = {:.4f}'.format(cls, cls_obj))
+            if xls_sheet: xls_sheet.write(xls_row, idx+1, cls_obj.item()) #'{:.4f}'.format(cls_obj))
         print('average objscore = {:.4f}'.format(torch.mean(objs)))
+        if xls_sheet:
+            xls_sheet.write(xls_row, idx+2, torch.mean(objs).item()) #'{:.4f}'.format(torch.mean(objs)))
+            xls_row += 1
 
     if cfg.PROBLEM.TYPE == 'MGMC':
         print('Clustering accuracy')
-        for cls, cls_acc in zip(classes, cluster_acc):
+        if xls_sheet: xls_sheet.write(xls_row, 0, 'cluster acc')
+        for idx, (cls, cls_acc) in enumerate(zip(classes, cluster_acc)):
             print('{} = {}'.format(cls, format_metric(cls_acc)))
+            if xls_sheet: xls_sheet.write(xls_row, idx+1, torch.mean(cls_acc).item()) #'{:.4f}'.format(torch.mean(cls_acc)))
         print('average clustering accuracy = {}'.format(format_metric(torch.cat(cluster_acc))))
+        if xls_sheet:
+            xls_sheet.write(xls_row, idx+2, torch.mean(torch.cat(cluster_acc)).item()) #'{:.4f}'.format(torch.mean(torch.cat(cluster_acc))))
+            xls_row += 1
 
         print('Clustering purity')
-        for cls, cls_acc in zip(classes, cluster_purity):
+        if xls_sheet: xls_sheet.write(xls_row, 0, 'cluster purity')
+        for idx, (cls, cls_acc) in enumerate(zip(classes, cluster_purity)):
             print('{} = {}'.format(cls, format_metric(cls_acc)))
+            if xls_sheet: xls_sheet.write(xls_row, idx+1, torch.mean(cls_acc).item()) #'{:.4f}'.format(torch.mean(cls_acc)))
         print('average clustering purity = {}'.format(format_metric(torch.cat(cluster_purity))))
+        if xls_sheet:
+            xls_sheet.write(xls_row, idx+2, torch.mean(torch.cat(cluster_purity)).item()) #'{:.4f}'.format(torch.mean(torch.cat(cluster_purity))))
+            xls_row += 1
 
         print('Clustering rand index')
-        for cls, cls_acc in zip(classes, cluster_ri):
+        if xls_sheet: xls_sheet.write(xls_row, 0, 'rand index')
+        for idx, (cls, cls_acc) in enumerate(zip(classes, cluster_ri)):
             print('{} = {}'.format(cls, format_metric(cls_acc)))
+            if xls_sheet: xls_sheet.write(xls_row, idx+1, torch.mean(cls_acc).item()) #'{:.4f}'.format(torch.mean(cls_acc)))
         print('average rand index = {}'.format(format_metric(torch.cat(cluster_ri))))
+        if xls_sheet:
+            xls_sheet.write(xls_row, idx+2, torch.mean(torch.cat(cluster_ri)).item()) #'{:.4f}'.format(torch.mean(torch.cat(cluster_ri))))
+            xls_row += 1
 
     print('Predict time')
-    for cls, cls_time in zip(classes, pred_time):
+    if xls_sheet: xls_sheet.write(xls_row, 0, 'time')
+    for idx, (cls, cls_time) in enumerate(zip(classes, pred_time)):
         print('{} = {}'.format(cls, format_metric(cls_time)))
+        if xls_sheet: xls_sheet.write(xls_row, idx + 1, torch.mean(cls_time).item()) #'{:.4f}'.format(torch.mean(cls_time)))
     print('average time = {}'.format(format_metric(torch.cat(pred_time))))
+    if xls_sheet:
+        xls_sheet.write(xls_row, idx+2, torch.mean(torch.cat(pred_time)).item()) #'{:.4f}'.format(torch.mean(torch.cat(pred_time))))
+        xls_row += 1
 
-    return torch.Tensor(list(map(torch.mean, accs)))
+    return torch.Tensor(list(map(torch.mean, recalls)))
 
 
 if __name__ == '__main__':
@@ -241,9 +292,16 @@ if __name__ == '__main__':
     if not Path(cfg.OUTPUT_PATH).exists():
         Path(cfg.OUTPUT_PATH).mkdir(parents=True)
     now_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    wb = xlwt.Workbook()
+    ws = wb.add_sheet('epoch{}'.format(cfg.EVAL.EPOCH))
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('eval_log_' + now_time + '.log'))) as _:
         print_easydict(cfg)
         alphas = torch.tensor(cfg.EVAL.PCK_ALPHAS, dtype=torch.float32, device=device)
-        pcks = eval_model(model, alphas, dataloader,
-                          eval_epoch=cfg.EVAL.EPOCH if cfg.EVAL.EPOCH != 0 else None,
-                          verbose=True)
+
+        pcks = eval_model(
+            model, alphas, dataloader,
+            eval_epoch=cfg.EVAL.EPOCH if cfg.EVAL.EPOCH != 0 else None,
+            verbose=True,
+            xls_sheet=ws
+        )
+    wb.save(str(Path(cfg.OUTPUT_PATH) / ('eval_result_' + now_time + '.xls')))

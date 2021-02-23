@@ -1,5 +1,6 @@
 import torch.optim as optim
 import time
+import xlwt
 from datetime import datetime
 from pathlib import Path
 from tensorboardX import SummaryWriter
@@ -23,7 +24,8 @@ def train_eval_model(model,
                      dataloader,
                      tfboard_writer,
                      num_epochs=25,
-                     start_epoch=0):
+                     start_epoch=0,
+                     xls_wb=None):
     print('Start training...')
 
     since = time.time()
@@ -192,7 +194,7 @@ def train_eval_model(model,
         print()
 
         # Eval in each epoch
-        accs = eval_model(model, alphas, dataloader['test'])
+        accs = eval_model(model, alphas, dataloader['test'], xls_sheet=xls_wb.add_sheet('epoch{}'.format(epoch + 1)))
         acc_dict = {"{}".format(cls): single_acc for cls, single_acc in zip(dataloader['test'].dataset.classes, accs)}
         acc_dict['average'] = torch.mean(accs)
         tfboard_writer.add_scalars(
@@ -200,6 +202,7 @@ def train_eval_model(model,
             acc_dict,
             (epoch + 1) * cfg.TRAIN.EPOCH_ITERS
         )
+        wb.save(wb.__save_path)
 
         scheduler.step()
 
@@ -288,9 +291,14 @@ if __name__ == '__main__':
 
     now_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     tfboardwriter = SummaryWriter(logdir=str(Path(cfg.OUTPUT_PATH) / 'tensorboard' / 'training_{}'.format(now_time)))
+    wb = xlwt.Workbook()
+    wb.__save_path = str(Path(cfg.OUTPUT_PATH) / ('train_eval_result_' + now_time + '.xls'))
 
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('train_log_' + now_time + '.log'))) as _:
         print_easydict(cfg)
         model = train_eval_model(model, criterion, optimizer, dataloader, tfboardwriter,
                                  num_epochs=cfg.TRAIN.NUM_EPOCHS,
-                                 start_epoch=cfg.TRAIN.START_EPOCH)
+                                 start_epoch=cfg.TRAIN.START_EPOCH,
+                                 xls_wb=wb)
+
+    wb.save(wb.__save_path)

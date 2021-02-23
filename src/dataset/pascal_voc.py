@@ -98,7 +98,7 @@ class PascalVOC:
         self.obj_resize = obj_resize
         self.sets = sets
 
-        assert sets == 'train' or 'test', 'No match found for dataset {}'.format(sets)
+        assert sets in ('train', 'test'), 'No match found for dataset {}'.format(sets)
         cache_name = 'voc_db_' + sets + '.pkl'
         self.cache_path = Path(cache_path)
         self.cache_file = self.cache_path / cache_name
