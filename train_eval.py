@@ -31,7 +31,6 @@ def train_eval_model(model,
     since = time.time()
     dataset_size = len(dataloader['train'].dataset)
     displacement = Displacement()
-    lap_solver = hungarian
 
     device = next(model.parameters()).device
     print('model on device: {}'.format(device))
