@@ -6,42 +6,6 @@ from src.lap_solvers.sinkhorn import Sinkhorn
 
 from collections import Iterable
 
-'''
-class GNNLayer(nn.Module):
-    def __init__(self, in_node_features, in_edge_features, out_node_features, out_edge_features):
-        super(GNNLayer, self).__init__()
-        self.in_nfeat = in_node_features
-        self.in_efeat = in_edge_features
-        self.out_nfeat = out_node_features
-        self.out_efeat = out_edge_features
-
-        self.n2e_func = nn.Sequential(nn.Linear(self.in_nfeat, self.in_efeat), nn.ReLU())  # node to adjacent edges
-        self.e2e_func = nn.Sequential(nn.Linear(self.in_efeat * 2, self.out_efeat), nn.ReLU())  # self-update in edge
-
-        self.e2n_func = nn.Sequential(nn.Linear(self.out_efeat, self.in_nfeat), nn.ReLU())  # edge to adjacent node
-        self.n2n_func = nn.Sequential(nn.Linear(self.in_nfeat * 2, self.out_nfeat), nn.ReLU())  # self-update in node
-
-
-    def forward(self, A, W, x, norm=True):
-        """
-        :param A: adjacent matrix in 0/1 (b x n x n)
-        :param W: edge feature tensor (b x n x n x feat_dim)
-        :param x: node feature tensor (b x n x feat_dim)
-        """
-        x1 = self.n2e_func(x)
-        W1 = torch.mul(A.unsqueeze(-1), x1.unsqueeze(1))
-        W2 = torch.cat((W, W1), dim=-1)
-        W_new = self.e2e_func(W2)
-
-        if norm is True:
-            A = F.normalize(A, p=1, dim=2)
-
-        x2 = torch.sum(torch.mul(A.unsqueeze(-1), self.e2n_func(W_new)), dim=2)
-        x3 = torch.cat((x, x2), dim=-1)
-        x_new = self.n2n_func(x3)
-
-        return W_new, x_new
-'''
 
 def dsnorm(W, eps=1e-8):
     """
@@ -63,13 +27,12 @@ class GNNLayer(nn.Module):
         self.in_efeat = in_edge_features
         self.out_efeat = out_edge_features
         self.sk_channel = sk_channel
+        assert out_node_features == out_edge_features + self.sk_channel
         if self.sk_channel > 0:
-            assert out_node_features == out_edge_features + 1
             self.out_nfeat = out_node_features - self.sk_channel
             self.sk = Sinkhorn(sk_iter, sk_tau)
             self.classifier = nn.Linear(self.out_nfeat, self.sk_channel)
         else:
-            assert out_node_features == out_edge_features
             self.out_nfeat = out_node_features
             self.sk = self.classifier = None
 
@@ -151,29 +114,31 @@ class GNNLayer(nn.Module):
 
 class HyperGNNLayer(nn.Module):
     def __init__(self, in_node_features, in_edge_features, out_node_features, out_edge_features, orders=3, eps=1e-10,
-                 sk_channel=False, sk_iter=20, voting_alpha=20):
+                 sk_channel=False, sk_iter=20, sk_tau=0.05):
         super(HyperGNNLayer, self).__init__()
         self.in_nfeat = in_node_features
         self.in_efeat = in_edge_features
         self.out_efeat = out_edge_features
         self.eps = eps
-        if sk_channel:
-            assert out_node_features == out_edge_features + 1
-            self.out_nfeat = out_node_features - 1
-            self.sk = Sinkhorn(sk_iter, 1 / voting_alpha)
-            self.classifier = nn.Linear(self.out_efeat, 1)
+        self.sk_channel = sk_channel
+        assert out_node_features == out_edge_features + self.sk_channel
+        if self.sk_channel > 0:
+            self.out_nfeat = out_node_features - self.sk_channel
+            self.sk = Sinkhorn(sk_iter, sk_tau)
+            self.classifier = nn.Linear(self.out_nfeat, self.sk_channel)
         else:
-            assert out_node_features == out_edge_features
             self.out_nfeat = out_node_features
             self.sk = self.classifier = None
 
-        #self.e_func = nn.Sequential(
-        #    nn.Linear(self.in_efeat + self.in_nfeat, self.out_efeat),
-        #    nn.ReLU(),
-        #    nn.Linear(self.out_efeat, self.out_efeat),
-        #    nn.ReLU()
-        #)
+        # used by forward_dense
+        self.n_func = nn.Sequential(
+            nn.Linear(self.in_nfeat, self.out_nfeat),
+            nn.ReLU(),
+            nn.Linear(self.out_nfeat, self.out_nfeat),
+            nn.ReLU(),
+        )
 
+        # used by forward_sparse
         for i in range(2, orders + 1):
             n_func = nn.Sequential(
                 nn.Linear(self.in_nfeat, self.out_nfeat),
@@ -190,22 +155,25 @@ class HyperGNNLayer(nn.Module):
             nn.ReLU()
         )
 
-    def forward(self, A, W, x, n1=None, n2=None, norm=True):
+    def forward(self, A, W, x, n1=None, n2=None, weight=None, norm=True):
         """wrapper function of forward (support dense/sparse)"""
         if not isinstance(A, Iterable):
             A = [A]
             W = [W]
 
         W_new = []
-        for _A, _W in zip(A, W):
+        if weight is None:
+            weight = [1.] * len(A)
+        assert len(weight) == len(A)
+        for i, (_A, _W, w) in enumerate(zip(A, W, weight)):
             if type(_W) is tuple or (type(_W) is torch.Tensor and _W.is_sparse):
                 _W_new, _x = self.forward_sparse(_A, _W, x, norm)
             else:
                 _W_new, _x = self.forward_dense(_A, _W, x, norm)
-            try:
-                x2 += _x
-            except NameError:
-                x2 = _x
+            if i == 0:
+                x2 = _x * w
+            else:
+                x2 += _x * w
             W_new.append(_W_new)
 
         x2 += self.n_self_func(x)
@@ -213,8 +181,12 @@ class HyperGNNLayer(nn.Module):
         if self.classifier is not None:
             assert n1.max() * n2.max() == x.shape[1]
             x3 = self.classifier(x2)
-            x5 = self.sk(x3.view(x.shape[0], n2.max(), n1.max()).transpose(1, 2), n1, n2, dummy_row=True).transpose(2, 1).contiguous()
-            x_new = torch.cat((x2, x5.view(x.shape[0], n1.max() * n2.max(), -1)), dim=-1)
+            n1_rep = torch.repeat_interleave(n1, self.sk_channel, dim=0)
+            n2_rep = torch.repeat_interleave(n2, self.sk_channel, dim=0)
+            x4 = x3.permute(0,2,1).reshape(x.shape[0] * self.sk_channel, n2.max(), n1.max()).transpose(1, 2)
+            x5 = self.sk(x4, n1_rep, n2_rep, dummy_row=True).transpose(2, 1).contiguous()
+            x6 = x5.reshape(x.shape[0], self.sk_channel, n1.max() * n2.max()).permute(0, 2, 1)
+            x_new = torch.cat((x2, x6), dim=-1)
         else:
             x_new = x2
 
@@ -236,29 +208,24 @@ class HyperGNNLayer(nn.Module):
         else:
             raise ValueError('Unknown datatype {}'.format(type(W)))
 
-        #x_agg = torch.zeros(W_val.shape[0], self.in_nfeat, device=W_val.device)
-        #for i in range(order - 1):
-        #    x_agg += x[W_ind[0, :], W_ind[2 + i, :]]
-        #W_new_val = self.e_func(
-        #    #torch.cat((W_val, torch.zeros(1, 1, device=W_val.device).expand(W_val.shape[0], self.in_nfeat)), dim=-1)
-        #    torch.cat((W_val, x_agg / (order - 1)), dim=-1)
-        #)
         W_new_val = W_val
         if norm is True:
-            A_sum = torch.sum(A, dim=tuple(range(2, order + 1)), keepdim=True) + self.eps
+            assert not A.is_sparse, 'sparse normalization is currently not supported'
+            A_sum = torch.sum(A, dim=tuple(range(2, order + 1)), keepdim=True)
             A = A / A_sum.expand_as(A)
+            A[torch.isnan(A)] = 0
 
         if not A.is_sparse:
             A = A.to_sparse()
 
+        assert A._values().shape[0] == W_new_val.shape[0]
+        assert len(W_new_val.shape) == 2
+
         n_func = getattr(self, 'n_func_{}'.format(order))
         x1 = n_func(x)
 
-        #x_new = torch.mul(A.unsqueeze(-1), W_new)
         tp_val = torch.mul(A._values().unsqueeze(-1), W_new_val)
         for i in range(order - 1):
-            #x1_shape = [x1.shape[0]] + [1] * (order - 1 - i) + list(x1.shape[1:])
-            #x_new = torch.sum(torch.mul(x_new, x1.view(*x1_shape)), dim=-2)
             tp_val = x1[W_ind[0, :], W_ind[-1-i, :], :] * tp_val
 
         assert torch.all(W_ind == A._indices())
@@ -289,12 +256,12 @@ class HyperGNNLayer(nn.Module):
         W_new = W
 
         if norm is True:
-            A_sum = torch.sum(A, dim=tuple(range(2, order + 1)), keepdim=True) + self.eps
+            A_sum = torch.sum(A, dim=tuple(range(2, order + 1)), keepdim=True)
             A = A / A_sum.expand_as(A)
-            #A[torch.isnan(A)] = 0
+            A[torch.isnan(A)] = 0
 
-        n_func = getattr(self, 'n_func_{}'.format(order))
-        x1 = n_func(x)
+        #n_func = getattr(self, 'n_func_{}'.format(order))
+        x1 = self.n_func(x)
 
         x_new = torch.mul(A.unsqueeze(-1), W_new)
         for i in range(order - 1):

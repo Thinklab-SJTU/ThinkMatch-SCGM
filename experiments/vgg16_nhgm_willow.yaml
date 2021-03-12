@@ -19,17 +19,18 @@ GPUS:
   - 0
 #  - 1
 
-# Pairwise data configuration
-PAIR:
+# Problem configuration
+PROBLEM:
+  TYPE: 2GM
   RESCALE:  # rescaled image size
     - 256
     - 256
-  CANDIDATE_SHAPE:  # target candidate grid
-    - 16
-    - 16
-  GT_GRAPH_CONSTRUCT: tri
-  REF_GRAPH_CONSTRUCT: fc
-  #MAX_PROB_SIZE: 330
+
+# Graph construction settings
+GRAPH:
+  SRC_GRAPH_CONSTRUCT: tri
+  TGT_GRAPH_CONSTRUCT: fc
+  SYM_ADJACENCY: True
 
 # Training settings
 TRAIN:
@@ -44,7 +45,6 @@ TRAIN:
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
-    #- 10
     - 6
     - 12
 
@@ -80,6 +80,6 @@ NGM:
     - 16
   GNN_LAYER: 3
 
-  SIGMA3: 1.e-4 #5.e-5
+  SIGMA3: 1.e-4
   WEIGHT2: 1.
-  WEIGHT3: 1.5 #.333333 #0.66666667
+  WEIGHT3: 1.5

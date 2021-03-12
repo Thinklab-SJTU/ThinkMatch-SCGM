@@ -4,7 +4,7 @@ import torch.nn as nn
 from src.lap_solvers.sinkhorn import Sinkhorn, GumbelSinkhorn
 from src.build_graphs import reshape_edge_feature
 from src.feature_align import feature_align
-from src.factorize_graph_matching import construct_m
+from src.factorize_graph_matching import construct_aff_mat
 from models.NGM.gnn import GNNLayer
 from models.NGM.geo_edge_feature import geo_edge_feature
 from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
@@ -32,6 +32,7 @@ class Net(CNN):
         else:
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
         self.tau = cfg.NGM.SK_TAU
+        self.rescale = cfg.PROBLEM.RESCALE
         self.sinkhorn = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.SK_EPSILON)
         self.gumbel_sinkhorn = GumbelSinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau * 10, epsilon=cfg.NGM.SK_EPSILON, batched_operation=True)
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
@@ -58,6 +59,7 @@ class Net(CNN):
         self.classifier = nn.Linear(cfg.NGM.GNN_FEAT[-1] + (1 if cfg.NGM.SK_EMB else 0), 1)
 
     def forward(self, data_dict, **kwargs):
+        batch_size = data_dict['batch_size']
         if 'images' in data_dict:
             # real image data
             src, tgt = data_dict['images']
@@ -65,8 +67,7 @@ class Net(CNN):
             ns_src, ns_tgt = data_dict['ns']
             G_src, G_tgt = data_dict['Gs']
             H_src, H_tgt = data_dict['Hs']
-            K_G, K_H = data_dict['Ks']
-            batch_size = src.shape[0]
+            K_G, K_H = data_dict['KGHs']
 
             # extract feature
             src_node = self.node_layers(src)
@@ -81,10 +82,10 @@ class Net(CNN):
             tgt_edge = self.l2norm(tgt_edge)
 
             # arrange features
-            U_src = feature_align(src_node, P_src, ns_src, cfg.PAIR.RESCALE)
-            F_src = feature_align(src_edge, P_src, ns_src, cfg.PAIR.RESCALE)
-            U_tgt = feature_align(tgt_node, P_tgt, ns_tgt, cfg.PAIR.RESCALE)
-            F_tgt = feature_align(tgt_edge, P_tgt, ns_tgt, cfg.PAIR.RESCALE)
+            U_src = feature_align(src_node, P_src, ns_src, self.rescale)
+            F_src = feature_align(src_edge, P_src, ns_src, self.rescale)
+            U_tgt = feature_align(tgt_node, P_tgt, ns_tgt, self.rescale)
+            F_tgt = feature_align(tgt_edge, P_tgt, ns_tgt, self.rescale)
         elif 'features' in data_dict:
             # synthetic data
             src, tgt = data_dict['features']
@@ -92,8 +93,7 @@ class Net(CNN):
             ns_src, ns_tgt = data_dict['ns']
             G_src, G_tgt = data_dict['Gs']
             H_src, H_tgt = data_dict['Hs']
-            K_G, K_H = data_dict['Ks']
-            batch_size = src.shape[0]
+            K_G, K_H = data_dict['KGHs']
 
             U_src = src[:, :src.shape[1] // 2, :]
             F_src = src[:, src.shape[1] // 2:, :]
@@ -102,7 +102,6 @@ class Net(CNN):
         elif 'aff_mat' in data_dict:
             K = data_dict['aff_mat']
             ns_src, ns_tgt = data_dict['ns']
-            batch_size = K.shape[0]
         else:
             raise ValueError('Unknown data type for this model.')
 
@@ -118,14 +117,14 @@ class Net(CNN):
                 raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
 
             # affinity layer
-            Me, Mp = self.affinity_layer(X, Y, U_src, U_tgt)
+            Ke, Kp = self.affinity_layer(X, Y, U_src, U_tgt)
 
-            K = construct_m(Me, torch.zeros_like(Mp), K_G, K_H)
+            K = construct_aff_mat(Ke, torch.zeros_like(Kp), K_G, K_H)
 
             A = (K > 0).to(K.dtype)
 
             if cfg.NGM.FIRST_ORDER:
-                emb = Mp.transpose(1, 2).contiguous().view(Mp.shape[0], -1, 1)
+                emb = Kp.transpose(1, 2).contiguous().view(Kp.shape[0], -1, 1)
             else:
                 emb = torch.ones(K.shape[0], K.shape[1], 1, device=K.device)
         else:
@@ -148,6 +147,7 @@ class Net(CNN):
         if self.training or cfg.NGM.GUMBEL_SK <= 0:
         #if cfg.NGM.GUMBEL_SK <= 0:
             ss = self.sinkhorn(s, ns_src, ns_tgt, dummy_row=True)
+            x = hungarian(ss, ns_src, ns_tgt)
         else:
             gumbel_sample_num = cfg.NGM.GUMBEL_SK
             if self.training:
@@ -185,8 +185,11 @@ class Net(CNN):
             obj_score = torch.cat(obj_score, dim=1)
             min_obj_score = obj_score.min(dim=1)
             ss = ss_gumbel[torch.arange(batch_size), min_obj_score.indices.cpu(), :, :]
+            x = hungarian(ss_gumbel, repeat(ns_src), repeat(ns_tgt))
 
-        return {
+        data_dict.update({
             'ds_mat': ss,
+            'perm_mat': x,
             'aff_mat': K
-        }
+        })
+        return data_dict
