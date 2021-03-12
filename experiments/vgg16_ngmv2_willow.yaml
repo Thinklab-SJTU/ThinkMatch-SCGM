@@ -22,7 +22,7 @@ GPUS:
   - 0
 #  - 1
 
-# Pairwise data configuration
+# Problem configuration
 PROBLEM:
   TYPE: 2GM
   RESCALE:  # rescaled image size

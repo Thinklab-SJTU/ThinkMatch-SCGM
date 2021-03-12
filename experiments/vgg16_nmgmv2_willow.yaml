@@ -24,7 +24,7 @@ GPUS:
   - 0
 #  - 1
 
-# Pairwise data configuration
+# Problem configuration
 PROBLEM:
   TYPE: MGM
   RESCALE:  # rescaled image size
