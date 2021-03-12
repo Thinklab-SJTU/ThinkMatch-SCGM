@@ -6,19 +6,6 @@ from src.lap_solvers.sinkhorn import Sinkhorn
 
 from collections import Iterable
 
-
-def dsnorm(W, eps=1e-8):
-    """
-    Doubly-stochastic norm on edge embedding tensor W.
-    :param W: edge feature tensor (b x n x n x feat_dim)
-    :param eps: a small value designed for numerical stability
-    :return: normalized edge embedding tensor
-    """
-    wave = W / torch.sum(W + eps, dim=2, keepdim=True)
-    ret = torch.matmul((wave / torch.sum(wave + eps, dim=1, keepdim=True)).permute(0, 3, 1, 2), wave.permute(0, 3, 2, 1))
-    return ret.permute(0, 2, 3, 1)
-
-
 class GNNLayer(nn.Module):
     def __init__(self, in_node_features, in_edge_features, out_node_features, out_edge_features,
                  sk_channel=0, sk_iter=20, sk_tau=0.05, edge_emb=False):
@@ -78,31 +65,17 @@ class GNNLayer(nn.Module):
         if norm is True:
             A = F.normalize(A, p=1, dim=2)
 
-        #x2 = torch.sum(torch.mul(A.unsqueeze(-1), W_new), dim=2)
-        #x3 = torch.cat((x, x2), dim=-1)
-        #x_new = self.n_func(x3)
-        #W_norm = F.normalize(W_new, p=1, dim=2)
         x1 = self.n_func(x)
-        #x2 = torch.sum(torch.mul(torch.mul(A.unsqueeze(-1), W_new), x1.unsqueeze(1)), dim=2) + self.n_self_func(x)
         x2 = torch.matmul((A.unsqueeze(-1) * W_new).permute(0, 3, 1, 2), x1.unsqueeze(2).permute(0, 3, 1, 2)).squeeze(-1).transpose(1, 2)
         x2 += self.n_self_func(x)
-        #x2 = [torch.sum(dsnorm(A * W_new[:, :, :, f]).unsqueeze(-1) * x1.unsqueeze(1), dim=2)
-        #      for f in range(W_new.shape[-1])]
-        #x2 = torch.cat(x2, dim=-1) + self.n_self_func(x)
 
         if self.classifier is not None:
             assert n1.max() * n2.max() == x.shape[1]
             x3 = self.classifier(x2)
-            #x5 = self.sk(x3.permute(0,2,1).view(x.shape[0] * self.sk_channel, n2.max(), n1.max()).transpose(1, 2), n1, n2, dummy_row=True).transpose(2, 1).contiguous()
             n1_rep = torch.repeat_interleave(n1, self.sk_channel, dim=0)
             n2_rep = torch.repeat_interleave(n2, self.sk_channel, dim=0)
             x4 = x3.permute(0,2,1).reshape(x.shape[0] * self.sk_channel, n2.max(), n1.max()).transpose(1, 2)
             x5 = self.sk(x4, n1_rep, n2_rep, dummy_row=True).transpose(2, 1).contiguous()
-
-            #vec_x5 = x5.reshape(x.shape[0], n1.max() * n2.max(), -1)
-            #A_q = torch.matmul(vec_x5, vec_x5.transpose(1, 2))
-            #x_new_v = self.n_value_func(x2)
-            #x_new = torch.matmul(A_q, x_new_v) + F.relu(self.n_transform_func(x2) + x2)
 
             x6 = x5.reshape(x.shape[0], self.sk_channel, n1.max() * n2.max()).permute(0, 2, 1)
             x_new = torch.cat((x2, x6), dim=-1)
@@ -243,16 +216,6 @@ class HyperGNNLayer(nn.Module):
         :param x: node feature tensor (b x n x feat_dim)
         """
         order = len(A.shape) - 1
-
-        #for i in range(order - 1):
-        #    x_newshape = [x.shape[0]] + [1] * order + [x.shape[2]]
-        #    x_newshape[-2 - i] = x.shape[1]
-        #   if i == 0:
-        #        W1 = torch.mul(A.unsqueeze(-1), x.view(x_newshape))
-        #    else:
-        #        W1 += torch.mul(A.unsqueeze(-1), x.view(x_newshape))
-        #W_new = self.e_func(torch.cat((W, W1), dim=-1))
-        #W_new = self.e_func(torch.cat((W, torch.zeros_like(W1)), dim=-1))
         W_new = W
 
         if norm is True:
@@ -260,14 +223,12 @@ class HyperGNNLayer(nn.Module):
             A = A / A_sum.expand_as(A)
             A[torch.isnan(A)] = 0
 
-        #n_func = getattr(self, 'n_func_{}'.format(order))
         x1 = self.n_func(x)
 
         x_new = torch.mul(A.unsqueeze(-1), W_new)
         for i in range(order - 1):
             x1_shape = [x1.shape[0]] + [1] * (order - 1 - i) + list(x1.shape[1:])
             x_new = torch.sum(torch.mul(x_new, x1.view(*x1_shape)), dim=-2)
-        #x_new += self.n_self_func(x)
 
         return W_new, x_new
 
@@ -302,8 +263,6 @@ class HyperConvLayer(nn.Module):
             nn.ReLU()
         )
 
-        #self.en_atten = Attention(self.in_nfeat, self.out_efeat, max(self.out_efeat, self.in_nfeat))
-
         self.n_func = nn.Sequential(
             nn.Linear(self.in_nfeat + self.out_efeat, self.out_nfeat),
             nn.ReLU()
@@ -327,10 +286,7 @@ class HyperConvLayer(nn.Module):
         H_edge_norm[torch.isnan(H_edge_norm)] = 0
 
         x_to_E = torch.bmm(H_node_norm.transpose(1, 2), self.ne_func(x))
-        #x_to_E = sbmm(H_node_norm.transpose(1, 2), self.ne_func(x))
         new_E = self.e_func(torch.cat((x_to_E, E), dim=-1))
-        #w = self.en_atten(x, new_E, H)
-        #E_to_x = sbmm(H_edge_norm, new_E)
         E_to_x = torch.bmm(H_edge_norm, new_E)
         new_x = self.n_func(torch.cat((E_to_x, x), dim=-1))
 
@@ -363,15 +319,12 @@ class Attention(nn.Module):
         :param t2: tensor2 (b x n2 x f)
         :param H: indicator tensor (sparse b x n1 x n2)
         """
-        #t1W1 = self.linear1(t1).unsqueeze(2).expand(-1, -1, t2.shape[1], -1).contiguous()
-        #t2W2 = self.linear2(t2).unsqueeze(1).expand(-1, t1.shape[1], -1, -1).contiguous()
         H_idx = H._indices()
         H_data = H._values()
         sparse_mask = torch.sparse_coo_tensor(H_idx, H_data.unsqueeze(-1).expand(-1, self.hid_feat), H.shape + (self.hid_feat,)).coalesce()
         x = (self.linear1(t1).unsqueeze(2) + self.linear2(t2).unsqueeze(1)).sparse_mask(sparse_mask) #+ t2W2.sparse_mask(sparse_mask)
         v = self.v.view(-1, 1)
         w_data = torch.matmul(x._values(), v).squeeze()
-        #w = torch.sparse_coo_tensor(H_idx, w_data)
         w_softmax_data = torch.empty_like(w_data)
         for b in range(x.shape[0]):
             mask_b = (H_idx[0] == b)
