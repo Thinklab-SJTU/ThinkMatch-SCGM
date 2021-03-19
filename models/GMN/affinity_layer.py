@@ -64,7 +64,7 @@ class GaussianAffinity(nn.Module):
         self.d = d
         self.sigma = sigma
 
-    def forward(self, X, Y, Ux, Uy, ae=1., ap=1.):
+    def forward(self, X, Y, Ux=None, Uy=None, ae=1., ap=1.):
         assert X.shape[1] == Y.shape[1] == self.d
 
         X = X.unsqueeze(-1).expand(*X.shape, Y.shape[2])
@@ -74,6 +74,8 @@ class GaussianAffinity(nn.Module):
         dist[torch.isnan(dist)] = float("Inf")
         Me = torch.exp(- dist / self.sigma) * ae
 
-        Mp = torch.matmul(Ux.transpose(1, 2), Uy) * ap
-
-        return Me, Mp
+        if Ux is None or Uy is None:
+            return Me
+        else:
+            Mp = torch.matmul(Ux.transpose(1, 2), Uy) * ap
+            return Me, Mp
