@@ -107,7 +107,8 @@ class GMDataset(Dataset):
                     'Gs': [torch.Tensor(x) for x in [G1, G2]],
                     'Hs': [torch.Tensor(x) for x in [H1, H2]],
                     'As': [torch.Tensor(x) for x in [A1, A2]],
-                    'pyg_graphs': [pyg_graph1, pyg_graph2]
+                    'pyg_graphs': [pyg_graph1, pyg_graph2],
+                    'cls': [str(x) for x in cls]
                     }
 
         imgs = [anno['image'] for anno in anno_pair]
