@@ -58,10 +58,14 @@ class GMDataset(Dataset):
         edge_attr = np.clip(edge_attr, 0, 1)
         assert (edge_attr > -1e-5).all(), P
 
+        o3_A = np.expand_dims(A, axis=0) * np.expand_dims(A, axis=1) * np.expand_dims(A, axis=2)
+        hyperedge_index = np.nonzero(o3_A)
+
         pyg_graph = pyg.data.Data(
             x=torch.tensor(P / rescale).to(torch.float32),
             edge_index=torch.tensor(np.array(edge_index), dtype=torch.long),
-            edge_attr=torch.tensor(edge_attr).to(torch.float32)
+            edge_attr=torch.tensor(edge_attr).to(torch.float32),
+            hyperedge_index=torch.tensor(np.array(hyperedge_index), dtype=torch.long),
         )
         return pyg_graph
 
@@ -103,7 +107,8 @@ class GMDataset(Dataset):
                     'Gs': [torch.Tensor(x) for x in [G1, G2]],
                     'Hs': [torch.Tensor(x) for x in [H1, H2]],
                     'As': [torch.Tensor(x) for x in [A1, A2]],
-                    'pyg_graphs': [pyg_graph1, pyg_graph2]
+                    'pyg_graphs': [pyg_graph1, pyg_graph2],
+                    'cls': [str(x) for x in cls]
                     }
 
         imgs = [anno['image'] for anno in anno_pair]
@@ -215,129 +220,6 @@ class GMDataset(Dataset):
             ret_dict[key] = []
             for dic in dicts:
                 ret_dict[key] += dic[key]
-        return ret_dict
-
-
-class GMRefDataset(Dataset):
-    def __init__(self, name, length=None, pad=None, cls=None, **args):
-        self.name = name
-        self.ds = eval(self.name)(**args)
-
-        self.obj_size = self.ds.obj_resize
-        self.classes = self.ds.classes
-        self.cls = None if cls == 'none' else cls
-
-    def __len__(self):
-        if self.cls is None:
-            self.length = self.ds.length
-        else:
-            self.length = self.ds.length_of(self.cls)
-        return self.length
-
-    def __getitem__(self, idx):
-        def find_cls(dataset_idx):
-            for cls_idx, start_idx in enumerate(cls_start_idx[::-1]):
-                if dataset_idx >= start_idx:
-                    return self.classes[-cls_idx - 1]
-
-        if self.cls is None:
-            cls_start_idx = []
-            cum_idx = 0
-            for cls in self.classes:
-                cls_start_idx.append(cum_idx)
-                cum_idx += self.ds.length_of(cls)
-
-            cls = find_cls(idx)
-
-        else:
-            cls_start_idx = [0] * len(self.classes)
-
-            cls = self.cls
-
-        anno_dict, perm_mat = self.ds.get_single_to_ref(idx - cls_start_idx[self.classes.index(cls)], cls)
-
-        cls = anno_dict['cls']
-        P_gt = [(kp['x'], kp['y']) for kp in anno_dict['keypoints']]
-
-        n_gt = len(P_gt)
-        n_ref = perm_mat.shape[1]
-
-        if n_gt < 3:
-            return self.__getitem__(random.randint(0, len(self) - 1))
-
-        P_gt = np.array(P_gt)
-
-        A_gt, G_gt, H_gt, e_gt = build_graphs(P_gt, n_gt, stg=cfg.GRAPH.SRC_GRAPH_CONSTRUCT)
-        A_ref, G_ref, H_ref, e_ref = build_graphs(np.zeros((n_ref, 2)), n_ref, stg=cfg.GRAPH.TGT_GRAPH_CONSTRUCT)
-
-        ret_dict = {'Ps': torch.Tensor(P_gt),
-                    'ns': [torch.tensor(x) for x in (n_gt, n_ref)],
-                    'es': [torch.tensor(x) for x in (e_gt, e_ref)],
-                    'gt_perm_mat': perm_mat,
-                    'Gs': [torch.Tensor(x) for x in (G_gt, G_ref)],
-                    'Hs': [torch.Tensor(x) for x in (H_gt, H_ref)],
-                    'cls': cls}
-
-        img = anno_dict['image']
-        if img is not None:
-            trans = transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Normalize(cfg.NORM_MEANS, cfg.NORM_STD)
-                    ])
-            img = trans(img)
-            ret_dict['images'] = img
-        elif 'feat' in anno_dict['keypoints'][0]:
-            feat = np.stack([kp['feat'] for kp in anno_dict['keypoints']], axis=-1)
-            ret_dict['features'] = torch.Tensor(feat)
-
-        return ret_dict
-
-    def __getitem_test(self, idx):
-        assert self.cls is not None
-
-        indices = random.sample(range(0, self.ds.length_of(self.cls)), 2)
-
-        anno_list = []
-        perm_mat_list = []
-        for idx in indices:
-            anno_dict, perm_mat = self.ds.get_single_to_ref(idx, self.cls)
-            anno_list.append(anno_dict)
-            perm_mat_list.append(perm_mat)
-
-        cls = [anno_dict['cls'] for anno_dict in anno_list]
-        P_gt = [[(kp['x'], kp['y']) for kp in anno_dict['keypoints']] for anno_dict in anno_list]
-
-        n_gt = [len(x) for x in P_gt]
-        n_ref = [perm_mat.shape[1] for perm_mat in perm_mat_list]
-
-        if n_gt < 3:
-            return self.__getitem_test(random.randint(0, len(self) - 1))
-
-        P_gt = np.array(P_gt)
-
-        A_gt, G_gt, H_gt, e_gt = build_graphs(P_gt, n_gt, stg=cfg.GRAPH.SRC_GRAPH_CONSTRUCT)
-        A_ref, G_ref, H_ref, e_ref = build_graphs(np.zeros((n_ref, 2)), n_ref, stg=cfg.GRAPH.TGT_GRAPH_CONSTRUCT)
-
-        ret_dict = {'Ps': torch.Tensor(P_gt),
-                    'ns': [torch.tensor(x) for x in (n_gt, n_ref)],
-                    'es': [torch.tensor(x) for x in (e_gt, e_ref)],
-                    'gt_perm_mat': perm_mat,
-                    'Gs': [torch.Tensor(x) for x in (G_gt, G_ref)],
-                    'Hs': [torch.Tensor(x) for x in (H_gt, H_ref)],
-                    'cls': cls}
-
-        img = anno_dict['image']
-        if img is not None:
-            trans = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(cfg.NORM_MEANS, cfg.NORM_STD)
-            ])
-            img = trans(img)
-            ret_dict['images'] = img
-        elif 'feat' in anno_dict['keypoints'][0]:
-            feat = np.stack([kp['feat'] for kp in anno_dict['keypoints']], axis=-1)
-            ret_dict['features'] = torch.Tensor(feat)
-
         return ret_dict
 
 
@@ -505,9 +387,3 @@ def get_dataloader(dataset, fix_seed=True, shuffle=False):
         dataset, batch_size=cfg.BATCH_SIZE, shuffle=shuffle, num_workers=cfg.DATALOADER_NUM, collate_fn=collate_fn,
         pin_memory=False, worker_init_fn=worker_init_fix if fix_seed else worker_init_rand
     )
-
-
-if __name__ == '__main__':
-    a = GMDataset('PascalVOC', length=1000 ,sets='train', obj_resize=(256, 256))
-    k = a[0]
-    pass

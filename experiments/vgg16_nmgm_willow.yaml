@@ -1,6 +1,6 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_ngm_multi
+MODEL_NAME: vgg16_nmgm
 DATASET_NAME: willow
 
 DATASET_FULL_NAME: WillowObject
@@ -9,8 +9,8 @@ MODULE: models.NGM.mgmmodel
 
 BACKBONE: VGG16_bn
 
-BATCH_SIZE: 8
-DATALOADER_NUM: 2
+BATCH_SIZE: 2
+DATALOADER_NUM: 0
 FP16: False
 
 RANDOM_SEED: 123
@@ -21,18 +21,17 @@ GPUS:
 #  - 1
 
 # Pairwise data configuration
-PAIR:
+PROBLEM:
+  TYPE: MGM
   RESCALE:  # rescaled image size
     - 256
     - 256
-  CANDIDATE_SHAPE:  # target candidate grid
-    - 16
-    - 16
-  GT_GRAPH_CONSTRUCT: tri
-  REF_GRAPH_CONSTRUCT: fc
+  NUM_GRAPHS: 10
+
+GRAPH:
+  SRC_GRAPH_CONSTRUCT: tri
+  TGT_GRAPH_CONSTRUCT: fc
   SYM_ADJACENCY: True
-  #MAX_PROB_SIZE: 225
-  NUM_GRAPHS: 6
 
 # Training settings
 TRAIN:
@@ -58,7 +57,7 @@ TRAIN:
 # Evaluation settings and PCK metric
 EVAL:
   EPOCH: 0  # epoch to be tested
-  SAMPLES: 100  # number of tested pairs for each class
+  SAMPLES: 100  # number of tests for each class
 
 # Visualization settings
 VISUAL:

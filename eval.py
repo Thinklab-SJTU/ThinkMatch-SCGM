@@ -13,20 +13,11 @@ from src.utils.timer import Timer
 from src.utils.config import cfg
 
 
-def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False, xls_sheet=None):
+def eval_model(model, alphas, dataloader, verbose=False, xls_sheet=None):
     print('Start evaluation...')
     since = time.time()
 
     device = next(model.parameters()).device
-
-    model_path = ''
-    if eval_epoch is not None:
-        model_path = str(Path(cfg.OUTPUT_PATH) / 'params' / 'params_{:04}.pt'.format(eval_epoch))
-    if len(cfg.PRETRAINED_PATH) > 0:
-        model_path = cfg.PRETRAINED_PATH
-    if len(model_path) > 0:
-        print('Loading model parameters from {}'.format(model_path))
-        load_model(model, model_path)
 
     was_training = model.training
     model.eval()
@@ -298,9 +289,17 @@ if __name__ == '__main__':
         print_easydict(cfg)
         alphas = torch.tensor(cfg.EVAL.PCK_ALPHAS, dtype=torch.float32, device=device)
 
+        model_path = ''
+        if cfg.EVAL.EPOCH is not None:
+            model_path = str(Path(cfg.OUTPUT_PATH) / 'params' / 'params_{:04}.pt'.format(cfg.EVAL.EPOCH))
+        if len(cfg.PRETRAINED_PATH) > 0:
+            model_path = cfg.PRETRAINED_PATH
+        if len(model_path) > 0:
+            print('Loading model parameters from {}'.format(model_path))
+            load_model(model, model_path)
+
         pcks = eval_model(
             model, alphas, dataloader,
-            eval_epoch=cfg.EVAL.EPOCH if cfg.EVAL.EPOCH != 0 else None,
             verbose=True,
             xls_sheet=ws
         )

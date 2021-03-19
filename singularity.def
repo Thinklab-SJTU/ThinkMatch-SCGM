@@ -18,10 +18,10 @@ Stage: build
 
     export CUDA=cu101
     export TORCH=1.6.0
-    /opt/conda/bin/pip install torch-scatter==latest+${CUDA} -f https://pytorch-geometric.com/whl/torch-${TORCH}.html
-    /opt/conda/bin/pip install torch-sparse==latest+${CUDA} -f https://pytorch-geometric.com/whl/torch-${TORCH}.html
-    /opt/conda/bin/pip install torch-cluster==latest+${CUDA} -f https://pytorch-geometric.com/whl/torch-${TORCH}.html
-    /opt/conda/bin/pip install torch-spline-conv==latest+${CUDA} -f https://pytorch-geometric.com/whl/torch-${TORCH}.html
+    /opt/conda/bin/pip install torch-scatter -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
+    /opt/conda/bin/pip install torch-sparse -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
+    /opt/conda/bin/pip install torch-cluster -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
+    /opt/conda/bin/pip install torch-spline-conv -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
     /opt/conda/bin/pip install torch-geometric
 
 %labels

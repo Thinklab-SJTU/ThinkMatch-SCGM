@@ -19,7 +19,7 @@ def to_sparse(x, dense_dim=1):
     x_typename = torch.typename(x).split('.')[-1]
     sparse_tensortype = getattr(torch.sparse, x_typename)
 
-    indices = torch.nonzero(x)[:, :len(x.shape) - dense_dim + 1]
+    indices = torch.nonzero(x, as_tuple=False)[:, :len(x.shape) - dense_dim + 1]
     if len(indices.shape) == 0:  # if all elements are zeros
         return sparse_tensortype(*x.shape)
     indices = indices.t()

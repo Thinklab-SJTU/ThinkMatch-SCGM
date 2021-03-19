@@ -1,13 +1,15 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_ngmref
+MODEL_NAME: vgg16_ngmv2
 DATASET_NAME: voc
 
 DATASET_FULL_NAME: PascalVOC
 
-MODULE: models.NGM.refmodel
+MODULE: models.NGM.model_v2
 
-BACKBONE: VGG16_bn
+BACKBONE: VGG16_bn_final
+
+# PRETRAINED_PATH: pretrained_weights/pretrained_params_vgg16_ngmv2_voc.pt
 
 BATCH_SIZE: 8
 DATALOADER_NUM: 2
@@ -20,34 +22,41 @@ GPUS:
   - 0
 #  - 1
 
-# Pairwise data configuration
-PAIR:
+# Problem configuration
+PROBLEM:
+  TYPE: 2GM
   RESCALE:  # rescaled image size
     - 256
     - 256
-  CANDIDATE_SHAPE:  # target candidate grid
-    - 16
-    - 16
-  GT_GRAPH_CONSTRUCT: tri
-  REF_GRAPH_CONSTRUCT: fc
-  #MAX_PROB_SIZE: 225
+
+# Graph construction settings
+GRAPH:
+  SRC_GRAPH_CONSTRUCT: tri
+  TGT_GRAPH_CONSTRUCT: tri
+  SYM_ADJACENCY: True
 
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 30
+  NUM_EPOCHS: 20
 
   LOSS_FUNC: perm
 
+  OPTIMIZER: Adam
+
   # learning rate
-  LR: 1.0e-2
+  LR: 2.e-3
+  SEPARATE_BACKBONE_LR: True
+  BACKBONE_LR: 2.e-5
   MOMENTUM: 0.9
-  LR_DECAY: 0.1
+  LR_DECAY: 0.5
   LR_STEP:  # (in epochs)
-    #- 6
-    - 15
-    - 25
+    - 2
+    - 4
+    - 6
+    - 8
+    - 10
 
   EPOCH_ITERS: 2000  # iterations per epoch
 
@@ -55,19 +64,15 @@ TRAIN:
 
 # Evaluation settings and PCK metric
 EVAL:
-  PCK_ALPHAS:
-    - 0.05
-    - 0.10
-  PCK_L: 256. # 362.03867
   EPOCH: 30  # epoch to be tested
   SAMPLES: 1000  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:
   EPOCH: 0  # epoch to be visualized
-  CLASS: person  # none for random choosing classes, else specify a class name
+  CLASS: none  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 100  # number of images to be visualized
+  NUM_IMGS: 20  # number of images to be visualized
 
 # model parameters
 NGM:
@@ -77,10 +82,11 @@ NGM:
   SK_EPSILON: 1.0e-10
   SK_TAU: 0.05
   GNN_FEAT:
-    - 4
-    - 8
+    - 16
+    - 16
     - 16
   GNN_LAYER: 3
   GAUSSIAN_SIGMA: 1.
-  SK_EMB: True
+  SK_EMB: 1
   FIRST_ORDER: True
+  EDGE_EMB: False

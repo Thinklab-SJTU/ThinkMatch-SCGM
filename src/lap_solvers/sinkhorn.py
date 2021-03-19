@@ -16,6 +16,8 @@ class Sinkhorn(nn.Module):
         self.tau = tau
         self.epsilon = epsilon
         self.log_forward = log_forward
+        if not log_forward:
+            print('Warning: Sinkhorn algorithm without log forward is deprecated because log_forward is more stable.')
         self.batched_operation = batched_operation # batched operation may cause instability in backward computation,
                                                    # but will boost computation.
 
@@ -36,6 +38,12 @@ class Sinkhorn(nn.Module):
             raise ValueError('input data shape not understood.')
 
         batch_size = s.shape[0]
+
+        if s.shape[2] >= s.shape[1]:
+            transposed = False
+        else:
+            s = s.transpose(1, 2)
+            transposed = True
 
         if nrows is None:
             nrows = [s.shape[1] for _ in range(batch_size)]
@@ -105,6 +113,8 @@ class Sinkhorn(nn.Module):
                 for b in range(batch_size):
                     ret_log_s[b, ori_nrows[b]:nrows[b], :ncols[b]] = -float('inf')
 
+            if transposed:
+                ret_log_s = ret_log_s.transpose(1, 2)
             if matrix_input:
                 ret_log_s.squeeze_(0)
 

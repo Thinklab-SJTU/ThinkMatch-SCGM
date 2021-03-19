@@ -35,7 +35,7 @@ class Net(CNN):
             ns_src, ns_tgt = data_dict['ns']
             G_src, G_tgt = data_dict['Gs']
             H_src, H_tgt = data_dict['Hs']
-            K_G, K_H = data_dict['Ks']
+            K_G, K_H = data_dict['KGHs']
 
             # extract feature
             src_node = self.node_layers(src)

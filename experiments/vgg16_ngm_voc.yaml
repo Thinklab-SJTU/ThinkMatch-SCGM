@@ -9,6 +9,8 @@ MODULE: models.NGM.model
 
 BACKBONE: VGG16_bn
 
+#PRETRAINED_PATH: output/model_weights/pretrained_params_vgg16_ngm_voc.pt
+
 BATCH_SIZE: 8
 DATALOADER_NUM: 2
 FP16: False
@@ -20,18 +22,18 @@ GPUS:
   - 0
 #  - 1
 
-# Pairwise data configuration
-PAIR:
+# Problem configuration
+PROBLEM:
+  TYPE: 2GM
   RESCALE:  # rescaled image size
     - 256
     - 256
-  CANDIDATE_SHAPE:  # target candidate grid
-    - 16
-    - 16
-  GT_GRAPH_CONSTRUCT: tri
-  REF_GRAPH_CONSTRUCT: fc
+
+# Graph construction settings
+GRAPH:
+  SRC_GRAPH_CONSTRUCT: tri
+  TGT_GRAPH_CONSTRUCT: fc
   SYM_ADJACENCY: True
-  #MAX_PROB_SIZE: 225
 
 # Training settings
 TRAIN:

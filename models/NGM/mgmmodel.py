@@ -3,14 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as functional
 
 from src.lap_solvers.sinkhorn import Sinkhorn
-from models.GMN.voting_layer import Voting
-from models.GMN.displacement_layer import Displacement
 from src.build_graphs import reshape_edge_feature
 from src.feature_align import feature_align
-from src.factorize_graph_matching import construct_m
+from src.factorize_graph_matching import construct_aff_mat
 from models.NGM.gnn import GNNLayer
 from models.NGM.geo_edge_feature import geo_edge_feature
 from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
+from src.lap_solvers.hungarian import hungarian
 
 from itertools import combinations
 import numpy as np
@@ -53,71 +52,83 @@ class Net(CNN):
             self.affinity_layer = GaussianAffinity(1, cfg.NGM.GAUSSIAN_SIGMA)
         else:
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
-        self.tau = 1 / cfg.NGM.VOTING_ALPHA #nn.Parameter(torch.Tensor([1 / cfg.NGM.VOTING_ALPHA]))
+        self.tau = cfg.NGM.SK_TAU
+        self.rescale = cfg.PROBLEM.RESCALE
         self.bi_stochastic = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.SK_EPSILON)
-        self.voting_layer = Voting(alpha=cfg.NGM.VOTING_ALPHA)
-        self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
 
         self.gnn_layer = cfg.NGM.GNN_LAYER
         for i in range(self.gnn_layer):
-            #self.register_parameter('alpha_{}'.format(i), nn.Parameter(torch.Tensor([cfg.NGM.VOTING_ALPHA / (2 ** (self.gnn_layer - i - 1))])))
-            #alpha = getattr(self, 'alpha_{}'.format(i))
-            alpha = cfg.NGM.VOTING_ALPHA
             if i == 0:
-                #gnn_layer = Gconv(1, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=alpha, edge_emb=cfg.NGM.EDGE_EMB)
-                #gnn_layer = HyperConvLayer(1, 1, cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                #                           sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
+                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=self.tau, edge_emb=cfg.NGM.EDGE_EMB)
             else:
-                #gnn_layer = Gconv(cfg.NGM.GNN_FEAT, cfg.NGM.GNN_FEAT)
                 gnn_layer = GNNLayer(cfg.NGM.GNN_FEAT[i - 1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i - 1],
                                      cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=alpha, edge_emb=cfg.NGM.EDGE_EMB)
-                #gnn_layer = HyperConvLayer(cfg.NGM.GNN_FEAT[i-1] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i-1],
-                #                           cfg.NGM.GNN_FEAT[i] + (1 if cfg.NGM.SK_EMB else 0), cfg.NGM.GNN_FEAT[i],
-                #                           sk_channel=cfg.NGM.SK_EMB, voting_alpha=alpha)
+                                     sk_channel=cfg.NGM.SK_EMB, sk_tau=self.tau, edge_emb=cfg.NGM.EDGE_EMB)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
 
         self.classifier = nn.Linear(cfg.NGM.GNN_FEAT[-1] + (1 if cfg.NGM.SK_EMB else 0), 1)
 
-        #if pretrained:
-        #    load_model(self, 'output/ngm_em_synthetic/params/params_0020.pt')
-
         self.bi_stochastic2 = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, epsilon=cfg.NGM.SK_EPSILON, tau=1 / 2.)
 
-    def forward(self, data, Ps, Gs, Hs, Gs_ref, Hs_ref, KGs, KHs, ns, type='img', **kwargs):
-        batch_size = data[0].shape[0]
-        device = data[0].device
-
+    def forward(self, data_dict, **kwargs):
         # extract graph feature
-        if type == 'img' or type == 'image':
+        if 'images' in data_dict:
+            # extract data
+            data = data_dict['images']
+            Ps = data_dict['Ps']
+            ns = data_dict['ns']
+            Gs = data_dict['Gs']
+            Hs = data_dict['Hs']
+            Gs_tgt = data_dict['Gs_tgt']
+            Hs_tgt = data_dict['Hs_tgt']
+            KGs = {k: v[0] for k, v in  data_dict['KGHs'].items()}
+            KHs = {k: v[1] for k, v in  data_dict['KGHs'].items()}
+
+            batch_size = data[0].shape[0]
+            device = data[0].device
+
             data_cat = torch.cat(data, dim=0)
             P_cat = torch.cat(pad_tensor(Ps), dim=0)
             n_cat = torch.cat(ns, dim=0)
             node = self.node_layers(data_cat)
             edge = self.edge_layers(node)
-            U = feature_align(node, P_cat, n_cat, cfg.PAIR.RESCALE)
-            F = feature_align(edge, P_cat, n_cat, cfg.PAIR.RESCALE)
+            U = feature_align(node, P_cat, n_cat, self.rescale)
+            F = feature_align(edge, P_cat, n_cat, self.rescale)
             feats = torch.cat((U, F), dim=1)
             feats = self.l2norm(feats)
             feats = torch.split(feats, batch_size, dim=0)
-        elif type == 'feat' or type == 'feature':
+        elif 'features' in data_dict:
+            # extract data
+            data = data_dict['features']
+            Ps = data_dict['Ps']
+            ns = data_dict['ns']
+            Gs = data_dict['Gs']
+            Hs = data_dict['Hs']
+            Gs_tgt = data_dict['Gs_tgt']
+            Hs_tgt = data_dict['Hs_tgt']
+            KGs = {k: v[0] for k, v in data_dict['KGHs'].items()}
+            KHs = {k: v[1] for k, v in data_dict['KGHs'].items()}
+
+            batch_size = data[0].shape[0]
+            device = data[0].device
+
             feats = data
         else:
-            raise ValueError('unknown type string {}'.format(type))
+            raise ValueError('Unknown data type for this model.')
 
         # extract reference graph feature
         feat_list = []
         joint_indices = [0]
-        iterator = zip(feats, Ps, Gs, Hs, Gs_ref, Hs_ref, ns)
-        for idx, (feat, P, G, H, G_ref, H_ref, n) in enumerate(iterator):
+        iterator = zip(feats, Ps, Gs, Hs, Gs_tgt, Hs_tgt, ns)
+        for idx, (feat, P, G, H, G_tgt, H_tgt, n) in enumerate(iterator):
             feat_list.append(
-                (idx,
-                 feat,
-                 P, G, H, G_ref, H_ref, n
-                 )
+                (
+                    idx,
+                    feat,
+                    P, G, H, G_tgt, H_tgt, n
+                )
             )
             joint_indices.append(joint_indices[-1] + P.shape[1])
 
@@ -126,7 +137,10 @@ class Net(CNN):
         joint_S_diag += 1
 
         pred_s = []
+        pred_x = []
         indices = []
+        gt_x = []
+
         for src, tgt in combinations(feat_list, 2):
             # pca forward
             src_idx, src_feat, P_src, G_src, H_src, _, __, n_src = src
@@ -152,18 +166,25 @@ class Net(CNN):
 
         matching_s = torch.stack(matching_s, dim=0)
 
+        gt_perm_mats = data_dict['gt_perm_mat']
+
         for idx1, idx2 in combinations(range(len(data)), 2):
             s = matching_s[:, joint_indices[idx1]:joint_indices[idx1+1], joint_indices[idx2]:joint_indices[idx2+1]]
             s = self.bi_stochastic2(s)
-            #s = torch.clamp(s, 0, 1)
+            x = torch.bmm(gt_perm_mats[idx1], gt_perm_mats[idx2].transpose(1, 2))
+
             pred_s.append(s)
+            pred_x.append(hungarian(s))
             indices.append((idx1, idx2))
+            gt_x.append(x)
 
-            #s = joint_S[:, joint_indices[idx1]:joint_indices[idx1+1], joint_indices[idx2]:joint_indices[idx2+1]]
-            #pred_s.append(s)
-            #indices.append((idx1, idx2))
-
-        return pred_s, indices
+        data_dict.update({
+            'ds_mat_list': pred_s,
+            'perm_mat_list': pred_x,
+            'graph_indices': indices,
+            'gt_perm_mat_list': gt_x
+        })
+        return data_dict
 
     def __ngm_forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, K_G, K_H, ns_src, ns_tgt):
         U_src = src[:, :src.shape[1] // 2, :]
@@ -186,22 +207,22 @@ class Net(CNN):
         #K_H = CSRMatrix3d(K_H).transpose().to(src.device)
 
         # affinity layer
-        Me, Mp = self.affinity_layer(X, Y, U_src, U_tgt)
+        Ke, Kp = self.affinity_layer(X, Y, U_src, U_tgt)
 
-        M = construct_m(Me, torch.zeros_like(Mp), K_G, K_H)
+        K = construct_aff_mat(Ke, torch.zeros_like(Kp), K_G, K_H)
 
-        A = (M > 0).to(M.dtype)
+        A = (K > 0).to(K.dtype)
 
         if cfg.NGM.FIRST_ORDER:
-            emb = Mp.transpose(1, 2).contiguous().view(Mp.shape[0], -1, 1)
+            emb = Kp.transpose(1, 2).contiguous().view(Kp.shape[0], -1, 1)
         else:
-            emb = torch.ones(M.shape[0], M.shape[1], 1, device=M.device)
+            emb = torch.ones(K.shape[0], K.shape[1], 1, device=K.device)
 
-        emb_M = M.unsqueeze(-1)
+        emb_K = K.unsqueeze(-1)
 
         for i in range(self.gnn_layer):
             gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
-            emb_M, emb = gnn_layer(A, emb_M, emb, ns_src, ns_tgt) #, norm=False)
+            emb_K, emb = gnn_layer(A, emb_K, emb, ns_src, ns_tgt) #, norm=False)
 
         v = self.classifier(emb)
         s = v.view(v.shape[0], U_tgt.shape[2], -1).transpose(1, 2)

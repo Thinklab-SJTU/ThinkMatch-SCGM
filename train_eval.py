@@ -31,7 +31,6 @@ def train_eval_model(model,
     since = time.time()
     dataset_size = len(dataloader['train'].dataset)
     displacement = Displacement()
-    lap_solver = hungarian
 
     device = next(model.parameters()).device
     print('model on device: {}'.format(device))
@@ -50,7 +49,7 @@ def train_eval_model(model,
         model_path = cfg.PRETRAINED_PATH
     if len(model_path) > 0:
         print('Loading model parameters from {}'.format(model_path))
-        load_model(model, model_path)
+        load_model(model, model_path, strict=False)
     if len(optim_path) > 0:
         print('Loading optimizer state from {}'.format(optim_path))
         optimizer.load_state_dict(torch.load(optim_path))

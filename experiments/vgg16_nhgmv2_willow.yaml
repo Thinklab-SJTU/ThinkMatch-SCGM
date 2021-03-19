@@ -1,15 +1,16 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_ngm
+MODEL_NAME: vgg16_nhgmv2
 DATASET_NAME: willow
 
 DATASET_FULL_NAME: WillowObject
 
-MODULE: models.NGM.model
+MODULE: models.NGM.hypermodel_v2
 
-BACKBONE: VGG16_bn
+BACKBONE: VGG16_bn_final
 
-#PRETRAINED_PATH: output/model_weights/pretrained_params_vgg16_ngm_willow.pt
+PRETRAINED_PATH: pretrained_weights/pretrained_params_vgg16_ngmv2_willow.pt  # init model for training
+# PRETRAINED_PATH: pretrained_weights/pretrained_params_vgg16_nhgmv2_willow.pt  # test with pretrained model
 
 BATCH_SIZE: 8
 DATALOADER_NUM: 2
@@ -22,17 +23,23 @@ GPUS:
   - 0
 #  - 1
 
-# Pairwise data configuration
+# Problem configuration
 PROBLEM:
   TYPE: 2GM
   RESCALE:  # rescaled image size
     - 256
     - 256
 
+# Graph construction settings
 GRAPH:
   SRC_GRAPH_CONSTRUCT: tri
-  TGT_GRAPH_CONSTRUCT: fc
+  TGT_GRAPH_CONSTRUCT: tri
   SYM_ADJACENCY: True
+
+# Willow object class dataset configuration
+WillowObject:
+  TRAIN_NUM: 20  # number of images for training set
+  SPLIT_OFFSET: 0  # the starting index of training set
 
 # Training settings
 TRAIN:
@@ -42,14 +49,16 @@ TRAIN:
 
   LOSS_FUNC: perm
 
+  OPTIMIZER: Adam
+
   # learning rate
-  LR: 1.0e-2
+  LR: 2.e-4
+  SEPARATE_BACKBONE_LR: True
+  BACKBONE_LR: 2.e-6
   MOMENTUM: 0.9
-  LR_DECAY: 0.1
+  LR_DECAY: 0.5
   LR_STEP:  # (in epochs)
-    #- 1
-    - 5
-    #- 10
+    - 2
 
   EPOCH_ITERS: 100  # iterations per epoch
 
@@ -57,15 +66,15 @@ TRAIN:
 
 # Evaluation settings and PCK metric
 EVAL:
-  EPOCH: 0  # epoch to be tested
+  EPOCH: 5  # epoch to be tested
   SAMPLES: 100  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:
   EPOCH: 0  # epoch to be visualized
-  CLASS: person  # none for random choosing classes, else specify a class name
+  CLASS: none  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 100  # number of images to be visualized
+  NUM_IMGS: 20  # number of images to be visualized
 
 # model parameters
 NGM:
@@ -83,3 +92,4 @@ NGM:
   SK_EMB: 1
   FIRST_ORDER: True
   EDGE_EMB: False
+  POSITIVE_EDGES: False
