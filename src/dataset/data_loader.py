@@ -58,10 +58,14 @@ class GMDataset(Dataset):
         edge_attr = np.clip(edge_attr, 0, 1)
         assert (edge_attr > -1e-5).all(), P
 
+        o3_A = np.expand_dims(A, axis=0) * np.expand_dims(A, axis=1) * np.expand_dims(A, axis=2)
+        hyperedge_index = np.nonzero(o3_A)
+
         pyg_graph = pyg.data.Data(
             x=torch.tensor(P / rescale).to(torch.float32),
             edge_index=torch.tensor(np.array(edge_index), dtype=torch.long),
-            edge_attr=torch.tensor(edge_attr).to(torch.float32)
+            edge_attr=torch.tensor(edge_attr).to(torch.float32),
+            hyperedge_index=torch.tensor(np.array(hyperedge_index), dtype=torch.long),
         )
         return pyg_graph
 
