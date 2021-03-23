@@ -290,7 +290,7 @@ if __name__ == '__main__':
         alphas = torch.tensor(cfg.EVAL.PCK_ALPHAS, dtype=torch.float32, device=device)
 
         model_path = ''
-        if cfg.EVAL.EPOCH is not None:
+        if cfg.EVAL.EPOCH is not None and cfg.EVAL.EPOCH > 0:
             model_path = str(Path(cfg.OUTPUT_PATH) / 'params' / 'params_{:04}.pt'.format(cfg.EVAL.EPOCH))
         if len(cfg.PRETRAINED_PATH) > 0:
             model_path = cfg.PRETRAINED_PATH

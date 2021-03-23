@@ -42,7 +42,7 @@ def train_eval_model(model,
         checkpoint_path.mkdir(parents=True)
 
     model_path, optim_path = '',''
-    if start_epoch != 0:
+    if start_epoch > 0:
         model_path = str(checkpoint_path / 'params_{:04}.pt'.format(start_epoch))
         optim_path = str(checkpoint_path / 'optim_{:04}.pt'.format(start_epoch))
     if len(cfg.PRETRAINED_PATH) > 0:
