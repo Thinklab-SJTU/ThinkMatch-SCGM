@@ -5,7 +5,7 @@ from pathlib import Path
 
 def parse_args(description):
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('--cfg', dest='cfg_file', action='append',
+    parser.add_argument('--cfg', '--config', dest='cfg_file', action='append',
                         help='an optional config file', default=None, type=str)
     parser.add_argument('--batch', dest='batch_size',
                         help='batch size', default=None, type=int)
