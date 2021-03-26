@@ -139,6 +139,8 @@ class PhotoTourism(BaseDataset):
 
         with np.load(str(npz_file)) as npz_anno:
             kpts = npz_anno['points']
+            if len(kpts.shape) != 2:
+                ValueError('{} contains no keypoints.'.format(img_file))
 
         keypoint_list = []
         for i in range(kpts.shape[1]):
