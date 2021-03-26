@@ -1,0 +1,85 @@
+# VGG16 model with Pascal VOC dataset
+
+MODEL_NAME: vgg16_gann-mgm
+DATASET_NAME: photo-tour
+
+DATASET_FULL_NAME: PhotoTourism
+
+MODULE: models.GANN.model
+
+BACKBONE: VGG16_bn
+
+BATCH_SIZE: 1
+DATALOADER_NUM: 0
+FP16: False
+
+RANDOM_SEED: 123
+
+# available GPU ids
+GPUS:
+  - 0
+#  - 1
+
+# Problem configuration
+PROBLEM:
+  TYPE: MGM
+  RESCALE:  # rescaled image size
+    - 512
+    - 512
+  NUM_GRAPHS: 8
+  TRAIN_ALL_GRAPHS: False
+  TEST_ALL_GRAPHS: False
+
+# Graph construction settings
+GRAPH:
+  SRC_GRAPH_CONSTRUCT: fc
+  SYM_ADJACENCY: True
+
+# Training settings
+TRAIN:
+  # start, end epochs
+  START_EPOCH: 0
+  NUM_EPOCHS: 10
+
+  LOSS_FUNC: perm
+
+  # learning rate
+  LR: 1.0e-3
+  MOMENTUM: 0.9
+  LR_DECAY: 0.1
+  LR_STEP:  # (in epochs)
+    - 2
+
+  EPOCH_ITERS: 100  # iterations per epoch
+
+  CLASS: none
+
+# Evaluation settings and PCK metric
+EVAL:
+  EPOCH: 10  # epoch to be tested
+  SAMPLES: 10 # number of tests for each class
+
+# Visualization settings
+VISUAL:
+  EPOCH: 0  # epoch to be visualized
+  CLASS: person  # none for random choosing classes, else specify a class name
+  SAVE: True  # save images as files, else plot images via matplotlib
+  NUM_IMGS: 100  # number of images to be visualized
+
+# model parameters
+GANN:
+  FEATURE_CHANNEL: 1024
+  SK_ITER_NUM: 20
+  SK_TAU: 0.05
+  SK_EPSILON: 1.0e-10
+  UNIV_SIZE: 50
+  MGM_ITER:
+    - 500
+  INIT_TAU:
+    - 0.1
+  GAMMA: 0.8
+  CONVERGE_TOL: 1.0e-3
+  MIN_TAU:
+    - 1.0e-2
+  SCALE_FACTOR: 1.
+  QUAD_WEIGHT: 0.5 #1.
