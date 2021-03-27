@@ -25,11 +25,13 @@ class PhotoTourism(BaseDataset):
         self.img_lists = [np.load(self.root_path_npz / cls / 'img_info.npz')['img_name'].tolist()
                           for cls in self.classes]
 
-    def get_pair(self, cls=None, shuffle=True):
+    def get_pair(self, cls=None, shuffle=True, tgt_outlier=False, src_outlier=False):
         """
-        Randomly get a pair of objects from WILLOW-object dataset
+        Randomly get a pair of objects from Photo Tourism dataset
         :param cls: None for random class, or specify for a certain set
         :param shuffle: random shuffle the keypoints
+        :param src_outlier: allow outlier in the source graph (first graph)
+        :param tgt_outlier: allow outlier in the target graph (second graph)
         :return: (pair of data, groundtruth permutation matrix)
         """
         if cls is None:
@@ -58,14 +60,16 @@ class PhotoTourism(BaseDataset):
                     break
         row_list.sort()
         col_list.sort()
-        perm_mat = perm_mat[row_list, :]
-        perm_mat = perm_mat[:, col_list]
-        anno_pair[0]['keypoints'] = [anno_pair[0]['keypoints'][i] for i in row_list]
-        anno_pair[1]['keypoints'] = [anno_pair[1]['keypoints'][j] for j in col_list]
+        if not src_outlier:
+            perm_mat = perm_mat[row_list, :]
+            anno_pair[0]['keypoints'] = [anno_pair[0]['keypoints'][i] for i in row_list]
+        if not tgt_outlier:
+            perm_mat = perm_mat[:, col_list]
+            anno_pair[1]['keypoints'] = [anno_pair[1]['keypoints'][j] for j in col_list]
 
         return anno_pair, perm_mat
 
-    def get_multi(self, cls=None, num=2, shuffle=True):
+    def get_multi(self, cls=None, num=2, shuffle=True, filter_outlier=False):
         """
         Randomly get multiple objects from Willow Object Class dataset for multi-matching.
         :param cls: None for random class, or specify for a certain set
@@ -73,6 +77,8 @@ class PhotoTourism(BaseDataset):
         :param shuffle: random shuffle the keypoints
         :return: (list of data, list of permutation matrices)
         """
+        assert not filter_outlier, 'Multi-matching on PhotoTourism dataset with filtered outliers is not supported'
+
         if cls is None:
             cls = random.randrange(0, len(self.classes))
         elif type(cls) == str:
@@ -87,10 +93,6 @@ class PhotoTourism(BaseDataset):
             anno_list.append(anno_dict)
 
         perm_mat = [np.zeros([len(anno_list[0]['keypoints']), len(x['keypoints'])], dtype=np.float32) for x in anno_list]
-        row_list = []
-        col_lists = []
-        for i in range(num):
-            col_lists.append([])
         for i, keypoint in enumerate(anno_list[0]['keypoints']):
             kpt_idx = []
             for anno_dict in anno_list:
@@ -99,22 +101,12 @@ class PhotoTourism(BaseDataset):
                     kpt_idx.append(kpt_name_list.index(keypoint['name']))
                 else:
                     kpt_idx.append(-1)
-            row_list.append(i)
             for k in range(num):
                 j = kpt_idx[k]
                 if j != -1:
-                    col_lists[k].append(j)
                     if keypoint['name'] != 'outlier':
                         perm_mat[k][i, j] = 1
-
-        row_list.sort()
-        for col_list in col_lists:
-            col_list.sort()
-
         for k in range(num):
-            perm_mat[k] = perm_mat[k][row_list, :]
-            perm_mat[k] = perm_mat[k][:, col_lists[k]]
-            anno_list[k]['keypoints'] = [anno_list[k]['keypoints'][j] for j in col_lists[k]]
             perm_mat[k] = perm_mat[k].transpose()
 
         return anno_list, perm_mat
