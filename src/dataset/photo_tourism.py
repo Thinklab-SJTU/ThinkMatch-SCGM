@@ -75,6 +75,7 @@ class PhotoTourism(BaseDataset):
         :param cls: None for random class, or specify for a certain set
         :param num: number of objects to be fetched
         :param shuffle: random shuffle the keypoints
+        :param filter_outlier: filter out outlier keypoints among images
         :return: (list of data, list of permutation matrices)
         """
         assert not filter_outlier, 'Multi-matching on PhotoTourism dataset with filtered outliers is not supported'
