@@ -45,7 +45,7 @@ class Net(CNN):
         """
         num_clusters = cfg.PROBLEM.NUM_CLUSTERS
         if cfg.PROBLEM.TYPE == '2GM':
-            raise ValueError('Unsupported problem type 2GM for GANN model.')
+            assert num_clusters == 1
         elif cfg.PROBLEM.TYPE == 'MGM':
             assert num_clusters == 1
         else:
@@ -69,21 +69,33 @@ class Net(CNN):
         sinkhorn_pairwise_preds, hungarian_pairwise_preds, multi_graph_preds, indices = \
             self.collect_intra_class_matching_wrapper(U[0], Wds[0], mscum[0], cls_indicator[0]) # we assume batch_size=1
 
-        if self.training:
-            data_dict.update({
-                'ds_mat_list': sinkhorn_pairwise_preds,
-                'perm_mat_list': hungarian_pairwise_preds,
-                'gt_perm_mat_list': multi_graph_preds, # pseudo label during training
-                'graph_indices': indices,
-            })
+        if cfg.PROBLEM.TYPE == '2GM':
+            if self.training:
+                data_dict.update({
+                    'ds_mat': sinkhorn_pairwise_preds[0],
+                    'perm_mat': hungarian_pairwise_preds[0],
+                    'gt_perm_mat': multi_graph_preds[0],  # pseudo label during training
+                })
+            else:
+                data_dict.update({
+                    'perm_mat': multi_graph_preds[0],
+                })
         else:
-            gt_perm_mats = data_dict['gt_perm_mat']
-            gt_x = [torch.bmm(gt_perm_mats[idx1], gt_perm_mats[idx2].transpose(1, 2)) for idx1, idx2 in indices]
-            data_dict.update({
-                'perm_mat_list': multi_graph_preds,
-                'gt_perm_mat_list': gt_x,
-                'graph_indices': indices,
-            })
+            if self.training:
+                data_dict.update({
+                    'ds_mat_list': sinkhorn_pairwise_preds,
+                    'perm_mat_list': hungarian_pairwise_preds,
+                    'gt_perm_mat_list': multi_graph_preds, # pseudo label during training
+                    'graph_indices': indices,
+                })
+            else:
+                gt_perm_mats = data_dict['gt_perm_mat']
+                gt_x = [torch.bmm(gt_perm_mats[idx1], gt_perm_mats[idx2].transpose(1, 2)) for idx1, idx2 in indices]
+                data_dict.update({
+                    'perm_mat_list': multi_graph_preds,
+                    'gt_perm_mat_list': gt_x,
+                    'graph_indices': indices,
+                })
 
         if num_clusters > 1:
             data_dict['pred_cluster'] = cluster_v
