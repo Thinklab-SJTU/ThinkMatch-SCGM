@@ -79,17 +79,13 @@ GANN:
   UNIV_SIZE: 15
   MGM_ITER:
     - 1000
-    - 1000
   INIT_TAU:
     - 0.05
-    - 0.05
   BETA:
-    - 0.9
-    - 0.
+    - 1
   GAMMA: 0.8
   CONVERGE_TOL: 1.0e-3
   MIN_TAU:
-    - 1.0e-3
     - 1.0e-3
   SCALE_FACTOR: 1.
   QUAD_WEIGHT: 0.05
