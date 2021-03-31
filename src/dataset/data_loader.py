@@ -77,7 +77,7 @@ class GMDataset(Dataset):
         except TypeError:
             anno_pair, perm_mat = self.ds.get_pair(cls)
         if min(perm_mat.shape[0], perm_mat.shape[1]) <= 2 or perm_mat.size >= cfg.PROBLEM.MAX_PROB_SIZE > 0:
-            return self.__getitem__(idx)
+            return self.get_pair(idx, cls)
 
         cls = [anno['cls'] for anno in anno_pair]
         P1 = [(kp['x'], kp['y']) for kp in anno_pair[0]['keypoints']]
@@ -140,7 +140,7 @@ class GMDataset(Dataset):
                 refetch = True
                 break
         if refetch:
-            return self.__getitem__(idx)
+            return self.get_multi(idx, cls)
 
         cls = [anno['cls'] for anno in anno_list]
         Ps = [[(kp['x'], kp['y']) for kp in anno_dict['keypoints']] for anno_dict in anno_list]
