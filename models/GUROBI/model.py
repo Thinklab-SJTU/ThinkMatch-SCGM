@@ -5,7 +5,7 @@ from src.lap_solvers.sinkhorn import Sinkhorn, GumbelSinkhorn
 from models.GMN.displacement_layer import Displacement
 from src.build_graphs import reshape_edge_feature
 from src.feature_align import feature_align
-from src.factorize_graph_matching import construct_m
+from src.factorize_graph_matching import construct_aff_mat
 from models.NGM.gnn import GNNLayer
 from models.NGM.geo_edge_feature import geo_edge_feature
 from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
@@ -74,7 +74,7 @@ class Net(CNN):
             # affinity layer
             Me, Mp = self.affinity_layer(X, Y, U_src, U_tgt)
 
-            K = construct_m(Me, torch.zeros_like(Mp), K_G, K_H)
+            K = construct_aff_mat(Me, torch.zeros_like(Mp), K_G, K_H)
 
         else:
             K = src
