@@ -24,8 +24,8 @@ class Net(CNN):
         super(Net, self).__init__()
         self.affinity_layer = AffinityInp(cfg.GANN.FEATURE_CHANNEL)
         self.tau = cfg.GANN.SK_TAU
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.GANN.SK_ITER_NUM,
-                                      tau=self.tau, epsilon=cfg.GANN.SK_EPSILON, batched_operation=False)
+        self.sinkhorn = Sinkhorn(max_iter=cfg.GANN.SK_ITER_NUM,
+                                 tau=self.tau, epsilon=cfg.GANN.SK_EPSILON, batched_operation=False)
         self.l2norm = nn.LocalResponseNorm(cfg.GANN.FEATURE_CHANNEL * 2, alpha=cfg.GANN.FEATURE_CHANNEL * 2, beta=0.5, k=0)
         self.univ_size = torch.tensor(cfg.GANN.UNIV_SIZE)
         self.quad_weight = cfg.GANN.QUAD_WEIGHT
@@ -164,7 +164,6 @@ class Net(CNN):
                 A[b][start_idx:end_idx, start_idx:end_idx] += A_ii[b, :n[b], :n[b]]
 
         # compute similarity matrix W
-        W = [torch.zeros(m.item(), m.item(), device=self.device) for m in mssum]
         Wds = [torch.zeros(m.item(), m.item(), device=self.device) for m in mssum]
         for src, tgt in product(feat_list, repeat=2):
             src_idx, src_feat, P_src, A_src, n_src = src
@@ -179,13 +178,11 @@ class Net(CNN):
                 end_y = mscum[b, tgt_idx]
                 W_ijb = W_ij[b, :n_src[b], :n_tgt[b]]
                 if end_y - start_y >= end_x - start_x:
-                    W_ij_ds = self.bi_stochastic(W_ijb, dummy_row=True)
+                    W_ij_ds = self.sinkhorn(W_ijb, dummy_row=True)
                 else:
-                    W_ij_ds = self.bi_stochastic(W_ijb.t(), dummy_row=True).t()
-                W[b][start_x:end_x, start_y:end_y] += W_ijb
+                    W_ij_ds = self.sinkhorn(W_ijb.t(), dummy_row=True).t()
                 Wds[b][start_x:end_x, start_y:end_y] += W_ij_ds
                 if src_idx != tgt_idx:
-                    W[b][start_y:end_y, start_x:end_x] += W_ijb.t()
                     Wds[b][start_y:end_y, start_x:end_x] += W_ij_ds.t()
 
         # compute fused similarity W_bar
