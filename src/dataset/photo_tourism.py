@@ -93,20 +93,11 @@ class PhotoTourism(BaseDataset):
                 random.shuffle(anno_dict['keypoints'])
             anno_list.append(anno_dict)
 
-        perm_mat = [np.zeros([len(anno_list[0]['keypoints']), len(x['keypoints'])], dtype=np.float32) for x in anno_list]
-        for i, keypoint in enumerate(anno_list[0]['keypoints']):
-            kpt_idx = []
-            for anno_dict in anno_list:
-                kpt_name_list = [x['name'] for x in anno_dict['keypoints']]
-                if keypoint['name'] in kpt_name_list:
-                    kpt_idx.append(kpt_name_list.index(keypoint['name']))
-                else:
-                    kpt_idx.append(-1)
-            for k in range(num):
-                j = kpt_idx[k]
-                if j != -1:
-                    if keypoint['name'] != 'outlier':
-                        perm_mat[k][i, j] = 1
+        perm_mat = [np.zeros([self.total_kpt_num, len(x['keypoints'])], dtype=np.float32) for x in anno_list]
+        for k, anno_dict in enumerate(anno_list):
+            kpt_name_list = [x['name'] for x in anno_dict['keypoints']]
+            for j, name in enumerate(kpt_name_list):
+                perm_mat[k][name, j] = 1
         for k in range(num):
             perm_mat[k] = perm_mat[k].transpose()
 
