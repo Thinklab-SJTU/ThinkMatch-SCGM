@@ -155,6 +155,8 @@ class Net(CNN):
             median_lens = torch.median(torch.flatten(edge_lens, start_dim=-2), dim=-1).values
             median_lens = median_lens.unsqueeze(-1).unsqueeze(-1)
             A_ii = torch.exp(- edge_lens ** 2 / median_lens ** 2 / cfg.GANN.SCALE_FACTOR)
+            if cfg.GANN.NORM_QUAD_TERM:
+                A_ii = A_ii / n * self.univ_size
             diag_A_ii = torch.diagonal(A_ii, dim1=-2, dim2=-1)
             diag_A_ii[:] = 0
 
