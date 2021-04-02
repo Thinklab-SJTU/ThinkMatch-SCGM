@@ -140,7 +140,7 @@ class PhotoTourism(BaseDataset):
         anno_dict['keypoints'] = keypoint_list
         anno_dict['bounds'] = xmin, ymin, w, h
         anno_dict['ori_sizes'] = ori_sizes
-        anno_dict['cls'] = cls
+        anno_dict['cls'] = self.classes[cls]
 
         return anno_dict
 
