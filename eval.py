@@ -130,7 +130,7 @@ def eval_model(model, alphas, dataloader, verbose=False, xls_sheet=None):
 
             if iter_num % cfg.STATISTIC_STEP == 0 and verbose:
                 running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)
-                print('Class {:<8} Iteration {:<4} {:>4.2f}sample/s'.format(cls, iter_num, running_speed))
+                print('Class {} Iteration {:<4} {:>4.2f}sample/s'.format(cls, iter_num, running_speed))
                 running_since = time.time()
 
         pcks[i] = pck_match_num / pck_total_num
