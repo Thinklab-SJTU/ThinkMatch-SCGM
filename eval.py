@@ -296,7 +296,7 @@ if __name__ == '__main__':
             model_path = cfg.PRETRAINED_PATH
         if len(model_path) > 0:
             print('Loading model parameters from {}'.format(model_path))
-            load_model(model, model_path)
+            load_model(model, model_path, strict=False)
 
         pcks = eval_model(
             model, alphas, dataloader,
