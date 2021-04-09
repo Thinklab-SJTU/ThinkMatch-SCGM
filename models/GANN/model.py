@@ -187,11 +187,6 @@ class Net(CNN):
                 if src_idx != tgt_idx:
                     Wds[b][start_y:end_y, start_x:end_x] += W_ij_ds.t()
 
-        # compute fused similarity W_bar
-        W_bar = []
-        for A_, W_ in zip(A, Wds):
-            W_bar.append(torch.chain_matmul(W_.t(), A_, W_))
-
         # GANN
         U = [[] for _ in range(batch_size)]
         cluster_v = []
