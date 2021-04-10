@@ -257,6 +257,7 @@ if __name__ == '__main__':
     from src.utils.dup_stdout_manager import DupStdoutFileManager
     from src.utils.parse_args import parse_args
     from src.utils.print_easydict import print_easydict
+    from src.utils.count_model_params import count_parameters
 
     args = parse_args('Deep learning of graph matching evaluation code.')
 
@@ -287,6 +288,7 @@ if __name__ == '__main__':
     ws = wb.add_sheet('epoch{}'.format(cfg.EVAL.EPOCH))
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('eval_log_' + now_time + '.log'))) as _:
         print_easydict(cfg)
+        print('Number of parameters: {:.2f}M'.format(count_parameters(model) / 1e6))
         alphas = torch.tensor(cfg.EVAL.PCK_ALPHAS, dtype=torch.float32, device=device)
 
         model_path = ''
