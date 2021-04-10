@@ -128,8 +128,10 @@ class PhotoTourism(BaseDataset):
 
         keypoint_list = []
         for i in range(kpts.shape[1]):
+            kpt_index = int(kpts[0, i])
+            assert kpt_index < self.total_kpt_num
             attr = {
-                'name': int(round(kpts[0, i])),
+                'name': kpt_index,
                 'x': kpts[1, i] * self.obj_resize[0] / w,
                 'y': kpts[2, i] * self.obj_resize[1] / h
             }
