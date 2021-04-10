@@ -224,6 +224,7 @@ class CUB2011(BaseDataset):
         anno_dict['bounds'] = xmin, ymin, w, h
         anno_dict['ori_sizes'] = ori_sizes
         anno_dict['cls'] = self.classes[cls]
+        anno_dict['univ_size'] = 15
 
         return anno_dict
 

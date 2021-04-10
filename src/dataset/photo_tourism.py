@@ -141,6 +141,7 @@ class PhotoTourism(BaseDataset):
         anno_dict['bounds'] = xmin, ymin, w, h
         anno_dict['ori_sizes'] = ori_sizes
         anno_dict['cls'] = self.classes[cls]
+        anno_dict['univ_size'] = self.total_kpt_num
 
         return anno_dict
 
