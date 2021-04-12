@@ -86,7 +86,6 @@ def eval_model(model, alphas, dataloader, verbose=False, xls_sheet=None):
                 recall_list.append(recall)
                 precision, _, __ = matching_precision(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
                 precision_list.append(precision)
-                precision_list.append(precision)
                 f1 = 2 * (precision * recall) / (precision + recall)
                 f1[torch.isnan(f1)] = 0
                 f1_list.append(f1)
