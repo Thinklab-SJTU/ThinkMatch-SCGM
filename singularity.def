@@ -24,6 +24,9 @@ Stage: build
     /opt/conda/bin/pip install torch-spline-conv -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
     /opt/conda/bin/pip install torch-geometric
 
+    update-alternatives --remove gcc /usr/bin/gcc-9
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7
+
 %labels
     Maintainer runzhong.wang@sjtu.edu.cn
 

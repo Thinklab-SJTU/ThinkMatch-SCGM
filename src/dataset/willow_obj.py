@@ -197,6 +197,7 @@ class WillowObject(BaseDataset):
         anno_dict['bounds'] = xmin, ymin, w, h
         anno_dict['ori_sizes'] = ori_sizes
         anno_dict['cls'] = cls
+        anno_dict['univ_size'] = 10
 
         return anno_dict
 

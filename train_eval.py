@@ -42,7 +42,7 @@ def train_eval_model(model,
         checkpoint_path.mkdir(parents=True)
 
     model_path, optim_path = '',''
-    if start_epoch != 0:
+    if start_epoch > 0:
         model_path = str(checkpoint_path / 'params_{:04}.pt'.format(start_epoch))
         optim_path = str(checkpoint_path / 'optim_{:04}.pt'.format(start_epoch))
     if len(cfg.PRETRAINED_PATH) > 0:
@@ -216,6 +216,7 @@ if __name__ == '__main__':
     from src.utils.dup_stdout_manager import DupStdoutFileManager
     from src.utils.parse_args import parse_args
     from src.utils.print_easydict import print_easydict
+    from src.utils.count_model_params import count_parameters
 
     args = parse_args('Deep learning of graph matching training & evaluation code.')
 
@@ -295,6 +296,7 @@ if __name__ == '__main__':
 
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('train_log_' + now_time + '.log'))) as _:
         print_easydict(cfg)
+        print('Number of parameters: {:.2f}M'.format(count_parameters(model) / 1e6))
         model = train_eval_model(model, criterion, optimizer, dataloader, tfboardwriter,
                                  num_epochs=cfg.TRAIN.NUM_EPOCHS,
                                  start_epoch=cfg.TRAIN.START_EPOCH,

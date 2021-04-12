@@ -77,13 +77,14 @@ class GMDataset(Dataset):
         except TypeError:
             anno_pair, perm_mat = self.ds.get_pair(cls)
         if min(perm_mat.shape[0], perm_mat.shape[1]) <= 2 or perm_mat.size >= cfg.PROBLEM.MAX_PROB_SIZE > 0:
-            return self.__getitem__(idx)
+            return self.get_pair(idx, cls)
 
         cls = [anno['cls'] for anno in anno_pair]
         P1 = [(kp['x'], kp['y']) for kp in anno_pair[0]['keypoints']]
         P2 = [(kp['x'], kp['y']) for kp in anno_pair[1]['keypoints']]
 
         n1, n2 = len(P1), len(P2)
+        univ_size = [anno['univ_size'] for anno in anno_pair]
 
         P1 = np.array(P1)
         P2 = np.array(P2)
@@ -108,7 +109,8 @@ class GMDataset(Dataset):
                     'Hs': [torch.Tensor(x) for x in [H1, H2]],
                     'As': [torch.Tensor(x) for x in [A1, A2]],
                     'pyg_graphs': [pyg_graph1, pyg_graph2],
-                    'cls': [str(x) for x in cls]
+                    'cls': [str(x) for x in cls],
+                    'univ_size': [torch.tensor(int(x)) for x in univ_size],
                     }
 
         imgs = [anno['image'] for anno in anno_pair]
@@ -140,12 +142,13 @@ class GMDataset(Dataset):
                 refetch = True
                 break
         if refetch:
-            return self.__getitem__(idx)
+            return self.get_multi(idx, cls)
 
         cls = [anno['cls'] for anno in anno_list]
         Ps = [[(kp['x'], kp['y']) for kp in anno_dict['keypoints']] for anno_dict in anno_list]
 
         ns = [len(P) for P in Ps]
+        univ_size = [anno['univ_size'] for anno in anno_list]
 
         Ps = [np.array(P) for P in Ps]
 
@@ -191,6 +194,7 @@ class GMDataset(Dataset):
             'pyg_graphs': pyg_graphs,
             'pyg_graphs_tgt': pyg_graphs_tgt,
             'cls': [str(x) for x in cls],
+            'univ_size': [torch.tensor(int(x)) for x in univ_size],
         }
 
         imgs = [anno['image'] for anno in anno_list]
@@ -356,6 +360,7 @@ def collate_fn(data: list):
         ret['aff_mat'] = aff_mat
 
     ret['batch_size'] = len(data)
+    ret['univ_size'] = torch.tensor([max(*[item[b] for item in ret['univ_size']]) for b in range(ret['batch_size'])])
 
     for v in ret.values():
         if type(v) is list:

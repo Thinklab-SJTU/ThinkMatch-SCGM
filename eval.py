@@ -86,7 +86,6 @@ def eval_model(model, alphas, dataloader, verbose=False, xls_sheet=None):
                 recall_list.append(recall)
                 precision, _, __ = matching_precision(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
                 precision_list.append(precision)
-                precision_list.append(precision)
                 f1 = 2 * (precision * recall) / (precision + recall)
                 f1[torch.isnan(f1)] = 0
                 f1_list.append(f1)
@@ -130,7 +129,7 @@ def eval_model(model, alphas, dataloader, verbose=False, xls_sheet=None):
 
             if iter_num % cfg.STATISTIC_STEP == 0 and verbose:
                 running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)
-                print('Class {:<8} Iteration {:<4} {:>4.2f}sample/s'.format(cls, iter_num, running_speed))
+                print('Class {} Iteration {:<4} {:>4.2f}sample/s'.format(cls, iter_num, running_speed))
                 running_since = time.time()
 
         pcks[i] = pck_match_num / pck_total_num
@@ -257,6 +256,7 @@ if __name__ == '__main__':
     from src.utils.dup_stdout_manager import DupStdoutFileManager
     from src.utils.parse_args import parse_args
     from src.utils.print_easydict import print_easydict
+    from src.utils.count_model_params import count_parameters
 
     args = parse_args('Deep learning of graph matching evaluation code.')
 
@@ -287,16 +287,17 @@ if __name__ == '__main__':
     ws = wb.add_sheet('epoch{}'.format(cfg.EVAL.EPOCH))
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('eval_log_' + now_time + '.log'))) as _:
         print_easydict(cfg)
+        print('Number of parameters: {:.2f}M'.format(count_parameters(model) / 1e6))
         alphas = torch.tensor(cfg.EVAL.PCK_ALPHAS, dtype=torch.float32, device=device)
 
         model_path = ''
-        if cfg.EVAL.EPOCH is not None:
+        if cfg.EVAL.EPOCH is not None and cfg.EVAL.EPOCH > 0:
             model_path = str(Path(cfg.OUTPUT_PATH) / 'params' / 'params_{:04}.pt'.format(cfg.EVAL.EPOCH))
         if len(cfg.PRETRAINED_PATH) > 0:
             model_path = cfg.PRETRAINED_PATH
         if len(model_path) > 0:
             print('Loading model parameters from {}'.format(model_path))
-            load_model(model, model_path)
+            load_model(model, model_path, strict=False)
 
         pcks = eval_model(
             model, alphas, dataloader,

@@ -202,15 +202,18 @@ class PascalVOC:
 
         return anno_pair, perm_mat
 
-    def get_multi(self, cls=None, num=2, shuffle=True):
+    def get_multi(self, cls=None, num=2, shuffle=True, filter_outlier=True):
         """
         Randomly get multiple objects from VOC-Berkeley keypoints dataset for multi-matching.
         The first image is fetched with all appeared keypoints, and the rest images are fetched with only inliers.
         :param cls: None for random class, or specify for a certain set
         :param num: number of objects to be fetched
         :param shuffle: random shuffle the keypoints
+        :param filter_outlier: filter out outlier keypoints among images
         :return: (list of data, list of permutation matrices)
         """
+        assert filter_outlier == True, 'Multi-matching on PascalVOC dataset with unfiltered outliers is not supported'
+
         if cls is None:
             cls = random.randrange(0, len(self.classes))
         elif type(cls) == str:
@@ -332,6 +335,7 @@ class PascalVOC:
         anno_dict['bounds'] = xmin, ymin, w, h
         anno_dict['ori_sizes'] = ori_sizes
         anno_dict['cls'] = self.classes[cls]
+        anno_dict['univ_size'] = len(KPT_NAMES[anno_dict['cls']])
 
         return anno_dict
 

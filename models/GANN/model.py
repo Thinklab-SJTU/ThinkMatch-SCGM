@@ -24,8 +24,8 @@ class Net(CNN):
         super(Net, self).__init__()
         self.affinity_layer = AffinityInp(cfg.GANN.FEATURE_CHANNEL)
         self.tau = cfg.GANN.SK_TAU
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.GANN.SK_ITER_NUM,
-                                      tau=self.tau, epsilon=cfg.GANN.SK_EPSILON, batched_operation=False)
+        self.sinkhorn = Sinkhorn(max_iter=cfg.GANN.SK_ITER_NUM,
+                                 tau=self.tau, epsilon=cfg.GANN.SK_EPSILON, batched_operation=False)
         self.l2norm = nn.LocalResponseNorm(cfg.GANN.FEATURE_CHANNEL * 2, alpha=cfg.GANN.FEATURE_CHANNEL * 2, beta=0.5, k=0)
         self.univ_size = torch.tensor(cfg.GANN.UNIV_SIZE)
         self.quad_weight = cfg.GANN.QUAD_WEIGHT
@@ -45,7 +45,7 @@ class Net(CNN):
         """
         num_clusters = cfg.PROBLEM.NUM_CLUSTERS
         if cfg.PROBLEM.TYPE == '2GM':
-            raise ValueError('Unsupported problem type 2GM for GANN model.')
+            assert num_clusters == 1
         elif cfg.PROBLEM.TYPE == 'MGM':
             assert num_clusters == 1
         else:
@@ -69,21 +69,33 @@ class Net(CNN):
         sinkhorn_pairwise_preds, hungarian_pairwise_preds, multi_graph_preds, indices = \
             self.collect_intra_class_matching_wrapper(U[0], Wds[0], mscum[0], cls_indicator[0]) # we assume batch_size=1
 
-        if self.training:
-            data_dict.update({
-                'ds_mat_list': sinkhorn_pairwise_preds,
-                'perm_mat_list': hungarian_pairwise_preds,
-                'gt_perm_mat_list': multi_graph_preds, # pseudo label during training
-                'graph_indices': indices,
-            })
+        if cfg.PROBLEM.TYPE == '2GM':
+            if self.training:
+                data_dict.update({
+                    'ds_mat': sinkhorn_pairwise_preds[0],
+                    'perm_mat': hungarian_pairwise_preds[0],
+                    'gt_perm_mat': multi_graph_preds[0],  # pseudo label during training
+                })
+            else:
+                data_dict.update({
+                    'perm_mat': multi_graph_preds[0],
+                })
         else:
-            gt_perm_mats = data_dict['gt_perm_mat']
-            gt_x = [torch.bmm(gt_perm_mats[idx1], gt_perm_mats[idx2].transpose(1, 2)) for idx1, idx2 in indices]
-            data_dict.update({
-                'perm_mat_list': multi_graph_preds,
-                'gt_perm_mat_list': gt_x,
-                'graph_indices': indices,
-            })
+            if self.training:
+                data_dict.update({
+                    'ds_mat_list': sinkhorn_pairwise_preds,
+                    'perm_mat_list': hungarian_pairwise_preds,
+                    'gt_perm_mat_list': multi_graph_preds, # pseudo label during training
+                    'graph_indices': indices,
+                })
+            else:
+                gt_perm_mats = data_dict['gt_perm_mat']
+                gt_x = [torch.bmm(gt_perm_mats[idx1], gt_perm_mats[idx2].transpose(1, 2)) for idx1, idx2 in indices]
+                data_dict.update({
+                    'perm_mat_list': multi_graph_preds,
+                    'gt_perm_mat_list': gt_x,
+                    'graph_indices': indices,
+                })
 
         if num_clusters > 1:
             data_dict['pred_cluster'] = cluster_v
@@ -143,6 +155,8 @@ class Net(CNN):
             median_lens = torch.median(torch.flatten(edge_lens, start_dim=-2), dim=-1).values
             median_lens = median_lens.unsqueeze(-1).unsqueeze(-1)
             A_ii = torch.exp(- edge_lens ** 2 / median_lens ** 2 / cfg.GANN.SCALE_FACTOR)
+            if cfg.GANN.NORM_QUAD_TERM:
+                A_ii = A_ii / n * self.univ_size
             diag_A_ii = torch.diagonal(A_ii, dim1=-2, dim2=-1)
             diag_A_ii[:] = 0
 
@@ -152,7 +166,6 @@ class Net(CNN):
                 A[b][start_idx:end_idx, start_idx:end_idx] += A_ii[b, :n[b], :n[b]]
 
         # compute similarity matrix W
-        W = [torch.zeros(m.item(), m.item(), device=self.device) for m in mssum]
         Wds = [torch.zeros(m.item(), m.item(), device=self.device) for m in mssum]
         for src, tgt in product(feat_list, repeat=2):
             src_idx, src_feat, P_src, A_src, n_src = src
@@ -167,19 +180,12 @@ class Net(CNN):
                 end_y = mscum[b, tgt_idx]
                 W_ijb = W_ij[b, :n_src[b], :n_tgt[b]]
                 if end_y - start_y >= end_x - start_x:
-                    W_ij_ds = self.bi_stochastic(W_ijb, dummy_row=True)
+                    W_ij_ds = self.sinkhorn(W_ijb, dummy_row=True)
                 else:
-                    W_ij_ds = self.bi_stochastic(W_ijb.t(), dummy_row=True).t()
-                W[b][start_x:end_x, start_y:end_y] += W_ijb
+                    W_ij_ds = self.sinkhorn(W_ijb.t(), dummy_row=True).t()
                 Wds[b][start_x:end_x, start_y:end_y] += W_ij_ds
                 if src_idx != tgt_idx:
-                    W[b][start_y:end_y, start_x:end_x] += W_ijb.t()
                     Wds[b][start_y:end_y, start_x:end_x] += W_ij_ds.t()
-
-        # compute fused similarity W_bar
-        W_bar = []
-        for A_, W_ in zip(A, Wds):
-            W_bar.append(torch.chain_matmul(W_.t(), A_, W_))
 
         # GANN
         U = [[] for _ in range(batch_size)]

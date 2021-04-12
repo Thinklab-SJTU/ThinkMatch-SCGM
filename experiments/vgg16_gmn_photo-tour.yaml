@@ -1,11 +1,11 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_pca
-DATASET_NAME: cub
+MODEL_NAME: vgg16_gmn
+DATASET_NAME: photo-tour
 
-DATASET_FULL_NAME: CUB2011
+DATASET_FULL_NAME: PhotoTourism
 
-MODULE: models.PCA.model
+MODULE: models.GMN.model
 
 BACKBONE: VGG16_bn
 
@@ -25,31 +25,29 @@ PROBLEM:
   RESCALE:  # rescaled image size
     - 256
     - 256
-
-# CUB2011 dataset settings
-CUB2011:
-  CLASS_SPLIT: all
+  SRC_OUTLIER: True
+  TGT_OUTLIER: True
 
 # Graph construction settings
 GRAPH:
   SRC_GRAPH_CONSTRUCT: tri
-  TGT_GRAPH_CONSTRUCT: tri
+  TGT_GRAPH_CONSTRUCT: fc
   SYM_ADJACENCY: True
 
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 20
+  NUM_EPOCHS: 10
 
-  LOSS_FUNC: perm
+  LOSS_FUNC: offset
 
   # learning rate
-  LR: 1.0e-3
+  LR: 1.0e-3 #2.0e-4
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
-    - 10 #4
+    - 2
 
   EPOCH_ITERS: 2000  # iterations per epoch
 
@@ -57,22 +55,24 @@ TRAIN:
 
 # Evaluation settings and PCK metric
 EVAL:
-  EPOCH: 30  # epoch to be tested
+  PCK_ALPHAS: []
+  PCK_L: 256. # 362.03867
+  EPOCH: 10  # epoch to be tested
   SAMPLES: 1000  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:
   EPOCH: 0  # epoch to be visualized
-  CLASS: person  # none for random choosing classes, else specify a class name
+  CLASS: 'none'  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 100  # number of images to be visualized
+  NUM_IMGS: 20  # number of images to be visualized
 
-# PCA model parameters
-PCA:
+# GMN model parameters
+GMN:
   FEATURE_CHANNEL: 512
-  SK_ITER_NUM: 20
-  SK_EPSILON: 1.0e-10
-  SK_TAU: 0.05
-  GNN_FEAT: 2048
-  GNN_LAYER: 2
-  CROSS_ITER: False
+  PI_ITER_NUM: 25
+  PI_STOP_THRESH: 1.0e-3
+  BS_ITER_NUM: 20
+  BS_EPSILON: 1.0e-10
+  VOTING_ALPHA: 200.
+  GM_SOLVER: SM
