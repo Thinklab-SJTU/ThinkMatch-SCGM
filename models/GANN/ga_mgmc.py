@@ -206,6 +206,8 @@ class GA_MGMC(nn.Module):
                     raise NameError('Unknown projecter name: {}'.format(projector))
 
                 U = torch.cat(U_list, dim=0)
+                if num_graphs == 2:
+                    U[:ms[0], :] = torch.eye(ms[0], n_univ, device=U.device)
 
                 if torch.norm(U - lastU) < self.converge_tol or torch.norm(U - lastU2) == 0:
                     break

@@ -1,9 +1,9 @@
 # VGG16 model with Pascal VOC dataset
 
-MODEL_NAME: vgg16_gann-mgmc
-DATASET_NAME: photo-tour
+MODEL_NAME: vgg16_gann-gm
+DATASET_NAME: voc-all
 
-DATASET_FULL_NAME: PhotoTourism
+DATASET_FULL_NAME: PascalVOC
 
 MODULE: models.GANN.model
 
@@ -22,37 +22,24 @@ GPUS:
 
 # Problem configuration
 PROBLEM:
-  TYPE: MGMC
+  TYPE: 2GM
   RESCALE:  # rescaled image size
     - 256
     - 256
-  NUM_GRAPHS: 5
-  NUM_CLUSTERS: 3
-  TRAIN_ALL_GRAPHS: False
-  TEST_ALL_GRAPHS: False
+  SRC_OUTLIER: True
+  TGT_OUTLIER: True
 
 # Graph construction settings
 GRAPH:
   SRC_GRAPH_CONSTRUCT: fc
+  TGT_GRAPH_CONSTRUCT: fc
   SYM_ADJACENCY: True
-
-# Photo Tourism dataset setting
-PhotoTourism:
-  CLASSES:
-    train:
-      - brandenburg_gate
-      - notre_dame_front_facade
-      - temple_nara_japan
-    test:
-      - brandenburg_gate
-      - notre_dame_front_facade
-      - temple_nara_japan
 
 # Training settings
 TRAIN:
   # start, end epochs
   START_EPOCH: 0
-  NUM_EPOCHS: 10
+  NUM_EPOCHS: 20
 
   LOSS_FUNC: perm
 
@@ -61,16 +48,16 @@ TRAIN:
   MOMENTUM: 0.9
   LR_DECAY: 0.1
   LR_STEP:  # (in epochs)
-    - 5
+    - 10
 
-  EPOCH_ITERS: 100  # iterations per epoch
+  EPOCH_ITERS: 500  # iterations per epoch
 
   CLASS: none
 
 # Evaluation settings and PCK metric
 EVAL:
-  EPOCH: 10  # epoch to be tested
-  SAMPLES: 100 # number of tests for each class
+  EPOCH: 20  # epoch to be tested
+  SAMPLES: 1000  # number of tested pairs for each class
 
 # Visualization settings
 VISUAL:
@@ -85,22 +72,15 @@ GANN:
   SK_ITER_NUM: 50
   SK_TAU: 0.05
   SK_EPSILON: 1.0e-10
-  UNIV_SIZE: 50
-  CLUSTER_ITER: 10
+  UNIV_SIZE: 23
   MGM_ITER:
-    - 300
+    - 500
   INIT_TAU:
     - 0.05
-  BETA:
-    - 0.9
-  GAMMA: 0.9
+  GAMMA: 0.8
   CONVERGE_TOL: 1.0e-3
   MIN_TAU:
     - 0.005
-    #- 1.0e-2
-  PROJECTOR:
-    - sinkhorn
-  SCALE_FACTOR: 1.
-  QUAD_WEIGHT: 0.008 #0.5
+  SCALE_FACTOR: 2.
+  QUAD_WEIGHT: 0.005
   NORM_QUAD_TERM: True
-  CLUSTER_QUAD_WEIGHT: 1.
