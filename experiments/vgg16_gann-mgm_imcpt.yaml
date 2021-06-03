@@ -1,9 +1,9 @@
-# VGG16 model with Pascal VOC dataset
+# VGG16 model with IMC-PT-SparseGM dataset
 
 MODEL_NAME: vgg16_gann-mgm
-DATASET_NAME: photo-tour
+DATASET_NAME: imcpt
 
-DATASET_FULL_NAME: PhotoTourism
+DATASET_FULL_NAME: IMC_PT_SparseGM
 
 MODULE: models.GANN.model
 
@@ -35,43 +35,6 @@ GRAPH:
   SRC_GRAPH_CONSTRUCT: fc
   SYM_ADJACENCY: True
 
-# Photo Tourism dataset setting
-PhotoTourism:
-  CLASSES:
-    train:
-      - brandenburg_gate
-      - buckingham_palace
-      - colosseum_exterior
-      - grand_place_brussels
-      - hagia_sophia_interior
-      - notre_dame_front_facade
-      - palace_of_westminster
-      - pantheon_exterior
-      - prague_old_town_square
-      - taj_mahal
-      - temple_nara_japan
-      - trevi_fountain
-      - westminster_abbey
-    test:
-      # classes appear in self-sup training
-      - brandenburg_gate
-      - buckingham_palace
-      - colosseum_exterior
-      - grand_place_brussels
-      - hagia_sophia_interior
-      - notre_dame_front_facade
-      - palace_of_westminster
-      - pantheon_exterior
-      - prague_old_town_square
-      - taj_mahal
-      - temple_nara_japan
-      - trevi_fountain
-      - westminster_abbey
-      # classes unseen in self-sup training
-      - reichstag
-      - sacre_coeur
-      - st_peters_square
-
 # Training settings
 TRAIN:
   # start, end epochs
@@ -101,7 +64,7 @@ VISUAL:
   EPOCH: 0  # epoch to be visualized
   CLASS: person  # none for random choosing classes, else specify a class name
   SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 100  # number of images to be visualized
+  NUM_IMGS: 3  # number of images to be visualized
 
 # model parameters
 GANN:
