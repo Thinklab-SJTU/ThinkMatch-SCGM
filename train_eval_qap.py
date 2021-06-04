@@ -10,7 +10,7 @@ from src.evaluation_metric import objective_score
 from src.parallel import DataParallel
 from src.utils.model_sl import load_model, save_model
 from eval_qap import eval_model
-from src.lap_solvers.hungarian import hungarian
+from src.utils.data_to_cuda import data_to_cuda
 
 from src.utils.config import cfg
 
@@ -27,7 +27,6 @@ def train_eval_model(model,
 
     since = time.time()
     dataset_size = len(dataloader['train'].dataset)
-    lap_solver = hungarian
 
     device = next(model.parameters()).device
     print('model on device: {}'.format(device))
@@ -70,17 +69,10 @@ def train_eval_model(model,
 
         # Iterate over data.
         for inputs in dataloader['train']:
-            if cfg.QAPLIB.FEED_TYPE == 'affmat' and 'affmat' in inputs:
-                data1 = inputs['affmat'].cuda()
-                data2 = None
-                inp_type = 'affmat'
-            elif cfg.QAPLIB.FEED_TYPE == 'adj':
-                data1 = inputs['Fi'].cuda()
-                data2 = inputs['Fj'].cuda()
-                inp_type = 'adj'
-            else:
-                raise ValueError('no valid data key found from dataloader!')
-            n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
+            if model.module.device != torch.device('cpu'):
+                inputs = data_to_cuda(inputs)
+
+            n1_gt, n2_gt = inputs['ns']
             perm_mat = inputs['gt_perm_mat'].cuda()
 
             iter_num = iter_num + 1
@@ -91,18 +83,8 @@ def train_eval_model(model,
             with torch.set_grad_enabled(True):
                 with torch.autograd.set_detect_anomaly(det_anomaly):
                     # forward
-                    _ = None
-                    pred = \
-                        model(data1, data2, _, _, _, _, _, _, n1_gt, n2_gt, _, _, inp_type)
-                    if len(pred) == 2:
-                        s_pred, d_pred = pred
-                        affmtx = inputs['affmat'].cuda()
-                    else:
-                        s_pred, d_pred, affmtx = pred
-
-                    #perm_mat = torch.repeat_interleave(perm_mat, 5, dim=0)
-                    #n1_gt = torch.repeat_interleave(n1_gt, 5, dim=0)
-                    #n2_gt = torch.repeat_interleave(n2_gt, 5, dim=0)
+                    pred = model(inputs)
+                    s_pred, affmtx = pred['ds_mat'], pred['aff_mat']
 
                     if type(s_pred) is list:
                         s_pred = s_pred[-1]
@@ -112,6 +94,8 @@ def train_eval_model(model,
                         loss = criterion(s_pred, perm_mat, n1_gt, n2_gt)
                     elif cfg.TRAIN.LOSS_FUNC == 'obj':
                         loss = criterion(s_pred, affmtx, n1_gt)
+                    elif cfg.TRAIN.LOSS_FUNC == 'plain':
+                        loss = torch.sum(pred['loss'])
                     else:
                         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
@@ -242,7 +226,7 @@ if __name__ == '__main__':
     elif cfg.TRAIN.LOSS_FUNC == 'obj':
         criterion = lambda *x: torch.mean(objective_score(*x))
     elif cfg.TRAIN.LOSS_FUNC == 'hung':
-        criterion = CrossEntropyLossHung()
+        criterion = PermutationLossHung()
     else:
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
