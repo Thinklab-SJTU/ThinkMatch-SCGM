@@ -18,7 +18,7 @@ def hungarian(s: torch.Tensor, n1=None, n2=None, nproc=1):
     elif len(s.shape) == 3:
         matrix_input = False
     else:
-        raise ValueError('input data shape not understood.')
+        raise ValueError('input data shape not understood: {}'.format(s.shape))
 
     device = s.device
     batch_num = s.shape[0]
