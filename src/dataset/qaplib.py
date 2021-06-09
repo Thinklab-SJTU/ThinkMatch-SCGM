@@ -9,10 +9,9 @@ import urllib
 cls_list = ['bur', 'chr', 'els', 'esc', 'had', 'kra', 'lipa', 'nug', 'rou', 'scr', 'sko', 'ste', 'tai', 'tho', 'wil']
 
 class QAPLIB(BaseDataset):
-    def __init__(self, sets, obj_resize, cls, fetch_online=False):
+    def __init__(self, sets, cls, fetch_online=False):
         super(QAPLIB, self).__init__()
         self.classes = ['qaplib']
-        self.obj_resize = obj_resize
         self.sets = sets
 
         if cls is not None and cls != 'none':

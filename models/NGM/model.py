@@ -185,7 +185,7 @@ class Net(CNN):
             obj_score = torch.cat(obj_score, dim=1)
             min_obj_score = obj_score.min(dim=1)
             ss = ss_gumbel[torch.arange(batch_size), min_obj_score.indices.cpu(), :, :]
-            x = hungarian(ss_gumbel, repeat(ns_src), repeat(ns_tgt))
+            x = hungarian(ss, repeat(ns_src), repeat(ns_tgt))
 
         data_dict.update({
             'ds_mat': ss,

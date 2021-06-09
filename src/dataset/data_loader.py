@@ -231,7 +231,6 @@ class QAPDataset(Dataset):
     def __init__(self, name, length, pad=16, cls=None, **args):
         self.name = name
         self.ds = eval(self.name)(**args, cls=cls)
-        self.obj_size = self.ds.obj_resize
         self.classes = self.ds.classes
         self.cls = None if cls == 'none' else cls
         self.length = length
@@ -255,7 +254,8 @@ class QAPDataset(Dataset):
                     'gt_perm_mat': perm_mat,
                     'ns': [torch.tensor(x) for x in perm_mat.shape],
                     'solution': torch.tensor(sol),
-                    'name': name}
+                    'name': name,
+                    'univ_size': [torch.tensor(x) for x in perm_mat.shape],}
 
         return ret_dict
 

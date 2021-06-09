@@ -4,7 +4,6 @@ from datetime import datetime
 from pathlib import Path
 import xlwt
 
-from src.lap_solvers.hungarian import hungarian
 from src.dataset.data_loader import QAPDataset, get_dataloader
 from src.evaluation_metric import objective_score
 from src.parallel import DataParallel
@@ -31,9 +30,6 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
     ds = dataloader.dataset
     classes = ds.classes
     cls_cache = ds.cls
-
-    #lap_solver = BiStochastic(max_iter=20)
-    lap_solver = hungarian
 
     pcks = torch.zeros(len(classes), len(alphas), device=device)
     accs = torch.zeros(len(classes), device=device)
@@ -85,21 +81,11 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
             with torch.set_grad_enabled(False):
                 _ = None
                 pred = model(inputs)
-                s_pred, affmtx = pred['ds_mat'], pred['aff_mat']
-
-            repeat_num = s_pred.shape[0] // batch_num
-            repeat = lambda x: torch.repeat_interleave(x, repeat_num, dim=0)
-            #repeat = lambda x : x
-
-            if type(s_pred) is list:
-                s_pred = s_pred[-1]
-            s_pred_perm = lap_solver(s_pred, repeat(n1_gt), repeat(n2_gt))
+                x_pred, affmtx = pred['perm_mat'], pred['aff_mat']
 
             fwd_time = time.time() - fwd_since
 
-            obj_score = objective_score(s_pred_perm[0::repeat_num], ori_affmtx, n1_gt)
-            for ri in range(1, repeat_num):
-                obj_score = torch.stack((obj_score, objective_score(s_pred_perm[ri::repeat_num], ori_affmtx, n1_gt))).min(dim=0).values
+            obj_score = objective_score(x_pred, ori_affmtx, n1_gt)
             opt_obj_score = objective_score(perm_mat, ori_affmtx, n1_gt)
             ori_obj_score = solution
 
