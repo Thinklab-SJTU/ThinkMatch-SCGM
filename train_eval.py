@@ -12,7 +12,6 @@ from src.evaluation_metric import matching_accuracy
 from src.parallel import DataParallel
 from src.utils.model_sl import load_model, save_model
 from eval import eval_model
-from src.lap_solvers.hungarian import hungarian
 from src.utils.data_to_cuda import data_to_cuda
 
 from src.utils.config import cfg
