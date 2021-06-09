@@ -88,3 +88,7 @@ class NoBackbone(nn.Module):
 
     def forward(self, *input):
         raise NotImplementedError
+
+    @property
+    def device(self):
+        return next(self.parameters()).device

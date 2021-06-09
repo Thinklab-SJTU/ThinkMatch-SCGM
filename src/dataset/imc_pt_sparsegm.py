@@ -6,20 +6,20 @@ from src.dataset.base_dataset import BaseDataset
 import random
 
 
-class PhotoTourism(BaseDataset):
+class IMC_PT_SparseGM(BaseDataset):
     def __init__(self, sets, obj_resize):
         """
         :param sets: 'train' or 'test'
         :param obj_resize: resized object size
         """
-        super(PhotoTourism, self).__init__()
+        super(IMC_PT_SparseGM, self).__init__()
         assert sets in ('train', 'test'), 'No match found for dataset {}'.format(sets)
         self.sets = sets
-        self.classes = cfg.PhotoTourism.CLASSES[sets]
-        self.total_kpt_num = cfg.PhotoTourism.TOTAL_KPT_NUM
+        self.classes = cfg.IMC_PT_SparseGM.CLASSES[sets]
+        self.total_kpt_num = cfg.IMC_PT_SparseGM.TOTAL_KPT_NUM
 
-        self.root_path_npz = Path(cfg.PhotoTourism.ROOT_DIR_NPZ)
-        self.root_path_img = Path(cfg.PhotoTourism.ROOT_DIR_IMG)
+        self.root_path_npz = Path(cfg.IMC_PT_SparseGM.ROOT_DIR_NPZ)
+        self.root_path_img = Path(cfg.IMC_PT_SparseGM.ROOT_DIR_IMG)
         self.obj_resize = obj_resize
 
         self.img_lists = [np.load(self.root_path_npz / cls / 'img_info.npz')['img_name'].tolist()
@@ -78,7 +78,7 @@ class PhotoTourism(BaseDataset):
         :param filter_outlier: filter out outlier keypoints among images
         :return: (list of data, list of permutation matrices)
         """
-        assert not filter_outlier, 'Multi-matching on PhotoTourism dataset with filtered outliers is not supported'
+        assert not filter_outlier, 'Multi-matching on IMC_PT_SparseGM dataset with filtered outliers is not supported'
 
         if cls is None:
             cls = random.randrange(0, len(self.classes))

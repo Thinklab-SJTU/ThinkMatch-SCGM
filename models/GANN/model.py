@@ -191,10 +191,14 @@ class Net(CNN):
         U = [[] for _ in range(batch_size)]
         cluster_v = []
         for b in range(batch_size):
-            U0_b = torch.full((torch.sum(ms[b]), self.univ_size), 1 / self.univ_size.to(dtype=torch.float), device=self.device)
+            if num_graphs == 2:
+                univ_size = max(feat_list[0][-1][b], feat_list[1][-1][b])
+            else:
+                univ_size = data_dict['univ_size'][b]
+            U0_b = torch.full((torch.sum(ms[b]), univ_size), 1 / univ_size.to(dtype=torch.float), device=self.device)
             U0_b += torch.randn_like(U0_b) / 1000
 
-            U_b, cluster_v_b = self.ga_mgmc(A[b], Wds[b], U0_b, ms[b], self.univ_size, self.quad_weight, self.cluster_quad_weight, num_clusters)
+            U_b, cluster_v_b = self.ga_mgmc(A[b], Wds[b], U0_b, ms[b], univ_size, self.quad_weight, self.cluster_quad_weight, num_clusters)
             cluster_v.append(cluster_v_b)
 
             for i in range(num_graphs):

@@ -6,12 +6,14 @@ from src.dataset.data_loader import GMDataset, get_dataloader
 from src.utils.model_sl import load_model
 from src.parallel import DataParallel
 from src.lap_solvers.hungarian import hungarian
+from src.utils.data_to_cuda import data_to_cuda
 import matplotlib
 try:
     import _tkinter
 except ImportError:
     matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import random
 
 plt.rcParams["font.family"] = "serif"
 
@@ -25,65 +27,53 @@ def visualize_model(models, dataloader, device, num_images=6, set='test', cls=No
     assert set in ('train', 'test')
 
     for model in models:
-        was_training = model.training
         model.eval()
     images_so_far = 0
 
     #names = ['source', 'GMN', 'PCA-GM', 'IPCA-GM']
-    names = ['source', 'GMN', 'PCA-GM', 'NGM', 'NHGM', 'NGM+']
+    names = ['source', 'GMN', 'PCA-GM', 'NGM', 'NGM-v2', 'NHGM-v2']
     num_cols = num_images // 2 #+ 1
 
     old_cls = dataloader[set].dataset.cls
     if cls is not None:
         dataloader[set].dataset.cls = cls
 
-    lap_solver = hungarian
-
     visualize_path = Path(cfg.OUTPUT_PATH) / 'visual'
     if save_img:
         if not visualize_path.exists():
             visualize_path.mkdir(parents=True)
-    with torch.no_grad():
-        fig = plt.figure(figsize=(50, 35), dpi=120)
+    #with torch.no_grad():
         #for idx in range(len(names)):
         #    ax = plt.subplot(len(names), num_cols, idx * num_cols + 1)
         #    ax.axis('off')
         #    plt.text(0.5, 0.5, names[idx], fontsize=40, horizontalalignment='center')
-        dataloader[set].dataset.cls = 0
+    for cls in range(20):
+        fig = plt.figure(figsize=(50, 35), dpi=120)
+        dataloader[set].dataset.cls = cls
+        images_so_far = 0
 
         for i, inputs in enumerate(dataloader[set]):
-            if 'images' in inputs:
-                data1, data2 = [_.cuda() for _ in inputs['images']]
-                inp_type = 'img'
-            elif 'features' in inputs:
-                data1, data2 = [_.cuda() for _ in inputs['features']]
-                inp_type = 'feat'
-            else:
-                raise ValueError('no valid data key (\'images\' or \'features\') found from dataloader!')
-            P1_gt, P2_gt = [_.cuda() for _ in inputs['Ps']]
-            n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
-            e1_gt, e2_gt = [_.cuda() for _ in inputs['es']]
-            G1_gt, G2_gt = [_.cuda() for _ in inputs['Gs']]
-            H1_gt, H2_gt = [_.cuda() for _ in inputs['Hs']]
-            KG, KH = [_.cuda() for _ in inputs['Ks']]
-            perm_mat = inputs['gt_perm_mat'].cuda()
+            if models[0].module.device != torch.device('cpu'):
+                inputs = data_to_cuda(inputs)
+            assert 'images' in inputs
+            data1, data2 = inputs['images']
+            P1_gt, P2_gt = inputs['Ps']
+            n1_gt, n2_gt = inputs['ns']
+            perm_mat = inputs['gt_perm_mat']
 
-            s_pred_perms = []
+            pred_perms = []
             for model in models:
-                modelout = model(data1, data2, P1_gt, P2_gt, G1_gt, G2_gt, H1_gt, H2_gt, n1_gt, n2_gt, KG, KH, inp_type)
-                s_pred = modelout[0]
-                if type(s_pred) is list:
-                    s_pred = s_pred[-1]
-                s_pred_perm = lap_solver(s_pred, n1_gt, n2_gt)
-                s_pred_perms.append(s_pred_perm)
+                outputs = model(inputs)
+                pred_perms.append(outputs['perm_mat'])
 
-            for j in range(s_pred.size()[0]):
+            for j in range(inputs['batch_size']):
                 if n1_gt[j] <= 4:
+                    print('graph too small.')
                     continue
 
                 matched = []
-                for idx, s_pred_perm in enumerate(s_pred_perms):
-                    matched_num = torch.sum(s_pred_perm[j, :n1_gt[j], :n2_gt[j]] * perm_mat[j, :n1_gt[j], :n2_gt[j]])
+                for idx, pred_perm in enumerate(pred_perms):
+                    matched_num = torch.sum(pred_perm[j, :n1_gt[j], :n2_gt[j]] * perm_mat[j, :n1_gt[j], :n2_gt[j]])
                     matched.append(matched_num)
 
                 #if random.choice([0, 1, 2]) >= 1:
@@ -93,9 +83,13 @@ def visualize_model(models, dataloader, device, num_images=6, set='test', cls=No
                 #    if not (matched[0] <= matched[1] and matched[0] <= matched[2]):
                 #        continue
                 #cls = dataloader[set].dataset.cls
-                dataloader[set].dataset.cls = 19
                 #if cls != 10 and cls != 2 and cls != 5 and cls != 12 and cls != 18 and cls != 19 and not (matched[-1] >= matched[-2] >= matched[2] >= matched[1] > matched[0]):
                 #    continue
+
+                if random.choice([0, 1, 2]) >= 1:
+                    if dataloader[set].dataset.cls != 10 and dataloader[set].dataset.cls != 19 and not (matched[4] >= matched[3] >= matched[2] >= matched[1] > matched[0]):
+                        print('performance not good.')
+                        continue
 
                 images_so_far += 1
                 print(chr(13) + 'Visualizing {:4}/{:4}'.format(images_so_far, num_images))  # chr(13)=CR
@@ -106,16 +100,16 @@ def visualize_model(models, dataloader, device, num_images=6, set='test', cls=No
                 #plt.title('source')
                 #plot_helper(data1[j], P1_gt[j], n1_gt[j], ax, colorset)
 
-                for idx, s_pred_perm in enumerate(s_pred_perms):
+                for idx, pred_perm in enumerate(pred_perms):
                     #ax = plt.subplot(1 + len(s_pred_perms), num_cols, (idx + 1) * num_cols + images_so_far + 1)
                     if images_so_far > num_cols:
-                        ax = plt.subplot(len(s_pred_perms) * 2, num_cols, (idx + len(s_pred_perms)) * num_cols + images_so_far - num_cols)
+                        ax = plt.subplot(len(pred_perms) * 2, num_cols, (idx + len(pred_perms)) * num_cols + images_so_far - num_cols)
                     else:
-                        ax = plt.subplot(len(s_pred_perms) * 2, num_cols, idx * num_cols + images_so_far)
+                        ax = plt.subplot(len(pred_perms) * 2, num_cols, idx * num_cols + images_so_far)
                     ax.axis('off')
                     #plt.title('predict')
                     #plot_helper(data2[j], P2_gt[j], n1_gt[j], ax, colorset, 'tgt', s_pred_perm[j], perm_mat[j])
-                    plot_2graph_helper(data1[j], data2[j], P1_gt[j], P2_gt[j], n1_gt[j], ax, colorset, s_pred_perm[j], perm_mat[j], names[idx+1])
+                    plot_2graph_helper(data1[j], data2[j], P1_gt[j], P2_gt[j], n1_gt[j], ax, colorset, pred_perm[j], perm_mat[j], names[idx+1])
 
                 #ax = plt.subplot(2 + len(s_pred_perms), num_images + 1, (len(s_pred_perms) + 1) * num_images + images_so_far)
                 #ax.axis('off')
@@ -128,13 +122,11 @@ def visualize_model(models, dataloader, device, num_images=6, set='test', cls=No
                     input()
 
                 if images_so_far == num_images:
-                    fig.savefig(str(visualize_path / '{:0>4}.pdf'.format(images_so_far)), bbox_inches='tight')
-
-                    model.train(mode=was_training)
-                    dataloader[set].dataset.cls = old_cls
-                    return
+                    fig.savefig(str(visualize_path / '{}_{:0>4}.jpg'.format(dataloader[set].dataset.cls, images_so_far)), bbox_inches='tight')
+                    break
 
                 #dataloader[set].dataset.cls += 1
+            if images_so_far == num_images:
                 break
 
     dataloader[set].dataset.cls = old_cls
@@ -190,7 +182,7 @@ def plot_2graph_helper(imgsrc, imgtgt, Psrc, Ptgt, n, ax, colorset, pmat, gt_pma
         ax.add_line(l)
         if idx[i] == idx_gt[i]:
             matched += 1
-    plt.title('{} {}: {:d}/{:d}'.format(method, cfg.VOC2011.CLASSES[dataloader['test'].dataset.cls], matched, n), y=-0.3, fontsize=20)
+    plt.title('{} {}: {:d}/{:d}'.format(method, cfg.PascalVOC.CLASSES[dataloader['test'].dataset.cls], matched, n), y=-0.3, fontsize=20)
 
 
 def tensor2np(inp):
@@ -212,38 +204,38 @@ if __name__ == '__main__':
 
     dataset_len = {'train': cfg.TRAIN.EPOCH_ITERS * cfg.BATCH_SIZE, 'test': cfg.EVAL.SAMPLES}
     image_dataset = {
-        x: GMDataset('PascalVOC',
+        x: GMDataset(cfg.DATASET_FULL_NAME,
                      sets=x,
+                     problem=cfg.PROBLEM.TYPE,
                      length=dataset_len[x],
-                     pad=cfg.PAIR.PADDING,
-                     obj_resize=cfg.PAIR.RESCALE)
+                     cls=cfg.TRAIN.CLASS if x == 'train' else cfg.EVAL.CLASS,
+                     obj_resize=cfg.PROBLEM.RESCALE)
         for x in ('train', 'test')}
+    cfg.DATALOADER_NUM = 0
     dataloader = {x: get_dataloader(image_dataset[x], fix_seed=(x == 'test'))
         for x in ('train', 'test')}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model_paths = ['/home/wangrunzhong/dl-of-gm/output/vgg16_sm_ol_voc/params/params_0009.pt.6044',
-                   '/home/wangrunzhong/dl-of-gm/output/vgg16_pcatest_voc/params/params_0005.pt.6456',
-                   #'/home/wangrunzhong/dl-of-gm/output/vgg16_pca_iter_voc/params/params_0010.pt.6619']
-                   '/home/wangrunzhong/dl-of-gm/output/vgg16_ngm_voc/params/params_0008.pt.4willow',
-                   '/home/wangrunzhong/dl-of-gm/output/vgg16_nhgm_voc/params/params_0007.pt.6306',
-                   '/home/wangrunzhong/dl-of-gm/output/vgg16_ngm_voc/params/params_0008.pt.6606',
+    model_paths = ['/home/wangrunzhong/dl-of-gm/pretrained_weights/pretrained_params_vgg16_gmn_voc.pt',
+                   '/home/wangrunzhong/dl-of-gm/pretrained_weights/pretrained_params_vgg16_pca_voc.pt',
+                   #'/home/wangrunzhong/dl-of-gm/pretrained_weights/pretrained_params_vgg16_ipca_voc.pt']
+                   '/home/wangrunzhong/dl-of-gm/pretrained_weights/pretrained_params_vgg16_ngm_voc.pt',
+                   '/home/wangrunzhong/dl-of-gm/pretrained_weights/pretrained_params_vgg16_ngmv2_voc.pt',
+                   '/home/wangrunzhong/dl-of-gm/pretrained_weights/pretrained_params_vgg16_nhgmv2_voc.pt',
                    ]
 
-    cfg_files = ['experiments/vgg16_sm_voc.yaml',
+    cfg_files = ['experiments/vgg16_gmn_voc.yaml',
                  'experiments/vgg16_pca_voc.yaml',
-                 #'experiments/vgg16_pca_iter_voc.yaml',
+                 #'experiments/vgg16_ipca_voc.yaml',
                  'experiments/vgg16_ngm_voc.yaml',
-                 'experiments/vgg16_nhgm_voc.yaml',
-                 'experiments/vgg16_ngm_voc.yaml',
+                 'experiments/vgg16_ngmv2_voc.yaml',
+                 'experiments/vgg16_nhgmv2_voc.yaml',
                  ]
     models = []
 
     for i, (model_path, cfg_file) in enumerate(zip(model_paths, cfg_files)):
         cfg_from_file(cfg_file)
-        if i == 4:
-            cfg['NGM']['EDGE_EMB'] = True
 
         mod = importlib.import_module(cfg.MODULE)
         Net = mod.Net
@@ -252,12 +244,6 @@ if __name__ == '__main__':
         model = model.to(device)
         model = DataParallel(model, device_ids=cfg.GPUS)
 
-        #model_path = None
-        #if cfg.VISUAL.EPOCH != 0:
-        #    model_path = str(Path(cfg.OUTPUT_PATH) / 'params' / 'params_{:04}.pt'.format(cfg.VISUAL.EPOCH))
-        #elif len(cfg.VISUAL.WEIGHT_PATH) != 0:
-        #    model_path = cfg.VISUAL.WEIGHT_PATH
-        #if model_path is not None:
         print('Loading model parameters from {}'.format(model_path))
         load_model(model, model_path)
         models.append(model)

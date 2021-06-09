@@ -59,13 +59,13 @@ __C.ROME16K = edict()
 __C.ROME16K.DIR = 'data/Sub-Rome16K'
 __C.ROME16K.CLASSES = ['Colosseum', 'Pantheon', 'Ceiling']
 
-# PhotoTourism dataset
-__C.PhotoTourism = edict()
-__C.PhotoTourism.CLASSES = {'train': ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior',
+# IMC_PT_SparseGM dataset
+__C.IMC_PT_SparseGM = edict()
+__C.IMC_PT_SparseGM.CLASSES = {'train': ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior',
                                       'grand_place_brussels', 'hagia_sophia_interior', 'notre_dame_front_facade',
                                       'palace_of_westminster', 'pantheon_exterior', 'prague_old_town_square',
                                       'taj_mahal', 'temple_nara_japan', 'trevi_fountain', 'westminster_abbey'],
                             'test': ['reichstag', 'sacre_coeur', 'st_peters_square']}
-__C.PhotoTourism.ROOT_DIR_NPZ = 'data/PhotoTourism/annotation'
-__C.PhotoTourism.ROOT_DIR_IMG = 'data/PhotoTourism/Image_Matching_Challange_Data'
-__C.PhotoTourism.TOTAL_KPT_NUM = 50
+__C.IMC_PT_SparseGM.ROOT_DIR_NPZ = 'data/IMC_PT_SparseGM/annotation'
+__C.IMC_PT_SparseGM.ROOT_DIR_IMG = 'data/IMC_PT_SparseGM/Image_Matching_Challange_Data'
+__C.IMC_PT_SparseGM.TOTAL_KPT_NUM = 50

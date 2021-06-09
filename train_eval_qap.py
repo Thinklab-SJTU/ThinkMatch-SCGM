@@ -10,7 +10,7 @@ from src.evaluation_metric import objective_score
 from src.parallel import DataParallel
 from src.utils.model_sl import load_model, save_model
 from eval_qap import eval_model
-from src.lap_solvers.hungarian import hungarian
+from src.utils.data_to_cuda import data_to_cuda
 
 from src.utils.config import cfg
 
@@ -21,13 +21,11 @@ def train_eval_model(model,
                      dataloader,
                      tfboard_writer,
                      num_epochs=25,
-                     resume=False,
                      start_epoch=0):
     print('Start training...')
 
     since = time.time()
     dataset_size = len(dataloader['train'].dataset)
-    lap_solver = hungarian
 
     device = next(model.parameters()).device
     print('model on device: {}'.format(device))
@@ -38,13 +36,16 @@ def train_eval_model(model,
     if not checkpoint_path.exists():
         checkpoint_path.mkdir(parents=True)
 
-    if resume:
-        assert start_epoch != 0
+    model_path, optim_path = '',''
+    if start_epoch > 0:
         model_path = str(checkpoint_path / 'params_{:04}.pt'.format(start_epoch))
-        print('Loading model parameters from {}'.format(model_path))
-        load_model(model, model_path)
-
         optim_path = str(checkpoint_path / 'optim_{:04}.pt'.format(start_epoch))
+    if len(cfg.PRETRAINED_PATH) > 0:
+        model_path = cfg.PRETRAINED_PATH
+    if len(model_path) > 0:
+        print('Loading model parameters from {}'.format(model_path))
+        load_model(model, model_path, strict=False)
+    if len(optim_path) > 0:
         print('Loading optimizer state from {}'.format(optim_path))
         optimizer.load_state_dict(torch.load(optim_path))
 
@@ -70,17 +71,10 @@ def train_eval_model(model,
 
         # Iterate over data.
         for inputs in dataloader['train']:
-            if cfg.QAPLIB.FEED_TYPE == 'affmat' and 'affmat' in inputs:
-                data1 = inputs['affmat'].cuda()
-                data2 = None
-                inp_type = 'affmat'
-            elif cfg.QAPLIB.FEED_TYPE == 'adj':
-                data1 = inputs['Fi'].cuda()
-                data2 = inputs['Fj'].cuda()
-                inp_type = 'adj'
-            else:
-                raise ValueError('no valid data key found from dataloader!')
-            n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
+            if model.module.device != torch.device('cpu'):
+                inputs = data_to_cuda(inputs)
+
+            n1_gt, n2_gt = inputs['ns']
             perm_mat = inputs['gt_perm_mat'].cuda()
 
             iter_num = iter_num + 1
@@ -91,18 +85,8 @@ def train_eval_model(model,
             with torch.set_grad_enabled(True):
                 with torch.autograd.set_detect_anomaly(det_anomaly):
                     # forward
-                    _ = None
-                    pred = \
-                        model(data1, data2, _, _, _, _, _, _, n1_gt, n2_gt, _, _, inp_type)
-                    if len(pred) == 2:
-                        s_pred, d_pred = pred
-                        affmtx = inputs['affmat'].cuda()
-                    else:
-                        s_pred, d_pred, affmtx = pred
-
-                    #perm_mat = torch.repeat_interleave(perm_mat, 5, dim=0)
-                    #n1_gt = torch.repeat_interleave(n1_gt, 5, dim=0)
-                    #n2_gt = torch.repeat_interleave(n2_gt, 5, dim=0)
+                    pred = model(inputs)
+                    s_pred, affmtx = pred['ds_mat'], pred['aff_mat']
 
                     if type(s_pred) is list:
                         s_pred = s_pred[-1]
@@ -112,17 +96,11 @@ def train_eval_model(model,
                         loss = criterion(s_pred, perm_mat, n1_gt, n2_gt)
                     elif cfg.TRAIN.LOSS_FUNC == 'obj':
                         loss = criterion(s_pred, affmtx, n1_gt)
+                    elif cfg.TRAIN.LOSS_FUNC == 'plain':
+                        loss = torch.sum(pred['loss'])
                     else:
                         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-                    #for b in range(s_pred.shape[0]):
-                    #    penalty = torch.norm(s_pred[b, :n1_gt[b], :n2_gt[b]].sum(dim=-1) - 1) * 100 + \
-                    #              torch.norm(s_pred[b, :n1_gt[b], :n2_gt[b]].sum(dim=-2) - 1) * 100
-                    #    loss += penalty
-                    #    if penalty > 20:
-                    #       eval_model(model, alphas, dataloader['test'])
-
-                    # backward + optimize
                     if cfg.FP16:
                         with amp.scale_loss(loss, optimizer) as scaled_loss:
                             scaled_loss.backward()
@@ -224,9 +202,7 @@ if __name__ == '__main__':
         x: QAPDataset(cfg.DATASET_FULL_NAME,
                       sets=x,
                       length=dataset_len[x],
-                      pad=cfg.PAIR.PADDING,
                       cls=cfg.TRAIN.CLASS if x == 'train' else None,
-                      obj_resize=cfg.PAIR.RESCALE,
                       fetch_online=False)
         for x in ('train', 'test')}
     dataloader = {x: get_dataloader(qap_dataset[x], fix_seed=(x == 'test'), shuffle=(x == 'train'))
@@ -235,18 +211,23 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     model = Net()
-    model = model.cuda()
+    model = model.to(device)
 
-    if cfg.TRAIN.LOSS_FUNC == 'perm':
+    if cfg.TRAIN.LOSS_FUNC.lower() == 'perm':
         criterion = CrossEntropyLoss()
-    elif cfg.TRAIN.LOSS_FUNC == 'obj':
+    elif cfg.TRAIN.LOSS_FUNC.lower() == 'obj':
         criterion = lambda *x: torch.mean(objective_score(*x))
-    elif cfg.TRAIN.LOSS_FUNC == 'hung':
-        criterion = CrossEntropyLossHung()
+    elif cfg.TRAIN.LOSS_FUNC.lower() == 'hung':
+        criterion = PermutationLossHung()
     else:
         raise ValueError('Unknown loss function {}'.format(cfg.TRAIN.LOSS_FUNC))
 
-    optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM, nesterov=True)
+    if cfg.TRAIN.OPTIMIZER.lower() == 'sgd':
+        optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM, nesterov=True)
+    elif cfg.TRAIN.OPTIMIZER.lower() == 'adam':
+        optimizer = optim.Adam(model.parameters(), lr=cfg.TRAIN.LR)
+    else:
+        raise ValueError('Unknown optimizer {}'.format(cfg.TRAIN.OPTIMIZER))
 
     if cfg.FP16:
         try:
@@ -267,5 +248,4 @@ if __name__ == '__main__':
         print_easydict(cfg)
         model = train_eval_model(model, criterion, optimizer, dataloader, tfboardwriter,
                                  num_epochs=cfg.TRAIN.NUM_EPOCHS,
-                                 resume=cfg.TRAIN.START_EPOCH != 0,
                                  start_epoch=cfg.TRAIN.START_EPOCH)

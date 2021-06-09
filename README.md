@@ -11,18 +11,23 @@ This repository is developed for the following purposes:
 ## Deep Graph Matching Algorithms
 _ThinkMatch_ currently contains pytorch source code of the following deep graph matching methods: 
 
-* **GMN** Andrei Zanfir and Cristian Sminchisescu. "Deep Learning of 
-Graph Matching." _CVPR 2018_.
-* **PCA-GM & IPCA-GM** Runzhong Wang, Junchi Yan and Xiaokang Yang. "Combinatorial Learning of Robust Deep Graph Matching: an Embedding based Approach." _TPAMI_.
-& Runzhong Wang, Junchi Yan and Xiaokang Yang. "Learning Combinatorial Embedding Network for Deep Graph Matching." _ICCV 2019_. 
-* **CIE-H** Tianshu Yu, Runzhong Wang, Junchi Yan, Baoxin Li. "Learning deep graph matching with channel-independent embedding and Hungarian attention." _ICLR 2020_.
-* **GANN** Runzhong Wang, Junchi Yan and Xiaokang Yang. "Graduated Assignment for Joint Multi-Graph Matching and Clustering with Application to Unsupervised Graph Matching Network Learning." _NeurIPS 2020_.
-* **BBGM** Michal Rolínek, Paul Swoboda, Dominik Zietlow, Anselm Paulus, Vít Musil, Georg Martius. "Deep Graph Matching via Blackbox Differentiation of Combinatorial Solvers." _ECCV 2020_.
-* **NGM** Runzhong Wang, Junchi Yan, Xiaokang Yang. "Neural Graph Matching Network: Learning Lawler's Quadratic Assignment Problem with Extension to Hypergraph and Multiple-graph Matching." _Manuscript_.
+* **GMN** 
+  * Andrei Zanfir and Cristian Sminchisescu. "Deep Learning of Graph Matching." _CVPR 2018_.
+* **PCA-GM & IPCA-GM** 
+  * Runzhong Wang, Junchi Yan and Xiaokang Yang. "Combinatorial Learning of Robust Deep Graph Matching: an Embedding based Approach." _TPAMI 2020_.
+  * Runzhong Wang, Junchi Yan and Xiaokang Yang. "Learning Combinatorial Embedding Network for Deep Graph Matching." _ICCV 2019_. 
+* **NGM & NGM-v2** 
+  * Runzhong Wang, Junchi Yan, Xiaokang Yang. "Neural Graph Matching Network: Learning Lawler's Quadratic Assignment Problem with Extension to Hypergraph and Multiple-graph Matching." _TPAMI 2021_.
+* **CIE-H** 
+  * Tianshu Yu, Runzhong Wang, Junchi Yan, Baoxin Li. "Learning deep graph matching with channel-independent embedding and Hungarian attention." _ICLR 2020_.
+* **GANN** 
+  * Runzhong Wang, Junchi Yan and Xiaokang Yang. "Graduated Assignment for Joint Multi-Graph Matching and Clustering with Application to Unsupervised Graph Matching Network Learning." _NeurIPS 2020_.
+* **BBGM** 
+  * Michal Rolínek, Paul Swoboda, Dominik Zietlow, Anselm Paulus, Vít Musil, Georg Martius. "Deep Graph Matching via Blackbox Differentiation of Combinatorial Solvers." _ECCV 2020_.
 
 ## Deep Graph Matching Benchmarks
 
-### PascalVOC
+### PascalVOC - 2GM
 
 | model                                                        | year | aero   | bike   | bird   | boat   | bottle | bus    | car    | cat    | chair  | cow    | table  | dog    | horse  | mbkie  | person | plant  | sheep  | sofa   | train  | tv     | mean   |
 | ------------------------------------------------------------ | ---- | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
@@ -37,36 +42,37 @@ Graph Matching." _CVPR 2018_.
 | [NHGMv2](http://thinklab.sjtu.edu.cn/project/NGM/index.html) | 2021 | 0.5995 | 0.7154 | 0.7724 | 0.7902 | 0.8773 | 0.9457 | 0.8903 | 0.8181 | 0.5995 | 0.8129 | 0.8695 | 0.7811 | 0.7645 | 0.7750 | 0.6440 | 0.9872 | 0.7778 | 0.7538 | 0.9787 | 0.9280 | 0.8040 |
 
 
-### Willow Object Class
+### Willow Object Class - 2GM & MGM
 
-| model                                                        | year | Car    | Duck   | Face   | Motorbike | Winebottle | mean   |
-| ------------------------------------------------------------ | ---- | ------ | ------ | ------ | --------- | ---------- | ------ |
-| [GMN](http://openaccess.thecvf.com/content_cvpr_2018/html/Zanfir_Deep_Learning_of_CVPR_2018_paper.html) | 2018 | 0.6790 | 0.7670 | 0.9980 | 0.6920    | 0.8310     | 0.7934 |
-| [PCA-GM](https://ieeexplore.ieee.org/abstract/document/9128045/) | 2019 | 0.8760 | 0.8360 | 1.0000 | 0.7760    | 0.8840     | 0.8744 |
-| [NGM](http://thinklab.sjtu.edu.cn/project/NGM/index.html)    | 2019 | 0.8420 | 0.7760 | 0.9940 | 0.7680    | 0.8830     | 0.8530 |
-| [NHGM](http://thinklab.sjtu.edu.cn/project/NGM/index.html)   | 2019 | 0.8650 | 0.7220 | 0.9990 | 0.7930    | 0.8940     | 0.8550 |
-| [NMGM](http://thinklab.sjtu.edu.cn/project/NGM/index.html)   | 2019 | 0.7850 | 0.9210 | 1.0000 | 0.7870    | 0.9480     | 0.8880 |
-| [IPCA-GM](https://ieeexplore.ieee.org/abstract/document/9128045/) | 2020 | 0.9040 | 0.8860 | 1.0000 | 0.8300    | 0.8830     | 0.9006 |
-| [BBGM](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123730409.pdf) | 2020 | 0.9680 | 0.8990 | 1.0000 | 0.9980    | 0.9940     | 0.9718 |
-| [GANN-MGM](https://papers.nips.cc/paper/2020/hash/e6384711491713d29bc63fc5eeb5ba4f-Abstract.html) | 2020 | 0.9600 | 0.9642 | 1.0000 | 1.0000    | 0.9879     | 0.9906 |
-| [NGMv2](http://thinklab.sjtu.edu.cn/project/NGM/index.html)  | 2021 | 0.9740 | 0.9340 | 1.0000 | 0.9860    | 0.9830     | 0.9754 |
-| [NHGMv2](http://thinklab.sjtu.edu.cn/project/NGM/index.html) | 2021 | 0.9740 | 0.9390 | 1.0000 | 0.9860    | 0.9890     | 0.9780 |
-| [NMGMv2](http://thinklab.sjtu.edu.cn/project/NGM/index.html) | 2021 | 0.9760 | 0.9447 | 1.0000 | 1.0000    | 0.9902     | 0.9822 |
+| model                                                        | year | remark | Car    | Duck   | Face   | Motorbike | Winebottle | mean   |
+| ------------------------------------------------------------ | ---- | ------ | ------ | ------ | ------ | --------- | ---------- | ------ |
+| [GMN](http://openaccess.thecvf.com/content_cvpr_2018/html/Zanfir_Deep_Learning_of_CVPR_2018_paper.html) | 2018 | - | 0.6790 | 0.7670 | 0.9980 | 0.6920    | 0.8310     | 0.7934 |
+| [PCA-GM](https://ieeexplore.ieee.org/abstract/document/9128045/) | 2019 | - | 0.8760 | 0.8360 | 1.0000 | 0.7760    | 0.8840     | 0.8744 |
+| [NGM](http://thinklab.sjtu.edu.cn/project/NGM/index.html)    | 2019 | - | 0.8420 | 0.7760 | 0.9940 | 0.7680    | 0.8830     | 0.8530 |
+| [NHGM](http://thinklab.sjtu.edu.cn/project/NGM/index.html)   | 2019 | - | 0.8650 | 0.7220 | 0.9990 | 0.7930    | 0.8940     | 0.8550 |
+| [NMGM](http://thinklab.sjtu.edu.cn/project/NGM/index.html)   | 2019 | - | 0.7850 | 0.9210 | 1.0000 | 0.7870    | 0.9480     | 0.8880 |
+| [IPCA-GM](https://ieeexplore.ieee.org/abstract/document/9128045/) | 2020 | - | 0.9040 | 0.8860 | 1.0000 | 0.8300    | 0.8830     | 0.9006 |
+| [BBGM](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123730409.pdf) | 2020 | - | 0.9680 | 0.8990 | 1.0000 | 0.9980    | 0.9940     | 0.9718 |
+| [GANN-MGM](https://papers.nips.cc/paper/2020/hash/e6384711491713d29bc63fc5eeb5ba4f-Abstract.html) | 2020 | self-supervised| 0.9600 | 0.9642 | 1.0000 | 1.0000    | 0.9879     | 0.9906 |
+| [NGMv2](http://thinklab.sjtu.edu.cn/project/NGM/index.html)  | 2021 | - | 0.9740 | 0.9340 | 1.0000 | 0.9860    | 0.9830     | 0.9754 |
+| [NHGMv2](http://thinklab.sjtu.edu.cn/project/NGM/index.html) | 2021 | - | 0.9740 | 0.9390 | 1.0000 | 0.9860    | 0.9890     | 0.9780 |
+| [NMGMv2](http://thinklab.sjtu.edu.cn/project/NGM/index.html) | 2021 | - | 0.9760 | 0.9447 | 1.0000 | 1.0000    | 0.9902     | 0.9822 |
 
 _ThinkMatch_ includes the flowing datasets with the provided benchmarks:
 
 * **PascalVOC-Keypoint**
 * **Willow-Object-Class**
 * **CUB2011**
+* **IMC-PT-SparseGM**
 
 **TODO** We also plan to include the following datasets in the future:
 * **SPair-21k**
 * **Synthetic data**
 
 _ThinkMatch_ also supports the following graph matching settings:
-* **2GM** namely two-graph matching where every time only a pair of two graphs is matched.
-* **MGM** namely multi-graph matching where more than two graphs are jointly matched.
-* **MGMC** namely multi-graph matching and clustering, where multiple graphs are jointly considered, and at the same time the graphs may come from different categories.
+* **2GM** namely **Two**-**G**raph **M**atching where every time only a pair of two graphs is matched.
+* **MGM** namely **M**ulti-**G**raph **M**atching where more than two graphs are jointly matched.
+* **MGM3** namely **M**ulti-**G**raph **M**atching with a **M**ixture of **M**odes, where multiple graphs are jointly considered, and at the same time the graphs may come from different categories.
 
 ## Get Started
 

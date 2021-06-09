@@ -4,11 +4,11 @@ from datetime import datetime
 from pathlib import Path
 import xlwt
 
-from src.lap_solvers.hungarian import hungarian
 from src.dataset.data_loader import QAPDataset, get_dataloader
 from src.evaluation_metric import objective_score
 from src.parallel import DataParallel
 from src.utils.model_sl import load_model
+from src.utils.data_to_cuda import data_to_cuda
 
 from src.utils.config import cfg
 
@@ -30,9 +30,6 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
     ds = dataloader.dataset
     classes = ds.classes
     cls_cache = ds.cls
-
-    #lap_solver = BiStochastic(max_iter=20)
-    lap_solver = hungarian
 
     pcks = torch.zeros(len(classes), len(alphas), device=device)
     accs = torch.zeros(len(classes), device=device)
@@ -62,23 +59,16 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
         rel_sum = torch.zeros(1, device=device)
         rel_num = torch.zeros(1, device=device)
         for inputs in dataloader:
-            if cfg.QAPLIB.FEED_TYPE == 'affmat' and 'affmat' in inputs:
-                data1 = inputs['affmat'].cuda()
-                data2 = None
-                inp_type = 'affmat'
-            elif cfg.QAPLIB.FEED_TYPE == 'adj':
-                data1 = inputs['Fi'].cuda()
-                data2 = inputs['Fj'].cuda()
-                inp_type = 'adj'
-            else:
-                raise ValueError('no valid data key found from dataloader!')
-            ori_affmtx = inputs['affmat'].cuda()
-            solution = inputs['solution'].cuda()
-            name = inputs['name']
-            n1_gt, n2_gt = [_.cuda() for _ in inputs['ns']]
-            perm_mat = inputs['gt_perm_mat'].cuda()
+            if model.module.device != torch.device('cpu'):
+                inputs = data_to_cuda(inputs)
 
-            batch_num = data1.size(0)
+            ori_affmtx = inputs['aff_mat']
+            solution = inputs['solution']
+            name = inputs['name']
+            n1_gt, n2_gt = inputs['ns']
+            perm_mat = inputs['gt_perm_mat']
+
+            batch_num = perm_mat.size(0)
 
             iter_num = iter_num + 1
 
@@ -90,32 +80,12 @@ def eval_model(model, alphas, dataloader, eval_epoch=None, verbose=False):
 
             with torch.set_grad_enabled(False):
                 _ = None
-                pred = \
-                    model(data1, data2, _, _, _, _, _, _, n1_gt, n2_gt, _, _, inp_type, name=name)
-                if len(pred) == 2:
-                    s_pred, d_pred = pred
-                else:
-                    s_pred, d_pred, affmtx = pred
-
-            repeat_num = s_pred.shape[0] // batch_num
-            repeat = lambda x: torch.repeat_interleave(x, repeat_num, dim=0)
-            #repeat = lambda x : x
-
-            if type(s_pred) is list:
-                s_pred = s_pred[-1]
-            s_pred_perm = lap_solver(s_pred, repeat(n1_gt), repeat(n2_gt))
+                pred = model(inputs)
+                x_pred, affmtx = pred['perm_mat'], pred['aff_mat']
 
             fwd_time = time.time() - fwd_since
 
-            #_, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_perm, repeat(perm_mat), repeat(n1_gt))
-            #acc_match_num += _acc_match_num
-            #acc_total_num += _acc_total_num
-
-            #obj_score = objective_score(s_pred_perm, repeat(ori_affmtx), repeat(n1_gt))
-            #obj_score = obj_score.view(obj_score.shape[0] // repeat_num, repeat_num).min(dim=-1).values
-            obj_score = objective_score(s_pred_perm[0::repeat_num], ori_affmtx, n1_gt)
-            for ri in range(1, repeat_num):
-                obj_score = torch.stack((obj_score, objective_score(s_pred_perm[ri::repeat_num], ori_affmtx, n1_gt))).min(dim=0).values
+            obj_score = objective_score(x_pred, ori_affmtx, n1_gt)
             opt_obj_score = objective_score(perm_mat, ori_affmtx, n1_gt)
             ori_obj_score = solution
 
