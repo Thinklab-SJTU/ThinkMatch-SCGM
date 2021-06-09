@@ -54,11 +54,6 @@ __C.CUB2011 = edict()
 __C.CUB2011.ROOT_PATH = 'data/CUB_200_2011'
 __C.CUB2011.CLASS_SPLIT = 'ori' # choose from 'ori' (original split), 'sup' (super class) or 'all' (all birds as one class)
 
-# Sub-Rome16k dataset
-__C.ROME16K = edict()
-__C.ROME16K.DIR = 'data/Sub-Rome16K'
-__C.ROME16K.CLASSES = ['Colosseum', 'Pantheon', 'Ceiling']
-
 # IMC_PT_SparseGM dataset
 __C.IMC_PT_SparseGM = edict()
 __C.IMC_PT_SparseGM.CLASSES = {'train': ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior',
