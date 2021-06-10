@@ -151,7 +151,7 @@ _ThinkMatch_ also supports the following graph matching settings:
     1. Download the IMC-PT-SparseGM dataset from [google drive](https://drive.google.com/file/d/1Po9pRMWXTqKK2ABPpVmkcsOq-6K_2v-B/view?usp=sharing) or [baidu drive (code: 0576)](https://pan.baidu.com/s/1hlJdIFp4rkiz1Y-gztyHIw)
     1. Unzip the dataset and make sure it looks like ``data/IMC_PT_SparseGM/annotation``
     
-    Please cite the following papers if you sue IMC-PT-SparseGM dataset:
+    Please cite the following papers if you use IMC-PT-SparseGM dataset:
     ```
     @article{JinIJCV21,
       title={Image Matching across Wide Baselines: From Paper to Practice},
