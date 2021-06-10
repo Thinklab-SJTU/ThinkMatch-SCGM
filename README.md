@@ -113,7 +113,7 @@ _ThinkMatch_ also supports the following graph matching settings:
     @inproceedings{BourdevICCV09,
       title={Poselets: Body part detectors trained using 3d human pose annotations},
       author={Bourdev, L. and Malik, J.},
-      booktitle={International Conference of Computer Vision},
+      booktitle={International Conference on Computer Vision},
       pages={1365--1372},
       year={2009},
       organization={IEEE}
@@ -128,7 +128,7 @@ _ThinkMatch_ also supports the following graph matching settings:
     @inproceedings{ChoICCV13,
       author={Cho, Minsu and Alahari, Karteek and Ponce, Jean},
       title = {Learning Graphs to Match},
-      booktitle = {International Conference of Computer Vision},
+      booktitle = {International Conference on Computer Vision},
       pages={25--32},
       year={2013}
     }
