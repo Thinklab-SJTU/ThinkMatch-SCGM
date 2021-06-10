@@ -92,18 +92,82 @@ _ThinkMatch_ also supports the following graph matching settings:
 1. Install and configure Pytorch 1.6 (with GPU support). This repository is developed and tested with Python3.7, Pytorch1.6, cuda10.1 and cudnn7. 
 1. Install ninja-build: ``apt-get install ninja-build``
 1. Install python packages: ``pip install tensorboardX scipy easydict pyyaml xlrd xlwt pynvml``
-1. Configure the dataset you want to use:
-    1. PascalVOC-Keypoint
-        1. Download [VOC2011 dataset](http://host.robots.ox.ac.uk/pascal/VOC/voc2011/index.html) and make sure it looks like ``data/PascalVOC/VOC2011``
-        1. Download keypoint annotation for VOC2011 from [Berkeley server](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/shape/poselets/voc2011_keypoints_Feb2012.tgz) or [google drive](https://drive.google.com/open?id=1D5o8rmnY1-DaDrgAXSygnflX5c-JyUWR) and make sure it looks like ``data/PascalVOC/annotations``
-        1. The train/test split is available in ``data/PascalVOC/voc2011_pairs.npz``
-    1. Willow-Object-Class
-        1. Download [Willow-ObjectClass dataset](http://www.di.ens.fr/willow/research/graphlearning/WILLOW-ObjectClass_dataset.zip)
-        1. Unzip the dataset and make sure it looks like ``data/WILLOW-ObjectClass``
-    1. CUB2011
-        1. Download [CUB-200-2011 dataset](http://www.vision.caltech.edu/visipedia-data/CUB-200-2011/CUB_200_2011.tgz).
-        1. Unzip the dataset and make sure it looks like ``/data/CUB_200_2011``
 
+### Available datasets
+1. PascalVOC-Keypoint
+    1. Download [VOC2011 dataset](http://host.robots.ox.ac.uk/pascal/VOC/voc2011/index.html) and make sure it looks like ``data/PascalVOC/VOC2011``
+    1. Download keypoint annotation for VOC2011 from [Berkeley server](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/shape/poselets/voc2011_keypoints_Feb2012.tgz) or [google drive](https://drive.google.com/open?id=1D5o8rmnY1-DaDrgAXSygnflX5c-JyUWR) and make sure it looks like ``data/PascalVOC/annotations``
+    1. The train/test split is available in ``data/PascalVOC/voc2011_pairs.npz``
+    
+    Please cite the following papers if you use PascalVOC-Keypoint dataset:
+    ```
+    @article{EveringhamIJCV10,
+      title={The pascal visual object classes (voc) challenge},
+      author={Everingham, Mark and Van Gool, Luc and Williams, Christopher KI and Winn, John and Zisserman, Andrew},
+      journal={International Journal of Computer Vision},
+      volume={88},
+      pages={303–338},
+      year={2010}
+    }
+    
+    @inproceedings{BourdevICCV09,
+      title={Poselets: Body part detectors trained using 3d human pose annotations},
+      author={Bourdev, L. and Malik, J.},
+      booktitle={International Conference of Computer Vision},
+      pages={1365--1372},
+      year={2009},
+      organization={IEEE}
+    }
+    ```
+1. Willow-Object-Class
+    1. Download [Willow-ObjectClass dataset](http://www.di.ens.fr/willow/research/graphlearning/WILLOW-ObjectClass_dataset.zip)
+    1. Unzip the dataset and make sure it looks like ``data/WILLOW-ObjectClass``
+       
+    Please cite the following paper if you use Willow-Object-Class dataset:
+    ```
+    @inproceedings{ChoICCV13,
+      author={Cho, Minsu and Alahari, Karteek and Ponce, Jean},
+      title = {Learning Graphs to Match},
+      booktitle = {International Conference of Computer Vision},
+      pages={25--32},
+      year={2013}
+    }
+    ```
+1. CUB2011
+    1. Download [CUB-200-2011 dataset](http://www.vision.caltech.edu/visipedia-data/CUB-200-2011/CUB_200_2011.tgz).
+    1. Unzip the dataset and make sure it looks like ``/data/CUB_200_2011``
+    
+    Please cite the following report if you use CUB2011 dataset:
+    ```
+    @techreport{CUB2011,
+	  Title = {{The Caltech-UCSD Birds-200-2011 Dataset}},
+	  Author = {Wah, C. and Branson, S. and Welinder, P. and Perona, P. and Belongie, S.},
+	  Year = {2011},
+	  Institution = {California Institute of Technology},
+	  Number = {CNS-TR-2011-001}
+    }
+    ```
+1. IMC-PT-SparseGM
+    1. Download the IMC-PT-SparseGM dataset from [google drive](https://drive.google.com/file/d/1Po9pRMWXTqKK2ABPpVmkcsOq-6K_2v-B/view?usp=sharing) or [baidu drive (code: 0576)](https://pan.baidu.com/s/1hlJdIFp4rkiz1Y-gztyHIw)
+    1. Unzip the dataset and make sure it looks like ``data/IMC_PT_SparseGM/annotation``
+    
+    Please cite the following papers if you sue IMC-PT-SparseGM dataset:
+    ```
+    @article{JinIJCV21,
+      title={Image Matching across Wide Baselines: From Paper to Practice},
+      author={Jin, Yuhe and Mishkin, Dmytro and Mishchuk, Anastasiia and Matas, Jiri and Fua, Pascal and Yi, Kwang Moo and Trulls, Eduard},
+      journal={International Journal of Computer Vision},
+      pages={517--547},
+      year={2021}
+    }
+    
+    @unpublished{WangPAMIsub21,
+      title={Robust Self-supervised Learning of Deep Graph Matching with Mixture of Modes},
+      author={Wang, Runzhong and Jiang, Shaofei and Yan, Junchi and Yang, Xiaokang},
+      note={submitted to IEEE Transactions of Pattern Analysis and Machine Intelligence},
+      year={2021}
+    }
+    ```
 ## Run the Experiment
 
 Run training and evaluation
