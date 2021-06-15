@@ -23,9 +23,10 @@ def print_helper(*args):
         print(*args)
 
 
-class GA_MGMC(nn.Module):
+class GA_GM(nn.Module):
     """
-    Graduated Assignment Multi-Graph Matching and Clustering (MGMC) solver.
+    Graduated Assignment solver for
+     Graph Matching, Multi-Graph Matching and Multi-Graph Matching with a Mixture of Modes.
 
     This operation does not support batched input, and all input tensors should not have the first batch dimension.
 
@@ -43,7 +44,7 @@ class GA_MGMC(nn.Module):
     Output: multi-matching matrix U
     """
     def __init__(self, mgm_iter=(200,), cluster_iter=10, sk_iter=20, sk_tau0=(0.5,), sk_gamma=0.5, cluster_beta=(1., 0.), converge_tol=1e-5, min_tau=(1e-2,), projector0=('sinkhorn',)):
-        super(GA_MGMC, self).__init__()
+        super(GA_GM, self).__init__()
         self.mgm_iter = mgm_iter
         self.cluster_iter = cluster_iter
         self.sk_iter = sk_iter
@@ -153,23 +154,6 @@ class GA_MGMC(nn.Module):
                 cluster_weight = torch.repeat_interleave(cluster_weight, ms.to(dtype=torch.long), dim=1)
                 V = torch.chain_matmul(A, UUt * cluster_weight, A, U) * quad_weight * 2 + torch.mm(W * cluster_weight, U)
                 V /= num_graphs
-
-                '''
-                V = torch.zeros_like(U)
-                for idx1, idx2 in product(range(num_graphs), repeat=2):
-                    start_x = m_indices[idx1 - 1] if idx1 != 0 else 0
-                    end_x = m_indices[idx1]
-                    start_y = m_indices[idx2 - 1] if idx2 != 0 else 0
-                    end_y = m_indices[idx2]
-                    A_i = A[start_x:end_x, start_x:end_x]
-                    A_j = A[start_y:end_y, start_y:end_y]
-                    W_ij = W[start_x:end_x, start_y:end_y]
-                    U_i = U[start_x:end_x, :]
-                    U_j = U[start_y:end_y, :]
-                    V_i_update = torch.mm(W_ij, U_j) + torch.chain_matmul(A_i, U_i, U_j.t(), A_j, U_j)
-                    V[start_x:end_x, :] += V_i_update * cluster_M[idx1, idx2]
-                V /= num_graphs
-                '''
 
                 U_list = []
                 if projector == 'hungarian':
