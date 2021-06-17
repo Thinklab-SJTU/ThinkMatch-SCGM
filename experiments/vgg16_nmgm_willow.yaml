@@ -73,6 +73,7 @@ NGM:
   SK_ITER_NUM: 20
   SK_EPSILON: 1.0e-10
   SK_TAU: 0.05
+  MGM_SK_TAU: 0.5
   GNN_FEAT:
     - 16
     - 16

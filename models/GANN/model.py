@@ -7,7 +7,7 @@ import numpy as np
 from src.lap_solvers.sinkhorn import Sinkhorn
 from src.feature_align import feature_align
 from models.PCA.affinity_layer import AffinityInp
-from models.GANN.ga_mgmc import GA_MGMC
+from models.GANN.graduated_assignment import GA_GM
 from src.lap_solvers.hungarian import hungarian
 from src.utils.pad_tensor import pad_tensor
 
@@ -30,7 +30,7 @@ class Net(CNN):
         self.univ_size = torch.tensor(cfg.GANN.UNIV_SIZE)
         self.quad_weight = cfg.GANN.QUAD_WEIGHT
         self.cluster_quad_weight = cfg.GANN.CLUSTER_QUAD_WEIGHT
-        self.ga_mgmc = GA_MGMC(
+        self.ga_mgmc = GA_GM(
             mgm_iter=cfg.GANN.MGM_ITER, cluster_iter=cfg.GANN.CLUSTER_ITER,
             sk_iter=cfg.GANN.SK_ITER_NUM, sk_tau0=cfg.GANN.INIT_TAU, sk_gamma=cfg.GANN.GAMMA,
             cluster_beta=cfg.GANN.BETA,
