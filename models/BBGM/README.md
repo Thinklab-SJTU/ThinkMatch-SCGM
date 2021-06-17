@@ -1,9 +1,11 @@
 # BBGM
 
 This folder contains our implementation of the following paper:
-* Michal Rolínek, Paul Swoboda, Dominik Zietlow, Anselm Paulus, Vít Musil, Georg Martius. "Deep Graph Matching via Blackbox Differentiation of Combinatorial Solvers." _ECCV 2020_. [view paper](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123730409.pdf)
+* Michal Rolínek, Paul Swoboda, Dominik Zietlow, Anselm Paulus, Vít Musil, Georg Martius. "Deep Graph Matching via Blackbox Differentiation of Combinatorial Solvers." _ECCV 2020_. 
+    [[paper]](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123730409.pdf)
 
-BBGM proposes a new feature extractor by using the global feature of VGG16 and a Spline Convolution module (officially named as SplineCNN), and such an improved backbone is found effective for image matching problems. 
+BBGM proposes a new feature extractor by using the global feature of VGG16 and a Spline Convolution module, and such an improved backbone is found effective for image matching problems. 
+NOTE: Spline convolution is officially named as [SplineCNN](https://arxiv.org/abs/1711.08920), however, since the term "CNN" is conventionally used for image feature extractors, and SplineCNN works on graphs, here we name it as "Spline Convolution" for disambiguation.
 
 The resulting quadratic assignment problem is solved by a discrete [LPMP solver](https://github.com/LPMP/LPMP), and the gradient is approximated by the [black-box combinatorial solver technique](https://arxiv.org/abs/1912.02175).
 
@@ -14,9 +16,9 @@ experiment config: ``experiments/vgg16_bbgm_voc.yaml``
 
 pretrained model: https://drive.google.com/file/d/1RxC7daviZf3kz2Nvr76DldR_oMHfNB4h/view?usp=sharing
 
-| model                                                        | year | aero   | bike   | bird   | boat   | bottle | bus    | car    | cat    | chair  | cow    | table  | dog    | horse  | mbkie  | person | plant  | sheep  | sofa   | train  | tv     | mean   |
-| ------------------------------------------------------------ | ---- | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| [BBGM](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123730409.pdf) | 2020 | 0.6187 | 0.7106 | 0.7969 | 0.7896 | 0.8740 | 0.9401 | 0.8947 | 0.8022 | 0.5676 | 0.7914 | 0.6458 | 0.7892 | 0.7615 | 0.7512 | 0.6519 | 0.9818 | 0.7729 | 0.7701 | 0.9494 | 0.9393 | 0.7899 |
+| model                  | year | aero   | bike   | bird   | boat   | bottle | bus    | car    | cat    | chair  | cow    | table  | dog    | horse  | mbkie  | person | plant  | sheep  | sofa   | train  | tv     | mean   |
+| ---------------------- | ---- | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| [BBGM](/models/BBGM)   | 2020 | 0.6187 | 0.7106 | 0.7969 | 0.7896 | 0.8740 | 0.9401 | 0.8947 | 0.8022 | 0.5676 | 0.7914 | 0.6458 | 0.7892 | 0.7615 | 0.7512 | 0.6519 | 0.9818 | 0.7729 | 0.7701 | 0.9494 | 0.9393 | 0.7899 |
 
 ### Willow Object Class - 2GM & MGM
 
@@ -24,9 +26,9 @@ experiment config: ``experiments/vgg16_bbgm_willow.yaml``
 
 pretrained model: https://drive.google.com/file/d/1bt8wBeimM0ofm3QWEVOWWKxoIVRfFwi-/view?usp=sharing
 
-| model                                                        | year | remark | Car    | Duck   | Face   | Motorbike | Winebottle | mean   |
-| ------------------------------------------------------------ | ---- | ------ | ------ | ------ | ------ | --------- | ---------- | ------ |
-| [BBGM](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123730409.pdf) | 2020 | - | 0.9680 | 0.8990 | 1.0000 | 0.9980    | 0.9940     | 0.9718 |
+| model                    | year | remark          | Car    | Duck   | Face   | Motorbike | Winebottle | mean   |
+| ------------------------ | ---- | --------------- | ------ | ------ | ------ | --------- | ---------- | ------ |
+| [BBGM](/models/BBGM)     | 2020 | -               | 0.9680 | 0.8990 | 1.0000 | 0.9980    | 0.9940     | 0.9718 |
 
 ## File Organization
 ```
