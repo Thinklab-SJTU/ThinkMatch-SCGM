@@ -54,7 +54,7 @@ class Net(CNN):
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
         self.tau = cfg.NGM.SK_TAU
         self.rescale = cfg.PROBLEM.RESCALE
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.SK_EPSILON)
+        self.sinkhorn = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.SK_EPSILON)
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
 
         self.gnn_layer = cfg.NGM.GNN_LAYER
@@ -70,7 +70,7 @@ class Net(CNN):
 
         self.classifier = nn.Linear(cfg.NGM.GNN_FEAT[-1] + (1 if cfg.NGM.SK_EMB else 0), 1)
 
-        self.bi_stochastic2 = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, epsilon=cfg.NGM.SK_EPSILON, tau=1 / 2.)
+        self.sinkhorn2 = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, epsilon=cfg.NGM.SK_EPSILON, tau=cfg.NGM.MGM_SK_TAU)
 
     def forward(self, data_dict, **kwargs):
         # extract graph feature
@@ -170,7 +170,7 @@ class Net(CNN):
 
         for idx1, idx2 in combinations(range(len(data)), 2):
             s = matching_s[:, joint_indices[idx1]:joint_indices[idx1+1], joint_indices[idx2]:joint_indices[idx2+1]]
-            s = self.bi_stochastic2(s)
+            s = self.sinkhorn2(s)
             x = torch.bmm(gt_perm_mats[idx1], gt_perm_mats[idx2].transpose(1, 2))
 
             pred_s.append(s)
@@ -227,6 +227,6 @@ class Net(CNN):
         v = self.classifier(emb)
         s = v.view(v.shape[0], U_tgt.shape[2], -1).transpose(1, 2)
 
-        ss = self.bi_stochastic(s, ns_src, ns_tgt, dummy_row=True)
+        ss = self.sinkhorn(s, ns_src, ns_tgt, dummy_row=True)
 
         return ss

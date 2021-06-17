@@ -46,10 +46,11 @@ class Net(CNN):
 
         self.rescale = cfg.PROBLEM.RESCALE
         self.tau = cfg.NGM.SK_TAU
+        self.mgm_tau = cfg.NGM.MGM_SK_TAU
         self.univ_size = cfg.NGM.UNIV_SIZE
 
         self.sinkhorn = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, tau=self.tau, epsilon=cfg.NGM.SK_EPSILON)
-        self.sinkhorn_mgm = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, epsilon=cfg.NGM.SK_EPSILON, tau=1.)
+        self.sinkhorn_mgm = Sinkhorn(max_iter=cfg.NGM.SK_ITER_NUM, epsilon=cfg.NGM.SK_EPSILON, tau=self.mgm_tau)
         self.gnn_layer = cfg.NGM.GNN_LAYER
         for i in range(self.gnn_layer):
             tau = cfg.NGM.SK_TAU

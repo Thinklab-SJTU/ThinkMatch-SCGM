@@ -1,8 +1,5 @@
 import torch
 from torch import Tensor
-from torch import nn
-from torch.nn.parameter import Parameter
-import math
 
 
 def geo_edge_feature(P: Tensor, G: Tensor, H: Tensor, norm_d=256, device=None):
