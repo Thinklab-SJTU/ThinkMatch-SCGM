@@ -17,7 +17,7 @@ NGM has the following components:
 
 We also show that such a general scheme can be extended to hyper-graph matching (by building a so-called association hypergraph) and multi-graph matching (by adding a spectral multi-matching head).
 
-The first version of **NGM/NHGM/NMGM** is developed in 2019 with VGG16 CNN in line with GMN. We further develop an improved version **NGMv2/NHGMv2/NMGMv2** in 2021 by simply modifying the VGG16 to the improved backbone developed by BBGM.
+The first version of **NGM/NHGM/NMGM** is developed in 2019 with VGG16 CNN in line with GMN. We further develop an improved version **NGM-v2/NHGM-v2/NMGM-v2** in 2021 by simply modifying the VGG16 to the improved backbone developed by BBGM.
 
 To summarize, here we include the following models:
 * the original models developed in 2019:
@@ -25,9 +25,9 @@ To summarize, here we include the following models:
   * **NHGM**: hyper-graph matching solver with VGG16
   * **NMGM**: multi-graph matching solver with VGG16
 * the improved v2 models developed in 2021:
-  * **NGMv2**: two-graph matching/Lawler's QAP solver with VGG16+SplineConv
-  * **NHGM**: hyper-graph matching solver with VGG16+SplineConv
-  * **NMGM**: multi-graph matching solver with VGG16+SplineConv
+  * **NGM-v2**: two-graph matching/Lawler's QAP solver with VGG16+SplineConv
+  * **NHGM-v2**: hyper-graph matching solver with VGG16+SplineConv
+  * **NMGM-v2**: multi-graph matching solver with VGG16+SplineConv
 
 ## Benchmark Results
 ### PascalVOC - 2GM
@@ -43,13 +43,13 @@ To summarize, here we include the following models:
 
   pretrained model: https://drive.google.com/file/d/1FuTeQOlZXrao6eELbdIt2oFQQ3ody1Il/view?usp=sharing
 
-* NGMv2
+* NGM-v2
 
   experiment config: ``experiments/vgg16_ngmv2_voc.yaml``
 
   pretrained model: https://drive.google.com/file/d/1jyb5y16OfnNDIPfuDb17wsOjz8oH6av3/view?usp=sharing
 
-* NHGMv2
+* NHGM-v2
 
   experiment config: ``experiments/vgg16_nhgmv2_voc.yaml``
 
@@ -61,8 +61,8 @@ Since NMGM does not support partial matching, we do not evaluate NMGM on Pascal 
 | ---------------------- | ---- | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
 | [NGM](/models/NGM)     | 2019 | 0.5010 | 0.6350 | 0.5790 | 0.5340 | 0.7980 | 0.7710 | 0.7360 | 0.6820 | 0.4110 | 0.6640 | 0.4080 | 0.6030 | 0.6190 | 0.6350 | 0.4560 | 0.7710 | 0.6930 | 0.6550 | 0.7920 | 0.8820 | 0.6413 |
 | [NHGM](/models/NGM)    | 2019 | 0.5240 | 0.6220 | 0.5830 | 0.5570 | 0.7870 | 0.7770 | 0.7440 | 0.7070 | 0.4200 | 0.6460 | 0.5380 | 0.6100 | 0.6190 | 0.6080 | 0.4680 | 0.7910 | 0.6680 | 0.5510 | 0.8090 | 0.8870 | 0.6458 |
-| [NGMv2](/models/NGM)   | 2021 | 0.6184 | 0.7118 | 0.7762 | 0.7875 | 0.8733 | 0.9363 | 0.8770 | 0.7977 | 0.5535 | 0.7781 | 0.8952 | 0.7880 | 0.8011 | 0.7923 | 0.6258 | 0.9771 | 0.7769 | 0.7574 | 0.9665 | 0.9323 | 0.8011 |
-| [NHGMv2](/models/NGM)  | 2021 | 0.5995 | 0.7154 | 0.7724 | 0.7902 | 0.8773 | 0.9457 | 0.8903 | 0.8181 | 0.5995 | 0.8129 | 0.8695 | 0.7811 | 0.7645 | 0.7750 | 0.6440 | 0.9872 | 0.7778 | 0.7538 | 0.9787 | 0.9280 | 0.8040 |
+| [NGM-v2](/models/NGM)   | 2021 | 0.6184 | 0.7118 | 0.7762 | 0.7875 | 0.8733 | 0.9363 | 0.8770 | 0.7977 | 0.5535 | 0.7781 | 0.8952 | 0.7880 | 0.8011 | 0.7923 | 0.6258 | 0.9771 | 0.7769 | 0.7574 | 0.9665 | 0.9323 | 0.8011 |
+| [NHGM-v2](/models/NGM)  | 2021 | 0.5995 | 0.7154 | 0.7724 | 0.7902 | 0.8773 | 0.9457 | 0.8903 | 0.8181 | 0.5995 | 0.8129 | 0.8695 | 0.7811 | 0.7645 | 0.7750 | 0.6440 | 0.9872 | 0.7778 | 0.7538 | 0.9787 | 0.9280 | 0.8040 |
 
 ### Willow Object Class - 2GM & MGM
 * NGM 
@@ -83,19 +83,19 @@ Since NMGM does not support partial matching, we do not evaluate NMGM on Pascal 
   
   pretrained model: https://drive.google.com/file/d/1dsOmB_HiKJCE9UOSMwsALPXHNYNDxZ3d/view?usp=sharing
   
-* NGMv2
+* NGM-v2
 
   experiment config: ``experiments/vgg16_ngmv2_willow.yaml``
 
   pretrained model: https://drive.google.com/file/d/1ZN8oZZOEGk1Ax_pL75jMbq1Mke9WPkR7/view?usp=sharing
   
-* NHGMv2
+* NHGM-v2
 
   experiment config: ``experiments/vgg16_nhgmv2_willow.yaml``
 
   pretrained model: https://drive.google.com/file/d/1xEEuaeHrM9SvoS2iSmhpa0wAFPOcuzvS/view?usp=sharing
 
-* NMGMv2
+* NMGM-v2
 
   experiment config: ``experiments/vgg16_nmgmv2_willow.yaml``
 
@@ -106,9 +106,9 @@ Since NMGM does not support partial matching, we do not evaluate NMGM on Pascal 
 | [NGM](/models/NGM)       | 2019 | -               | 0.8420 | 0.7760 | 0.9940 | 0.7680    | 0.8830     | 0.8530 |
 | [NHGM](/models/NGM)      | 2019 | -               | 0.8650 | 0.7220 | 0.9990 | 0.7930    | 0.8940     | 0.8550 |
 | [NMGM](/models/NGM)      | 2019 | -               | 0.7850 | 0.9210 | 1.0000 | 0.7870    | 0.9480     | 0.8880 |
-| [NGMv2](/models/NGM)     | 2021 | -               | 0.9740 | 0.9340 | 1.0000 | 0.9860    | 0.9830     | 0.9754 |
-| [NHGMv2](/models/NGM)    | 2021 | -               | 0.9740 | 0.9390 | 1.0000 | 0.9860    | 0.9890     | 0.9780 |
-| [NMGMv2](/models/NGM)    | 2021 | -               | 0.9760 | 0.9447 | 1.0000 | 1.0000    | 0.9902     | 0.9822 |
+| [NGM-v2](/models/NGM)     | 2021 | -               | 0.9740 | 0.9340 | 1.0000 | 0.9860    | 0.9830     | 0.9754 |
+| [NHGM-v2](/models/NGM)    | 2021 | -               | 0.9740 | 0.9390 | 1.0000 | 0.9860    | 0.9890     | 0.9780 |
+| [NMGM-v2](/models/NGM)    | 2021 | -               | 0.9760 | 0.9447 | 1.0000 | 1.0000    | 0.9902     | 0.9822 |
 
 ## Run QAPLIB Experiments
 
@@ -120,7 +120,7 @@ To further elevate the performance on QAPLIB, we adopt randomly sampling based o
 The quality of solutions of our method is comparative and even better compared with the classic learning-free optimization method [Sinkhorn-JA](https://epubs.siam.org/doi/abs/10.1137/18M1196480), and the inference time is significantly reduced. For more details, please visit the [project page](http://thinklab.sjtu.edu.cn/project/NGM/index.html).
 
 ### Only the NGM Model is Considered for QAPLIB
-Since NGMv2 only improves in image feature extractor which is not relevant to QAPLIB problems, we only test NGM on QAPLIB. Besides, the QAPLIB instances are equivalent to the formulation of two-graph matching problems, thus NHGM and NMGM are not considered for QAPLIB.
+Since NGM-v2 only improves in image feature extractor which is not relevant to QAPLIB problems, we only test NGM on QAPLIB. Besides, the QAPLIB instances are equivalent to the formulation of two-graph matching problems, thus the hyper-graph and multi-graph variants are not considered for QAPLIB.
 
 ### How to Run
 For experiments on QAPLIB, run

@@ -1,6 +1,4 @@
-# VGG16 model with Pascal VOC dataset
-
-MODEL_NAME: vgg16_gann-mgmc
+MODEL_NAME: vgg16_gann-mgm3
 DATASET_NAME: cub
 
 DATASET_FULL_NAME: CUB2011
@@ -22,7 +20,7 @@ GPUS:
 
 # Problem configuration
 PROBLEM:
-  TYPE: MGMC
+  TYPE: MGM3
   RESCALE:  # rescaled image size
     - 256
     - 256
@@ -71,13 +69,6 @@ EVAL:
     - 051.Horned_Grebe
     - 113.Baird_Sparrow
     - 143.Caspian_Tern
-
-# Visualization settings
-VISUAL:
-  EPOCH: 0  # epoch to be visualized
-  CLASS: none  # none for random choosing classes, else specify a class name
-  SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 1  # number of images to be visualized
 
 # model parameters
 GANN:

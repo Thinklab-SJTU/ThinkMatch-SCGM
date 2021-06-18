@@ -147,25 +147,6 @@ __C.EVAL.CLASS = 'all'
 
 
 #
-# Visualization options
-#
-
-__C.VISUAL = edict()
-
-# Load model from a specific epoch number for visualization
-__C.VISUAL.EPOCH = 0
-
-# Number of images for visualization
-__C.VISUAL.NUM_IMGS = 20
-
-# Save or plot visualized images
-__C.VISUAL.SAVE = True
-
-# Specify a exact class of image pairs to visualize
-__C.VISUAL.CLASS = 'none'
-
-
-#
 # MISC
 #
 
@@ -196,7 +177,7 @@ __C.DATASET_FULL_NAME = ''
 # Module path of module
 __C.MODULE = ''
 
-# Output path (for checkpoints, running logs and visualization results)
+# Output path (for checkpoints, running logs)
 __C.OUTPUT_PATH = ''
 
 # The step of iteration to print running statistics.
@@ -227,7 +208,7 @@ def get_output_dir(model, dataset):
     Return the directory where experimental artifacts are placed.
     :param model: model name
     :param dataset: dataset name
-    :return: output path (checkpoint and log), visual path (visualization images)
+    :return: output path (checkpoint and log)
     """
     outp_path = os.path.join('output', '{}_{}'.format(model, dataset))
     return outp_path
