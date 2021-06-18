@@ -1,6 +1,4 @@
-# VGG16 model with Pascal VOC dataset
-
-MODEL_NAME: vgg16_gann-mgmc
+MODEL_NAME: vgg16_gann-mgm3
 DATASET_NAME: willow
 
 DATASET_FULL_NAME: WillowObject
@@ -22,7 +20,7 @@ GPUS:
 
 # Problem configuration
 PROBLEM:
-  TYPE: MGMC
+  TYPE: MGM3
   RESCALE:  # rescaled image size
     - 256
     - 256
@@ -73,13 +71,6 @@ EVAL:
     - Car
     - Duck
     - Motorbike
-
-# Visualization settings
-VISUAL:
-  EPOCH: 0  # epoch to be visualized
-  CLASS: person  # none for random choosing classes, else specify a class name
-  SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 100  # number of images to be visualized
 
 # model parameters
 GANN:

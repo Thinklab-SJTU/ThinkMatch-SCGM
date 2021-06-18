@@ -1,6 +1,4 @@
-# VGG16 model with Pascal VOC dataset
-
-MODEL_NAME: ngm_em
+MODEL_NAME: nmgm
 DATASET_NAME: synthetic
 
 DATASET_FULL_NAME: MixedSyntheticDataset

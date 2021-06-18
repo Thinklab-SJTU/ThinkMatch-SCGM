@@ -1,6 +1,4 @@
-# VGG16 model with Pascal VOC dataset
-
-MODEL_NAME: vgg16_sm_ol
+MODEL_NAME: vgg16_gmn
 DATASET_NAME: cub
 
 DATASET_FULL_NAME: CUB2011
@@ -41,7 +39,7 @@ TRAIN:
   START_EPOCH: 0
   NUM_EPOCHS: 15
 
-  LOSS_FUNC: perm #offset
+  LOSS_FUNC: offset
 
   # learning rate
   LR: 2.0e-4
@@ -58,13 +56,6 @@ TRAIN:
 EVAL:
   EPOCH: 30  # epoch to be tested
   SAMPLES: 10  # number of tested pairs for each class
-
-# Visualization settings
-VISUAL:
-  EPOCH: 0  # epoch to be visualized
-  CLASS: 'none'  # none for random choosing classes, else specify a class name
-  SAVE: True  # save images as files, else plot images via matplotlib
-  NUM_IMGS: 20  # number of images to be visualized
 
 # GMN model parameters
 GMN:
