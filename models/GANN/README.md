@@ -11,7 +11,7 @@ GANN proposes a self-supervised learning framework by leveraging graph matching 
 The variants on three different graph matching settings are denoted by different suffixes:
 * **GANN-2GM**: self-supervised learning graduated assignment neural network for **two-grpah matching**
 * **GANN-MGM**: self-supervised learning graduated assignment neural network for **multi-grpah matching**
-* **GANN-MGM3**: self-supervised learning graduated assignment neural network for **multi-graph matching with a mixture of modes**
+* **GANN-MGM3**: self-supervised learning graduated assignment neural network for **multi-graph matching with a mixture of modes** (this setting is also known as multi-graph matching and clustering in the NeurIPS paper)
 
 GANN-MGM notably surpass supervised learning methods on the relatively small dataset Willow Object Class.
 
