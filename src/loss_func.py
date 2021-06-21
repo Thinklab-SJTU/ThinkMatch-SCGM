@@ -84,27 +84,19 @@ class PermutationLossHung(nn.Module):
         assert torch.all((pred_perm >= 0) * (pred_perm <= 1))
         assert torch.all((gt_perm >= 0) * (gt_perm <= 1))
 
-        lap_solver = hungarian
-
-        dis_pred = lap_solver(pred_perm, src_ns, tgt_ns)
-        # dis_pred = dis_pred.detach()
-
-        # pdb.set_trace()
+        dis_pred = hungarian(pred_perm, src_ns, tgt_ns)
         ali_perm = dis_pred + gt_perm
         ali_perm[ali_perm > 1.0] = 1.0 # Hung
         pred_perm = torch.mul(ali_perm, pred_perm)
         gt_perm = torch.mul(ali_perm, gt_perm)
-        # pdb.set_trace()
         loss = torch.tensor(0.).to(pred_perm.device)
         n_sum = torch.zeros_like(loss)
-        # pdb.set_trace()
         for b in range(batch_num):
             loss += F.binary_cross_entropy(
                 pred_perm[b, :src_ns[b], :tgt_ns[b]],
                 gt_perm[b, :src_ns[b], :tgt_ns[b]],
                 reduction='sum')
             n_sum += src_ns[b].to(n_sum.dtype).to(pred_perm.device)
-        # pdb.set_trace()
         return loss / n_sum
 
 
@@ -201,6 +193,7 @@ class InnerProductLoss(nn.Module):
             n_sum += src_ns[b].to(n_sum.dtype).to(pred_perm.device)
 
         return loss / n_sum
+
 
 class HammingLoss(torch.nn.Module):
     """
