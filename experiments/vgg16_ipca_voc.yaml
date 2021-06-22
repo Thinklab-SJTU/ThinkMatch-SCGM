@@ -49,7 +49,7 @@ TRAIN:
 
   CLASS: none
 
-# Evaluation settings and PCK metric
+# Evaluation settings
 EVAL:
   EPOCH: 10  # epoch to be tested
   SAMPLES: 1000  # number of tested pairs for each class

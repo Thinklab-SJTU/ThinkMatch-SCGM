@@ -5,7 +5,8 @@
 
 _ThinkMatch_ is developed and maintained by [ThinkLab](http://thinklab.sjtu.edu.cn) at Shanghai Jiao Tong University. 
 This repository is developed for the following purposes:
-* **Providing source code** for state-of-the-art deep graph matching methods to facilitate future research.
+* **Providing modules** for developing deep graph matching algorithms to facilitate future research.
+* **Providing implementation** of state-of-the-art deep graph matching methods.
 * **Benchmarking** existing deep graph matching algorithms under different dataset & experiment settings, for the purpose of fair comparison.
 
 ## Deep Graph Matching Algorithms
@@ -28,6 +29,8 @@ _ThinkMatch_ currently contains pytorch source code of the following deep graph 
 * [**GANN**](/models/GANN)
   * Runzhong Wang, Junchi Yan and Xiaokang Yang. "Graduated Assignment for Joint Multi-Graph Matching and Clustering with Application to Unsupervised Graph Matching Network Learning." _NeurIPS 2020_.
     [[paper]](https://papers.nips.cc/paper/2020/hash/e6384711491713d29bc63fc5eeb5ba4f-Abstract.html)
+  * Runzhong Wang, Shaofei Jiang, Junchi Yan and Xiaokang Yang. "Robust Self-supervised Learning of Deep Graph Matching with Mixture of Modes." Submitted to TPAMI. 
+    [[project page]](https://thinklab.sjtu.edu.cn/project/GANN-GM/index.html)
 * [**BBGM**](/models/BBGM)
   * Michal Rolínek, Paul Swoboda, Dominik Zietlow, Anselm Paulus, Vít Musil, Georg Martius. "Deep Graph Matching via Blackbox Differentiation of Combinatorial Solvers." _ECCV 2020_. 
     [[paper]](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123730409.pdf)
@@ -93,11 +96,54 @@ _ThinkMatch_ also supports the following graph matching settings:
     ./singularity_run.sh <gpuid> <path/to/your/yaml> [main/file (optional, defualt is train_eval.py)]
     ```
 
-### Manual configuration
+### Docker (RECOMMENDED)
 
-1. Install and configure Pytorch 1.6 (with GPU support). This repository is developed and tested with Python3.7, Pytorch1.6, cuda10.1 and cudnn7. 
+1. We maintain a prebuilt image at [dockerhub](https://hub.docker.com/r/runzhongwang/thinkmatch): ``runzhongwang/thinkmatch:torch1.6.0-cuda10.1-cudnn7-pyg1.6.3``. It can be used by docker or other container runtimes that support docker images e.g. [singularity](https://sylabs.io/singularity/).
+2. We also provide a ``Dockerfile`` to build your own image (you may need ``docker`` and ``nvidia-docker`` installed on your computer). 
+
+### Manual configuration (for Ubuntu)
+This repository is developed and tested with Ubuntu 16.04, Python 3.7, Pytorch 1.6, cuda10.1, cudnn7 and torch-geometric 1.6.3. 
+1. Install and configure Pytorch 1.6 (with GPU support). 
 1. Install ninja-build: ``apt-get install ninja-build``
-1. Install python packages: ``pip install tensorboardX scipy easydict pyyaml xlrd xlwt pynvml``
+1. Install python packages: 
+    ```bash
+    pip install tensorboardX scipy easydict pyyaml xlrd xlwt pynvml
+   ```
+1. Install building tools for LPMP: 
+    ```bash
+    apt-get install -y findutils libhdf5-serial-dev git wget libssl-dev
+
+    wget https://github.com/Kitware/CMake/releases/download/v3.19.1/cmake-3.19.1.tar.gz && tar zxvf cmake-3.19.1.tar.gz
+    cd cmake-3.19.1 && ./bootstrap && make && make install
+    ```
+1. Install and build LPMP:
+    ```bash
+   python -m pip install git+https://git@github.com/rogerwwww/lpmp.git
+   ```
+   You may need ``gcc-9`` to successfully build LPMP. Here we provide an example installing and configuring ``gcc-9``: 
+   ```bash
+   apt-get update
+   apt-get install -y software-properties-common
+   add-apt-repository ppa:ubuntu-toolchain-r/test
+
+   apt-get install -y gcc-9 g++-9
+   update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9
+   ```
+1. Install torch-geometric:
+    ```bash
+    export CUDA=cu101
+    export TORCH=1.6.0
+    /opt/conda/bin/pip install torch-scatter==2.0.5 -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
+    /opt/conda/bin/pip install torch-sparse==0.6.8 -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
+    /opt/conda/bin/pip install torch-cluster==1.5.8 -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
+    /opt/conda/bin/pip install torch-spline-conv==1.2.0 -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
+    /opt/conda/bin/pip install torch-geometric==1.6.3
+   ```
+1. If you have configured ``gcc-9`` to build LPMP, be sure to switch back to ``gcc-7`` because this code repository is based on ``gcc-7``. Here is also an example:
+    ```bash
+    update-alternatives --remove gcc /usr/bin/gcc-9
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7
+   ```
 
 ### Available datasets
 1. PascalVOC-Keypoint

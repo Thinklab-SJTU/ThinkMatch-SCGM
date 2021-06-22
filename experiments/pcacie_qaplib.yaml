@@ -43,12 +43,8 @@ TRAIN:
 QAPLIB:
   FEED_TYPE: adj
 
-# Evaluation settings and PCK metric
+# Evaluation settings
 EVAL:
-  PCK_ALPHAS:
-    - 0.05
-    - 0.10
-  PCK_L: 256.
   EPOCH: 30  # epoch to be tested
   SAMPLES: 95  # number of tested pairs for each class
 

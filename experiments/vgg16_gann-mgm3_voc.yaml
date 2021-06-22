@@ -57,7 +57,7 @@ TRAIN:
     - bottle
     - tvmonitor
 
-# Evaluation settings and PCK metric
+# Evaluation settings
 EVAL:
   EPOCH: 20  # epoch to be tested
   SAMPLES: 200  # number of tested pairs for each class

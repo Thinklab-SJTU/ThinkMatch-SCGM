@@ -44,12 +44,8 @@ QAPLIB:
   MAX_TRAIN_SIZE: 150
   MAX_TEST_SIZE: 150
 
-# Evaluation settings and PCK metric
+# Evaluation settings
 EVAL:
-  PCK_ALPHAS:
-    - 0.05
-    - 0.10
-  PCK_L: 256.
   EPOCH: 0  # epoch to be tested
   SAMPLES: 134  # number of tested pairs for each class
 

@@ -41,12 +41,8 @@ QAPLIB:
   MAX_TEST_SIZE: 90 #150 # set 90 for 2080Ti 11GB (if you do not have large memory GPU);
                          # set 150 for RTX8000 48GB (to reproduce results in our paper)
 
-# Evaluation settings and PCK metric
+# Evaluation settings
 EVAL:
-  PCK_ALPHAS:
-    - 0.05
-    - 0.10
-  PCK_L: 256.
   EPOCH: 0  # epoch to be tested
   SAMPLES: 120 #133  # set 120 if MAX_TEST_SIZE==90 (if you do not have large memory GPU);
                      # set 133 if MAX_TEST_SIZE==150 (to reproduce results in our paper)
