@@ -53,7 +53,7 @@ TRAIN:
 
   EPOCH_ITERS: 1000  # iterations per epoch
 
-# Evaluation settings and PCK metric
+# Evaluation settings
 EVAL:
   EPOCH: 20  # epoch to be tested
   SAMPLES: 100  # number of tested pairs for each class

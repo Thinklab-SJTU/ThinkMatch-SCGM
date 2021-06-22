@@ -63,7 +63,7 @@ TRAIN:
     - Duck
     - Motorbike
 
-# Evaluation settings and PCK metric
+# Evaluation settings
 EVAL:
   EPOCH: 20  # epoch to be tested
   SAMPLES: 1 # number of tested pairs for each class

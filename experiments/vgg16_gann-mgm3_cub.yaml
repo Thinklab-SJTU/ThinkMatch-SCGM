@@ -60,7 +60,7 @@ TRAIN:
     - 113.Baird_Sparrow
     - 143.Caspian_Tern
 
-# Evaluation settings and PCK metric
+# Evaluation settings
 EVAL:
   EPOCH: 5  # epoch to be tested
   SAMPLES: 50  # number of tested pairs for each class

@@ -51,10 +51,8 @@ TRAIN:
 
   CLASS: none
 
-# Evaluation settings and PCK metric
+# Evaluation settings
 EVAL:
-  PCK_ALPHAS: []
-  PCK_L: 256. # 362.03867
   EPOCH: 30  # epoch to be tested
   SAMPLES: 1000  # number of tested pairs for each class
 
