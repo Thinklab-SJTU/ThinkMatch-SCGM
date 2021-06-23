@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from src.lap_solvers.sinkhorn import Sinkhorn
 from src.feature_align import feature_align
-from src.gconv import Siamese_GconvEdge #, Siamese_GconvEdgeDPP, Siamese_GconvEdgeOri
+from src.gconv import Siamese_ChannelIndependentConv #, Siamese_GconvEdgeDPP, Siamese_GconvEdgeOri
 from models.PCA.affinity_layer import Affinity
 from src.lap_solvers.hungarian import hungarian
 
@@ -21,9 +21,9 @@ class Net(CNN):
         self.gnn_layer = cfg.CIE.GNN_LAYER # numbur of GNN layers
         for i in range(self.gnn_layer):
             if i == 0:
-                gnn_layer = Siamese_GconvEdge(cfg.CIE.FEATURE_CHANNEL * 2, cfg.CIE.GNN_FEAT, 1)
+                gnn_layer = Siamese_ChannelIndependentConv(cfg.CIE.FEATURE_CHANNEL * 2, cfg.CIE.GNN_FEAT, 1)
             else:
-                gnn_layer = Siamese_GconvEdge(cfg.CIE.GNN_FEAT, cfg.CIE.GNN_FEAT, cfg.CIE.GNN_FEAT)
+                gnn_layer = Siamese_ChannelIndependentConv(cfg.CIE.GNN_FEAT, cfg.CIE.GNN_FEAT, cfg.CIE.GNN_FEAT)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
             self.add_module('affinity_{}'.format(i), Affinity(cfg.CIE.GNN_FEAT))
             if i == self.gnn_layer - 2:  # only second last layer will have cross-graph module
