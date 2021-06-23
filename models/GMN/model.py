@@ -23,7 +23,7 @@ class Net(CNN):
             self.gm_solver = SpectralMatching(max_iter=cfg.GMN.PI_ITER_NUM, stop_thresh=cfg.GMN.PI_STOP_THRESH)
         elif cfg.GMN.GM_SOLVER == 'RRWM':
             self.gm_solver = RRWM()
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.GMN.BS_ITER_NUM, tau=1/cfg.GMN.VOTING_ALPHA, epsilon=cfg.GMN.BS_EPSILON, log_forward=False)
+        self.sinkhorn = Sinkhorn(max_iter=cfg.GMN.BS_ITER_NUM, tau=1/cfg.GMN.VOTING_ALPHA, epsilon=cfg.GMN.BS_EPSILON, log_forward=False)
         self.l2norm = nn.LocalResponseNorm(cfg.GMN.FEATURE_CHANNEL * 2, alpha=cfg.GMN.FEATURE_CHANNEL * 2, beta=0.5, k=0)
         self.rescale = cfg.PROBLEM.RESCALE
 
@@ -81,7 +81,7 @@ class Net(CNN):
         v = self.gm_solver(M, num_src=P_src.shape[1], ns_src=ns_src, ns_tgt=ns_tgt)
         s = v.view(v.shape[0], P_tgt.shape[1], -1).transpose(1, 2)
 
-        s = self.bi_stochastic(s, ns_src, ns_tgt)
+        s = self.sinkhorn(s, ns_src, ns_tgt)
 
         data_dict.update({
             'ds_mat': s,

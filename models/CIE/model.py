@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from src.lap_solvers.sinkhorn import Sinkhorn
 from src.feature_align import feature_align
-from src.gconv import Siamese_GconvEdge #, Siamese_GconvEdgeDPP, Siamese_GconvEdgeOri
+from src.gconv import Siamese_ChannelIndependentConv #, Siamese_GconvEdgeDPP, Siamese_GconvEdgeOri
 from models.PCA.affinity_layer import Affinity
 from src.lap_solvers.hungarian import hungarian
 
@@ -16,14 +16,14 @@ CNN = eval(cfg.BACKBONE)
 class Net(CNN):
     def __init__(self):
         super(Net, self).__init__()
-        self.bi_stochastic = Sinkhorn(max_iter=cfg.CIE.SK_ITER_NUM, epsilon=cfg.CIE.SK_EPSILON, tau=cfg.CIE.SK_TAU)
+        self.sinkhorn = Sinkhorn(max_iter=cfg.CIE.SK_ITER_NUM, epsilon=cfg.CIE.SK_EPSILON, tau=cfg.CIE.SK_TAU)
         self.l2norm = nn.LocalResponseNorm(cfg.CIE.FEATURE_CHANNEL * 2, alpha=cfg.CIE.FEATURE_CHANNEL * 2, beta=0.5, k=0)
         self.gnn_layer = cfg.CIE.GNN_LAYER # numbur of GNN layers
         for i in range(self.gnn_layer):
             if i == 0:
-                gnn_layer = Siamese_GconvEdge(cfg.CIE.FEATURE_CHANNEL * 2, cfg.CIE.GNN_FEAT, 1)
+                gnn_layer = Siamese_ChannelIndependentConv(cfg.CIE.FEATURE_CHANNEL * 2, cfg.CIE.GNN_FEAT, 1)
             else:
-                gnn_layer = Siamese_GconvEdge(cfg.CIE.GNN_FEAT, cfg.CIE.GNN_FEAT, cfg.CIE.GNN_FEAT)
+                gnn_layer = Siamese_ChannelIndependentConv(cfg.CIE.GNN_FEAT, cfg.CIE.GNN_FEAT, cfg.CIE.GNN_FEAT)
             self.add_module('gnn_layer_{}'.format(i), gnn_layer)
             self.add_module('affinity_{}'.format(i), Affinity(cfg.CIE.GNN_FEAT))
             if i == self.gnn_layer - 2:  # only second last layer will have cross-graph module
@@ -92,13 +92,13 @@ class Net(CNN):
         for i in range(self.gnn_layer):
             gnn_layer = getattr(self, 'gnn_layer_{}'.format(i))
 
-            # during foward process, the network structure will not change
+            # during forward process, the network structure will not change
             emb1, emb2, emb_edge1, emb_edge2 = gnn_layer([A_src, emb1, emb_edge1], [A_tgt, emb2, emb_edge2])
 
             affinity = getattr(self, 'affinity_{}'.format(i))
             s = affinity(emb1, emb2) # xAx^T
 
-            s = self.bi_stochastic(s, ns_src, ns_tgt)
+            s = self.sinkhorn(s, ns_src, ns_tgt)
             ss.append(s)
 
             if i == self.gnn_layer - 2:
