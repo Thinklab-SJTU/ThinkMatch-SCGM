@@ -29,7 +29,7 @@ _ThinkMatch_ currently contains pytorch source code of the following deep graph 
 * [**GANN**](/models/GANN)
   * Runzhong Wang, Junchi Yan and Xiaokang Yang. "Graduated Assignment for Joint Multi-Graph Matching and Clustering with Application to Unsupervised Graph Matching Network Learning." _NeurIPS 2020_.
     [[paper]](https://papers.nips.cc/paper/2020/hash/e6384711491713d29bc63fc5eeb5ba4f-Abstract.html)
-  * Runzhong Wang, Shaofei Jiang, Junchi Yan and Xiaokang Yang. "Robust Self-supervised Learning of Deep Graph Matching with Mixture of Modes." Submitted to TPAMI. 
+  * Runzhong Wang, Shaofei Jiang, Junchi Yan and Xiaokang Yang. "Robust Self-supervised Learning of Deep Graph Matching with Mixture of Modes." _Submitted to TPAMI_. 
     [[project page]](https://thinklab.sjtu.edu.cn/project/GANN-GM/index.html)
 * [**BBGM**](/models/BBGM)
   * Michal Rolínek, Paul Swoboda, Dominik Zietlow, Anselm Paulus, Vít Musil, Georg Martius. "Deep Graph Matching via Blackbox Differentiation of Combinatorial Solvers." _ECCV 2020_. 
@@ -187,16 +187,16 @@ This repository is developed and tested with Ubuntu 16.04, Python 3.7, Pytorch 1
     ```
 1. CUB2011
     1. Download [CUB-200-2011 dataset](http://www.vision.caltech.edu/visipedia-data/CUB-200-2011/CUB_200_2011.tgz).
-    1. Unzip the dataset and make sure it looks like ``/data/CUB_200_2011``
+    1. Unzip the dataset and make sure it looks like ``data/CUB_200_2011``
     
     Please cite the following report if you use CUB2011 dataset:
     ```
     @techreport{CUB2011,
-	  Title = {{The Caltech-UCSD Birds-200-2011 Dataset}},
-	  Author = {Wah, C. and Branson, S. and Welinder, P. and Perona, P. and Belongie, S.},
-	  Year = {2011},
-	  Institution = {California Institute of Technology},
-	  Number = {CNS-TR-2011-001}
+      Title = {{The Caltech-UCSD Birds-200-2011 Dataset}},
+      Author = {Wah, C. and Branson, S. and Welinder, P. and Perona, P. and Belongie, S.},
+      Year = {2011},
+      Institution = {California Institute of Technology},
+      Number = {CNS-TR-2011-001}
     }
     ```
 1. IMC-PT-SparseGM

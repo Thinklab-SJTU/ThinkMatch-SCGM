@@ -3,7 +3,7 @@
 This folder contains our implementation of the following paper:
   * Runzhong Wang, Junchi Yan and Xiaokang Yang. "Graduated Assignment for Joint Multi-Graph Matching and Clustering with Application to Unsupervised Graph Matching Network Learning." _NeurIPS 2020_.
     [[paper]](https://papers.nips.cc/paper/2020/hash/e6384711491713d29bc63fc5eeb5ba4f-Abstract.html)
-  * Runzhong Wang, Shaofei Jiang, Junchi Yan and Xiaokang Yang. "Robust Self-supervised Learning of Deep Graph Matching with Mixture of Modes." Submitted to TPAMI. 
+  * Runzhong Wang, Shaofei Jiang, Junchi Yan and Xiaokang Yang. "Robust Self-supervised Learning of Deep Graph Matching with Mixture of Modes." _Submitted to TPAMI_. 
     [[project page]](https://thinklab.sjtu.edu.cn/project/GANN-GM/index.html)
 
 GANN proposes a self-supervised learning framework by leveraging graph matching solvers to provide pseudo labels to train the neural network module in deep graph matching pipeline. We propose a general graph matching solver for various graph matching settings based on the classic Graduated Assignment (GA) algorithm.
