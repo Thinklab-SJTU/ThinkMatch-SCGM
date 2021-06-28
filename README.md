@@ -18,7 +18,7 @@ _ThinkMatch_ currently contains pytorch source code of the following deep graph 
 * [**PCA-GM & IPCA-GM**](/models/PCA)
   * Runzhong Wang, Junchi Yan and Xiaokang Yang. "Combinatorial Learning of Robust Deep Graph Matching: an Embedding based Approach." _TPAMI 2020_.
     [[paper]](https://ieeexplore.ieee.org/abstract/document/9128045/), [[project page]](https://thinklab.sjtu.edu.cn/IPCA_GM.html)
-  * Runzhong Wang, Junchi Yan and Xiaokang Yang. "Learning Combinatorial Embedding Network for Deep Graph Matching." _ICCV 2019_. 
+  * Runzhong Wang, Junchi Yan and Xiaokang Yang. "Learning Combinatorial Embedding Networks for Deep Graph Matching." _ICCV 2019_. 
     [[paper]](http://openaccess.thecvf.com/content_ICCV_2019/papers/Wang_Learning_Combinatorial_Embedding_Networks_for_Deep_Graph_Matching_ICCV_2019_paper.pdf)
 * [**NGM & NGM-v2**](/models/NGM)
   * Runzhong Wang, Junchi Yan, Xiaokang Yang. "Neural Graph Matching Network: Learning Lawler's Quadratic Assignment Problem with Extension to Hypergraph and Multiple-graph Matching." _TPAMI 2021_.
