@@ -3,6 +3,16 @@
 ## This repository is confidential for Thinklab research. DO NOT DISTRIBUTE!
 ## 本代码仓库仅用于Thinklab内部研究使用，禁止扩散！
 
+## 如何提交贡献
+我们同时维护两个仓库：ThinkMatch-dev和ThinkMatch。其中，ThinkMatch-dev是实验室内部研究使用的版本，禁止扩散；ThinkMatch是公开发布的版本。
+
+本小节介绍如何基于ThinkMatch-dev进行开发，最后如何将你的成果发布到公开版本的ThinkMatch。
+1. 从ThinkMatch-dev的``master``分支创建一个新的分支，可以用你的名字+dev命名，例如``zhangsan-dev``
+1. 将你的所有改动提交到``zhangsan-dev``
+1. 当开发告一段落（例如论文已投稿），提交一个Pull Request，将``zhangsan-dev``合并到``master``。请在``zhangsan-dev``中处理好所有的冲突。
+1. 如果准备将部分代码公开（例如论文已中稿），提交一个Pull Request，将``master``的内容合并到``release``。若有冲突无法自动合并，请新开一个临时分支处理冲突。在``release``分支中，修改、删除不打算公开的代码
+1. 将``release``分支中的所有文件复制到公开版本，commit & push
+
 _ThinkMatch_ is developed and maintained by [ThinkLab](http://thinklab.sjtu.edu.cn) at Shanghai Jiao Tong University. 
 This repository is developed for the following purposes:
 * **Providing modules** for developing deep graph matching algorithms to facilitate future research.
