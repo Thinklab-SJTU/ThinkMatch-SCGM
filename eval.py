@@ -71,7 +71,7 @@ def eval_model(model, dataloader, verbose=False, xls_sheet=None):
                 assert 'perm_mat' in outputs
                 assert 'gt_perm_mat' in outputs
 
-                recall = matching_accuracy(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
+                recall = matching_recall(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
                 recall_list.append(recall)
                 precision = matching_precision(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
                 precision_list.append(precision)
@@ -92,9 +92,9 @@ def eval_model(model, dataloader, verbose=False, xls_sheet=None):
                 ns = outputs['ns']
                 for x_pred, x_gt, (idx_src, idx_tgt) in \
                         zip(outputs['perm_mat_list'], outputs['gt_perm_mat_list'], outputs['graph_indices']):
-                    recall, _, __ = matching_accuracy(x_pred, x_gt, ns[idx_src])
+                    recall = matching_recall(x_pred, x_gt, ns[idx_src])
                     recall_list.append(recall)
-                    precision, _, __ = matching_precision(x_pred, x_gt, ns[idx_src])
+                    precision = matching_precision(x_pred, x_gt, ns[idx_src])
                     precision_list.append(precision)
                     f1 = 2 * (precision * recall) / (precision + recall)
                     f1[torch.isnan(f1)] = 0
