@@ -80,8 +80,8 @@ def eval_model(model, dataloader, verbose=False, xls_sheet=None):
                 f1_list.append(f1)
 
                 if 'aff_mat' in outputs:
-                    pred_obj_score = objective_score(outputs['perm_mat'], outputs['aff_mat'], outputs['ns'][0])
-                    gt_obj_score = objective_score(outputs['gt_perm_mat'], outputs['aff_mat'], outputs['ns'][0])
+                    pred_obj_score = objective_score(outputs['perm_mat'], outputs['aff_mat'])
+                    gt_obj_score = objective_score(outputs['gt_perm_mat'], outputs['aff_mat'])
                     objs[i] += torch.sum(pred_obj_score / gt_obj_score)
                     obj_total_num += batch_num
             elif cfg.PROBLEM.TYPE in ['MGM', 'MGMC']:

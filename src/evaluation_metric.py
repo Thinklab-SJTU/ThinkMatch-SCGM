@@ -124,7 +124,7 @@ def format_metric(ms):
     return '{:.4f}+-{:.4f}'.format(torch.mean(ms), torch.std(ms))
 
 
-def objective_score(pmat_pred, affmtx, ns=None):
+def objective_score(pmat_pred: Tensor, affmtx: Tensor):
     """
     Objective score given predicted permutation matrix and affinity matrix from the problem.
     :param pmat_pred: predicted permutation matrix
