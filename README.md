@@ -27,15 +27,15 @@ Graph Matching (GM) is a fundamental yet challenging problem in computer vision,
 Graph matching techniques have been applied to the following applications:
 * [Bridging movie and synopses](https://openaccess.thecvf.com/content_ICCV_2019/papers/Xiong_A_Graph-Based_Framework_to_Bridge_Movies_and_Synopses_ICCV_2019_paper.pdf)
   
-  <img src="images/movie_synopses.png" alt="Bridging movie and synopses, ICCV 2019" width="50%">
+  <img src="docs/images/movie_synopses.png" alt="Bridging movie and synopses, ICCV 2019" width="50%">
 
 * [Image correspondence](https://arxiv.org/pdf/1911.11763.pdf)
   
-  <img src="images/superglue.png" alt="Superglue, CVPR 2020" width="50%">
+  <img src="docs/images/superglue.png" alt="Superglue, CVPR 2020" width="50%">
 
 * [Molecules matching](https://openaccess.thecvf.com/content/CVPR2021/papers/Wang_Combinatorial_Learning_of_Graph_Edit_Distance_via_Dynamic_Embedding_CVPR_2021_paper.pdf)
 
-  <img src="images/molecules.png" alt="Molecules matching, CVPR 2021" width="50%">
+  <img src="docs/images/molecules.png" alt="Molecules matching, CVPR 2021" width="50%">
 
 * and more...
 
