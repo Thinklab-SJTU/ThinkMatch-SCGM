@@ -34,8 +34,6 @@ def train_eval_model(model,
     device = next(model.parameters()).device
     print('model on device: {}'.format(device))
 
-    alphas = torch.tensor(cfg.EVAL.PCK_ALPHAS, dtype=torch.float32, device=device)  # for evaluation
-
     checkpoint_path = Path(cfg.OUTPUT_PATH) / 'params'
     if not checkpoint_path.exists():
         checkpoint_path.mkdir(parents=True)
@@ -192,7 +190,7 @@ def train_eval_model(model,
         print()
 
         # Eval in each epoch
-        accs = eval_model(model, alphas, dataloader['test'], xls_sheet=xls_wb.add_sheet('epoch{}'.format(epoch + 1)))
+        accs = eval_model(model, dataloader['test'], xls_sheet=xls_wb.add_sheet('epoch{}'.format(epoch + 1)))
         acc_dict = {"{}".format(cls): single_acc for cls, single_acc in zip(dataloader['test'].dataset.classes, accs)}
         acc_dict['average'] = torch.mean(accs)
         tfboard_writer.add_scalars(
