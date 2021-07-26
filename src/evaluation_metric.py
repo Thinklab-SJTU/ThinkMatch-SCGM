@@ -185,7 +185,6 @@ def objective_score(pmat_pred: Tensor, affmtx: Tensor) -> Tensor:
 
     :param pmat_pred: predicted permutation matrix :math:`(\mathbf{X})`
     :param affmtx: affinity matrix of the quadratic assignment problem :math:`(\mathbf{K})`
-    :param ns: number of exact pairs (no use here)
     :return: objective scores
 
     .. note::
