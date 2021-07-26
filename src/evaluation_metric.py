@@ -179,9 +179,9 @@ def objective_score(pmat_pred: Tensor, affmtx: Tensor) -> Tensor:
     Objective score given predicted permutation matrix and affinity matrix from the problem.
 
     .. math::
-        \text{objective score} = vec(\mathbf{X})^\top \mathbf{K} vec(\mathbf{X})
+        \text{objective score} = \mathrm{vec}(\mathbf{X})^\top \mathbf{K} \mathrm{vec}(\mathbf{X})
 
-    where :math:`vec(\cdot)` means column-wise vectorization.
+    where :math:`\mathrm{vec}(\cdot)` means column-wise vectorization.
 
     :param pmat_pred: predicted permutation matrix :math:`(\mathbf{X})`
     :param affmtx: affinity matrix of the quadratic assignment problem :math:`(\mathbf{K})`
