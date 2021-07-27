@@ -100,6 +100,8 @@ class RebuildFGM(Function):
     r"""
     Rebuild sparse affinity matrix in the formula of the paper `"Factorized Graph Matching, in
     TPAMI 2015" <http://www.f-zhou.com/gm/2015_PAMI_FGM_Draft.pdf>`_
+
+    See :func:`~src.factorize_graph_matching.construct_aff_mat` for detailed reference.
     """
     @staticmethod
     def forward(ctx, Ke: Tensor, Kp: Tensor, Kro1: CSRMatrix3d, Kro2: CSCMatrix3d,
