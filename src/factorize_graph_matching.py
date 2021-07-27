@@ -125,6 +125,10 @@ class RebuildFGM(Function):
 
     @staticmethod
     def backward(ctx, dK):
+        r"""
+        Backward function from the affinity matrix :math:`\mathbf K` to node-wise affinity matrix :math:`\mathbf K_e`
+        and edge-wize affinity matrix :math:`\mathbf K_e`.
+        """
         device = dK.device
         Ke, Kp = ctx.saved_tensors
         Kro1t, Kro2t = ctx.K
