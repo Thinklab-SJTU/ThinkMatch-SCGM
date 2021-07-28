@@ -17,15 +17,15 @@ def initialize(X: Tensor, num_clusters: int, method: str='plus') -> np.array:
         <https://en.wikipedia.org/wiki/K-means%2B%2B>`_ by setting ``method='plus'``.
     """
     if method == 'plus':
-        init_func = initialize_plus
+        init_func = _initialize_plus
     elif method == 'random':
-        init_func = initialize_random
+        init_func = _initialize_random
     else:
         raise NotImplementedError
     return init_func(X, num_clusters)
 
 
-def initialize_random(X, num_clusters):
+def _initialize_random(X, num_clusters):
     """
     Initialize cluster centers randomly. See :func:`src.spectral_clustering.initialize` for details.
     """
@@ -34,7 +34,7 @@ def initialize_random(X, num_clusters):
     initial_state = X[indices]
     return initial_state
 
-def initialize_plus(X, num_clusters):
+def _initialize_plus(X, num_clusters):
     """
     Initialize cluster centers by k-means++. See :func:`src.spectral_clustering.initialize` for details.
     """
@@ -45,7 +45,7 @@ def initialize_plus(X, num_clusters):
             choice_prob = np.full(num_samples, 1 / num_samples)
         else:
             centroid_X = X[centroid_index[:i]]
-            dis = pairwise_distance(X, centroid_X)
+            dis = _pairwise_distance(X, centroid_X)
             dis_to_nearest_centroid = torch.min(dis, dim=1).values
             choice_prob = dis_to_nearest_centroid / torch.sum(dis_to_nearest_centroid)
             choice_prob = choice_prob.detach().cpu().numpy()
@@ -75,9 +75,9 @@ def kmeans(
     :return: cluster ids, cluster centers
     """
     if distance == 'euclidean':
-        pairwise_distance_function = pairwise_distance
+        pairwise_distance_function = _pairwise_distance
     elif distance == 'cosine':
-        pairwise_distance_function = pairwise_cosine
+        pairwise_distance_function = _pairwise_cosine
     else:
         raise NotImplementedError
 
@@ -141,9 +141,9 @@ def kmeans_predict(
     :return: cluster ids
     """
     if distance == 'euclidean':
-        pairwise_distance_function = pairwise_distance
+        pairwise_distance_function = _pairwise_distance
     elif distance == 'cosine':
-        pairwise_distance_function = pairwise_cosine
+        pairwise_distance_function = _pairwise_cosine
     else:
         raise NotImplementedError
 
@@ -159,7 +159,7 @@ def kmeans_predict(
     return choice_cluster.cpu()
 
 
-def pairwise_distance(data1, data2, device=torch.device('cpu')):
+def _pairwise_distance(data1, data2, device=torch.device('cpu')):
     """Compute pairwise Euclidean distance"""
     # transfer to device
     data1, data2 = data1.to(device), data2.to(device)
@@ -176,7 +176,7 @@ def pairwise_distance(data1, data2, device=torch.device('cpu')):
     return dis
 
 
-def pairwise_cosine(data1, data2, device=torch.device('cpu')):
+def _pairwise_cosine(data1, data2, device=torch.device('cpu')):
     """Compute pairwise cosine distance"""
     # transfer to device
     data1, data2 = data1.to(device), data2.to(device)
