@@ -1,18 +1,9 @@
-import torch
-import torch.nn as nn
-
-from src.lap_solvers.sinkhorn import Sinkhorn, GumbelSinkhorn
-from models.GMN.displacement_layer import Displacement
 from src.build_graphs import reshape_edge_feature
 from src.feature_align import feature_align
 from src.factorize_graph_matching import construct_aff_mat
-from models.NGM.gnn import GNNLayer
 from models.NGM.geo_edge_feature import geo_edge_feature
 from models.GMN.affinity_layer import InnerpAffinity, GaussianAffinity
-from src.evaluation_metric import objective_score
-from src.lap_solvers.hungarian import hungarian
 from src.qap_solvers.gurobi_qap import gurobi_qap
-import math
 
 from src.utils.config import cfg
 
@@ -29,7 +20,6 @@ class Net(CNN):
             self.affinity_layer = GaussianAffinity(1, cfg.NGM.GAUSSIAN_SIGMA)
         else:
             raise ValueError('Unknown edge feature type {}'.format(cfg.NGM.EDGE_FEATURE))
-        self.displacement_layer = Displacement()
         self.l2norm = nn.LocalResponseNorm(cfg.NGM.FEATURE_CHANNEL * 2, alpha=cfg.NGM.FEATURE_CHANNEL * 2, beta=0.5, k=0)
 
     def forward(self, src, tgt, P_src, P_tgt, G_src, G_tgt, H_src, H_tgt, ns_src, ns_tgt, K_G, K_H, type='img', name=''):
