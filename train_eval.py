@@ -6,7 +6,7 @@ from pathlib import Path
 from tensorboardX import SummaryWriter
 
 from src.dataset.data_loader import GMDataset, get_dataloader
-from models.GMN.displacement_layer import Displacement
+from src.displacement_layer import Displacement
 from src.loss_func import *
 from src.evaluation_metric import matching_recall
 from src.parallel import DataParallel
@@ -241,13 +241,13 @@ if __name__ == '__main__':
     model = model.to(device)
 
     if cfg.TRAIN.LOSS_FUNC.lower() == 'offset':
-        criterion = RobustLoss(norm=cfg.TRAIN.RLOSS_NORM)
+        criterion = OffsetLoss(norm=cfg.TRAIN.RLOSS_NORM)
     elif cfg.TRAIN.LOSS_FUNC.lower() == 'perm':
         criterion = PermutationLoss()
     elif cfg.TRAIN.LOSS_FUNC.lower() == 'ce':
         criterion = CrossEntropyLoss()
     elif cfg.TRAIN.LOSS_FUNC.lower() == 'focal':
-        criterion = FocalLoss(alpha=.5, gamma=0.)
+        criterion = FocalLoss(gamma=0.)
     elif cfg.TRAIN.LOSS_FUNC.lower() == 'hung':
         criterion = PermutationLossHung()
     elif cfg.TRAIN.LOSS_FUNC.lower() == 'hamming':
