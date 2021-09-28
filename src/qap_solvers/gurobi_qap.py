@@ -52,22 +52,22 @@ def gurobi_qap_solver(K, n1, n2, max=True, time_limit=None, Y=None, log_file='')
         x = m.addMVar(n1 * n2, vtype=GRB.BINARY, name='x')
         m.setObjective(x @ K @ x, GRB.MAXIMIZE if max else GRB.MINIMIZE)
 
-        row_starts = (np.arange(n1) * n2).tolist()
-        cols = list(range(n2))
+        col_starts = (np.arange(n2) * n1).tolist()
+        rows = list(range(n1))
 
         c1_x = np.zeros(n1 * n2, dtype=int)
         c1_y = np.zeros(n1 * n2, dtype=int)
         c2_x = np.zeros(n1 * n2, dtype=int)
         c2_y = np.zeros(n1 * n2, dtype=int)
-        for idx, (i, j) in enumerate(product(row_starts, cols)):
+        for idx, (i, j) in enumerate(product(col_starts, rows)):
             c1_x[idx] = j
             c1_y[idx] = i + j
-            c2_x[idx] = i // n2
+            c2_x[idx] = i // n1
             c2_y[idx] = i + j
         c1 = coo_matrix((np.ones(n1 * n2, dtype=int), (c1_x, c1_y)))
         c2 = coo_matrix((np.ones(n1 * n2, dtype=int), (c2_x, c2_y)))
-        m.addConstr(c1 @ x <= 1, 'c1')
-        m.addConstr(c2 @ x == 1, 'c2')
+        m.addConstr(c1 @ x == 1, 'c1')
+        m.addConstr(c2 @ x <= 1, 'c2')
         if Y is not None:
             for y, v in zip(Y, m.getVars()):
                 v.start = y
@@ -97,9 +97,10 @@ if __name__ == '__main__':
         return tt
 
     n1 = 10
-    n2 = 10
+    n2 = 15
 
     A1 = (torch.randn(n1, n1))
+    #A1 = torch.randint(0, 2, (n1, n1), dtype=torch.float)
     randperm = torch.randperm(n1)
     gt = torch.zeros(n1, n2)
     gt[randperm, torch.arange(n1)] = 1
