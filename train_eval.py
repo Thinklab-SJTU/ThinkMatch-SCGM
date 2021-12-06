@@ -50,11 +50,10 @@ def train_eval_model(model,
     if len(optim_path) > 0:
         print('Loading optimizer state from {}'.format(optim_path))
         optimizer.load_state_dict(torch.load(optim_path))
-
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
                                                milestones=cfg.TRAIN.LR_STEP,
                                                gamma=cfg.TRAIN.LR_DECAY,
-                                               last_epoch=cfg.TRAIN.START_EPOCH - 1)
+                                               last_epoch=-1)
 
     for epoch in range(start_epoch, num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
@@ -65,6 +64,7 @@ def train_eval_model(model,
         print('lr = ' + ', '.join(['{:.2e}'.format(x['lr']) for x in optimizer.param_groups]))
 
         epoch_loss = 0.0
+        epoch_loss_cl = 0.0
         running_loss = 0.0
         running_since = time.time()
         iter_num = 0
@@ -94,16 +94,36 @@ def train_eval_model(model,
                         d_pred, _ = displacement(outputs['ds_mat'], *outputs['Ps'], outputs['ns'][0])
                         loss = criterion(d_pred, d_gt, grad_mask)
                     elif cfg.TRAIN.LOSS_FUNC in ['perm', 'ce', 'hung']:
-                        loss = criterion(outputs['ds_mat'], outputs['gt_perm_mat'], *outputs['ns'])
+                        if cfg.PROBLEM.SSL and not cfg.SSL.MIX_DETACH:
+                            loss_old = criterion(outputs['ds_mat'], outputs['gt_perm_mat_old'], *outputs['ns'])
+                            loss_new = criterion(outputs['ds_mat'], outputs['gt_perm_mat_new'], *outputs['ns'])
+                            loss = loss_old * (1 - cfg.SSL.MIX_RATE) + loss_new * cfg.SSL.MIX_RATE
+                        else:
+                            loss = criterion(outputs['ds_mat'], outputs['gt_perm_mat'], *outputs['ns'])
                     elif cfg.TRAIN.LOSS_FUNC == 'hamming':
-                        loss = criterion(outputs['perm_mat'], outputs['gt_perm_mat'])
+                        if cfg.PROBLEM.SSL and not cfg.SSL.MIX_DETACH:
+                            loss_old = criterion(outputs['perm_mat'], outputs['gt_perm_mat_old'])
+                            loss_new = criterion(outputs['perm_mat'], outputs['gt_perm_mat_new'])
+                            loss = loss_old * (1 - cfg.SSL.MIX_RATE) + loss_new * cfg.SSL.MIX_RATE
+                        else:
+                            loss = criterion(outputs['perm_mat'], outputs['gt_perm_mat'])
                     elif cfg.TRAIN.LOSS_FUNC == 'plain':
                         loss = torch.sum(outputs['loss'])
                     else:
-                        raise ValueError('Unsupported loss function {} for problem type {}'.format(cfg.TRAIN.LOSS_FUNC, cfg.PROBLEM.TYPE))
+                        raise ValueError('Unsupported loss function {} for problem type {}'.format(cfg.TRAIN.LOSS_FUNC,
+                                                                                                   cfg.PROBLEM.TYPE))
+
+                    if cfg.PROBLEM.SSL and cfg.SSL.C_LOSS:
+                        loss += outputs['c_loss'] * cfg.SSL.C_LOSS_RATE
+                        loss_cl = outputs['c_loss'] * cfg.SSL.C_LOSS_RATE
 
                     # compute accuracy
-                    acc = matching_recall(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
+
+                    if cfg.PROBLEM.SSL and not cfg.SSL.MIX_DETACH:
+                        gt_mat = outputs['gt_perm_mat_old']
+                    else:
+                        gt_mat = outputs['gt_perm_mat']
+                    acc = matching_recall(outputs['perm_mat'], gt_mat, outputs['ns'][0])
 
                 elif cfg.PROBLEM.TYPE in ['MGM', 'MGMC']:
                     assert 'ds_mat_list' in outputs
@@ -161,6 +181,7 @@ def train_eval_model(model,
                 # statistics
                 running_loss += loss.item() * batch_num
                 epoch_loss += loss.item() * batch_num
+                epoch_loss_cl += loss_cl.item() * batch_num if cfg.PROBLEM.SSL and cfg.SSL.C_LOSS else 0
 
                 if iter_num % cfg.STATISTIC_STEP == 0:
                     running_speed = cfg.STATISTIC_STEP * batch_num / (time.time() - running_since)
@@ -181,12 +202,13 @@ def train_eval_model(model,
                     running_loss = 0.0
                     running_since = time.time()
 
-        epoch_loss = epoch_loss / dataset_size
+        epoch_loss = epoch_loss / (dataset_size + 1e-5)
+        epoch_loss_cl = epoch_loss_cl / (dataset_size + 1e-5)
 
         save_model(model, str(checkpoint_path / 'params_{:04}.pt'.format(epoch + 1)))
         torch.save(optimizer.state_dict(), str(checkpoint_path / 'optim_{:04}.pt'.format(epoch + 1)))
 
-        print('Epoch {:<4} Loss: {:.4f}'.format(epoch, epoch_loss))
+        print('Epoch {:<4} Loss_1: {:.4f} Loss_2: {:.4f}'.format(epoch, epoch_loss - epoch_loss_cl, epoch_loss_cl))
         print()
 
         # Eval in each epoch
@@ -224,16 +246,21 @@ if __name__ == '__main__':
     torch.manual_seed(cfg.RANDOM_SEED)
 
     dataset_len = {'train': cfg.TRAIN.EPOCH_ITERS * cfg.BATCH_SIZE, 'test': cfg.EVAL.SAMPLES}
+    print(dataset_len)
+    rate_1 = args.rate
+    rate_2 = 1.0
     image_dataset = {
         x: GMDataset(cfg.DATASET_FULL_NAME,
                      sets=x,
+                     rate_1=rate_1,
+                     rate_2=rate_2,
                      problem=cfg.PROBLEM.TYPE,
                      length=dataset_len[x],
                      cls=cfg.TRAIN.CLASS if x == 'train' else cfg.EVAL.CLASS,
                      obj_resize=cfg.PROBLEM.RESCALE)
         for x in ('train', 'test')}
     dataloader = {x: get_dataloader(image_dataset[x], fix_seed=(x == 'test'))
-        for x in ('train', 'test')}
+                  for x in ('train', 'test')}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -286,12 +313,13 @@ if __name__ == '__main__':
     if not Path(cfg.OUTPUT_PATH).exists():
         Path(cfg.OUTPUT_PATH).mkdir(parents=True)
 
-    now_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    now_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')[:-3]
     tfboardwriter = SummaryWriter(logdir=str(Path(cfg.OUTPUT_PATH) / 'tensorboard' / 'training_{}'.format(now_time)))
     wb = xlwt.Workbook()
     wb.__save_path = str(Path(cfg.OUTPUT_PATH) / ('train_eval_result_' + now_time + '.xls'))
 
     with DupStdoutFileManager(str(Path(cfg.OUTPUT_PATH) / ('train_log_' + now_time + '.log'))) as _:
+        print('rate : ', rate_1, rate_2)
         print_easydict(cfg)
         print('Number of parameters: {:.2f}M'.format(count_parameters(model) / 1e6))
         model = train_eval_model(model, criterion, optimizer, dataloader, tfboardwriter,

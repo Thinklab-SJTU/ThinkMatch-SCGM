@@ -101,14 +101,16 @@ class Sinkhorn(nn.Module):
             transposed = False
         else:
             s = s.transpose(1, 2)
-            nrows, ncols = ncols, nrows
             transposed = True
 
         if nrows is None:
             nrows = [s.shape[1] for _ in range(batch_size)]
         if ncols is None:
             ncols = [s.shape[2] for _ in range(batch_size)]
-
+        if transposed:
+            n = nrows
+            nrows = ncols
+            ncols = n
         # operations are performed on log_s
         s = s / self.tau
 

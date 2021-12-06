@@ -11,7 +11,8 @@ from src.lap_solvers.sinkhorn import Sinkhorn
 from src.lap_solvers.hungarian import hungarian
 
 from src.utils.config import cfg
-
+from src.utils.c_loss import simclr_loss
+import copy
 from src.backbone import *
 CNN = eval(cfg.BACKBONE)
 
@@ -45,6 +46,11 @@ class Net(CNN):
             self.build_edge_features_from_node_features.num_edge_features)
 
         self.rescale = cfg.PROBLEM.RESCALE
+        self.mlp = nn.Sequential(
+            nn.Linear(1024, 1024, bias=False),
+            nn.ReLU(),
+            nn.Linear(1024, 256, bias=False)
+        )
         self.tau = cfg.NGM.SK_TAU
         self.mgm_tau = cfg.NGM.MGM_SK_TAU
         self.univ_size = cfg.NGM.UNIV_SIZE
@@ -86,7 +92,18 @@ class Net(CNN):
 
         global_list = []
         orig_graph_list = []
+
+        old_shape = data_dict['gt_perm_mat'][0].shape
+        max_shape = max(data_dict['gt_perm_mat'][0].shape)
+        perm_old = torch.zeros([len(data_dict['gt_perm_mat']), max_shape, max_shape],
+                               device=data_dict['gt_perm_mat'].device)
+        perm_old[:, 0:old_shape[0], 0:old_shape[1]] = data_dict['gt_perm_mat']
+        # perm_list = []
+        node_feature_cl = []
+        idx = 0
+        perms = []
         for image, p, n_p, graph in zip(images, points, n_points, graphs):
+            idx += 1
             # extract feature
             nodes = self.node_layers(image)
             edges = self.edge_layers(nodes)
@@ -99,11 +116,66 @@ class Net(CNN):
             U = concat_features(feature_align(nodes, p, n_p, self.rescale), n_p)
             F = concat_features(feature_align(edges, p, n_p, self.rescale), n_p)
             node_features = torch.cat((U, F), dim=1)
+
+            if cfg.PROBLEM.SSL:
+                n_p_c = n_p.cpu().detach().numpy()
+
+                if cfg.SSL.C_LOSS:
+                    node_features_format = torch.zeros([perm_old.shape[0], perm_old.shape[1], node_features.shape[1]],
+                                                       device=perm_old.device)  # B x N x D
+                    pre = 0
+                    for i in range(len(n_p_c)):
+                        node_features_format[i][0: n_p_c[i]] = node_features[pre: pre + n_p_c[i]]
+                        pre += int(n_p_c[i])
+                    node_feature_cl.append(node_features_format)
+
+                if idx == 2:
+                    pre = 0
+                    rate = cfg.SSL.MIX_RATE
+                    for i in range(len(n_p_c)):
+                        perm = torch.randperm(int(n_p_c[i]))
+                        perms.append(perm)
+                        if not cfg.SSL.MIX_DETACH:
+                            node_features[pre: pre + n_p_c[i]] = node_features[pre: pre + n_p_c[i]] * (
+                                        1 - rate) + rate * \
+                                                                 node_features[pre + perm]
+                        else:
+                            node_features[pre: pre + n_p_c[i]] = node_features[pre: pre + n_p_c[i]] * (
+                                        1 - rate) + rate * \
+                                                                 node_features[pre + perm].detach()
+
+                        pre += int(n_p_c[i])
+
+            # perm_list.append(perms)
             graph.x = node_features
 
             graph = self.message_pass_node_features(graph)
             orig_graph = self.build_edge_features_from_node_features(graph)
             orig_graph_list.append(orig_graph)
+
+        if cfg.PROBLEM.SSL and cfg.SSL.C_LOSS:
+            z1 = node_feature_cl[0]
+            z2 = node_feature_cl[1]
+            z2_ = torch.bmm(perm_old, z2)
+            z1_cross = torch.zeros(z1.shape, device=z1.device)
+            z2_cross = torch.zeros(z1.shape, device=z1.device)
+            for i in range(len(z2_)):
+                non_zeros = z2_[i].sum(axis=1).nonzero()[:, 0]
+                z2_cross[i][0: len(non_zeros)] = z2_[i][non_zeros]
+                z1_cross[i][0: len(non_zeros)] = z1[i][non_zeros]
+            c_loss = simclr_loss(torch.nn.functional.normalize(self.mlp(z1_cross), dim=-1),
+                                 torch.nn.functional.normalize(self.mlp(z2_cross), dim=-1))
+            data_dict['c_loss'] = c_loss
+
+        if cfg.PROBLEM.SSL and not cfg.SSL.MIX_DETACH:
+            perm_new = torch.zeros(perm_old.shape).to(perm_old.device)
+            for i in range(len(perm_old)):
+                perm = perms[i]
+                for j in range(len(perm)):
+                    perm_new[i][j, perm[j]] = 1
+            perm_new_ = torch.bmm(perm_old, perm_new)[:, 0: old_shape[0], 0: old_shape[1]]
+            data_dict['gt_perm_mat_old'] = copy.deepcopy(data_dict['gt_perm_mat'])
+            data_dict['gt_perm_mat_new'] = perm_new_
 
         global_weights_list = [
             torch.cat([global_src, global_tgt], axis=-1) for global_src, global_tgt in lexico_iter(global_list)
@@ -112,12 +184,17 @@ class Net(CNN):
         global_weights_list = [normalize_over_channels(g) for g in global_weights_list]
 
         unary_affs_list = [
-            self.vertex_affinity([item.x for item in g_1], [item.x for item in g_2], global_weights)
+            self.vertex_affinity([item.x for item in g_1], [item.x for item in g_2], global_weights,
+                                 use_global=cfg.SSL.USE_GLOBAL)
             for (g_1, g_2), global_weights in zip(lexico_iter(orig_graph_list), global_weights_list)
         ]
+        # unary_affs_list = unary_affs_list_[:, 0]
+        # x_ = unary_affs_list_[:, 1]
+        # y_ = unary_affs_list_[:, 2]
 
         quadratic_affs_list = [
-            self.edge_affinity([item.edge_attr for item in g_1], [item.edge_attr for item in g_2], global_weights)
+            self.edge_affinity([item.edge_attr for item in g_1], [item.edge_attr for item in g_2], global_weights,
+                               use_global=cfg.SSL.USE_GLOBAL)
             for (g_1, g_2), global_weights in zip(lexico_iter(orig_graph_list), global_weights_list)
         ]
 

@@ -4,6 +4,8 @@ import numpy as np
 import xml.etree.ElementTree as ET
 import random
 import pickle
+import copy
+from src.ssl.augmentation import augmentation
 
 from src.utils.config import cfg
 
@@ -76,7 +78,7 @@ KPT_NAMES = {
 
 
 class PascalVOC:
-    def __init__(self, sets, obj_resize):
+    def __init__(self, sets, rate_1, rate_2, obj_resize):
         """
         :param sets: 'train' or 'test'
         :param obj_resize: resized object size
@@ -97,6 +99,7 @@ class PascalVOC:
         self.ori_anno_path = Path(ori_anno_path)
         self.obj_resize = obj_resize
         self.sets = sets
+        self.rate_2 = rate_2
 
         assert sets in ('train', 'test'), 'No match found for dataset {}'.format(sets)
         cache_name = 'voc_db_' + sets + '.pkl'
@@ -106,6 +109,12 @@ class PascalVOC:
             with self.cache_file.open(mode='rb') as f:
                 self.xml_list = pickle.load(f)
             print('xml list loaded from {}'.format(self.cache_file))
+            if sets == "train":
+                for cls_id in range(len(self.classes)):
+                    num = int(len(self.xml_list[cls_id]) * rate_1)
+                    if num < 2:
+                        num = 2
+                    self.xml_list[cls_id] = self.xml_list[cls_id][0: num]
         else:
             print('Caching xml list to {}...'.format(self.cache_file))
             self.cache_path.mkdir(exist_ok=True, parents=True)
@@ -159,6 +168,79 @@ class PascalVOC:
             for x in to_del:
                 self.xml_list[cls_id].remove(x)
 
+    def get_ssl_pair(self, cls=None, shuffle=True, tgt_outlier=False, src_outlier=False):
+        """
+        Randomly get a pair of objects from VOC-Berkeley keypoints dataset
+        :param cls: None for random class, or specify for a certain set
+        :param shuffle: random shuffle the keypoints
+        :param src_outlier: allow outlier in the source graph (first graph)
+        :param tgt_outlier: allow outlier in the target graph (second graph)
+        :return: (pair of data, groundtruth permutation matrix)
+        """
+        if cls is None:
+            cls = random.randrange(0, len(self.classes))
+        elif type(cls) == str:
+            cls = self.classes.index(cls)
+        assert type(cls) == int and 0 <= cls < len(self.classes)
+
+        anno_pair = []
+        for xml_name in random.sample(self.xml_list[cls], 1):
+            anno_dict = self.__get_anno_dict(xml_name, cls)
+            if shuffle:
+                random.shuffle(anno_dict['keypoints'])
+            anno_pair.append(anno_dict)
+
+        for n in range(2 if cfg.SSL.DOUBLE else 1):
+            ps = anno_pair[0]['keypoints']
+            pset = []
+            for i in range(len(ps)):
+                pset.append((ps[i]['x'], ps[i]['y']))
+            im = anno_pair[0]['image']
+            trans, qset, coord = augmentation(im, pset, cfg.SSL.CROP_RATE_LB, cfg.SSL.CROP_RATE_UB,
+                                              cfg.SSL.SCALE_RATIO_LB, cfg.SSL.SCALE_RATIO_UB,
+                                              cfg.SSL.VERTICAL_FLIP_RATE, cfg.SSL.HORIZONTAL_FLIP_RATE,
+                                              cfg.SSL.COLOR_JITTER, cfg.SSL.COLOR_JITTER_RATE, cfg.SSL.GRAY_SCALE,
+                                              cfg.SSL.GAUSSIAN_BLUR_RATE, cfg.SSL.GAUSSIAN_BLUR_SIGMA)
+            # while all([q is None for q in qset]):
+            #     trans, qset, coord = argumentation(im, pset)
+            new_dict = copy.deepcopy(anno_pair[0])
+            new_dict['image'] = trans
+            qs = []
+            for i in range(len(qset)):
+                if qset[i] is not None:
+                    qs.append({'name': ps[i]['name'], 'x': qset[i][0], 'y': qset[i][1]})
+                elif random.random() < cfg.SSL.PADDING_RATE:
+                    qs.append({'name': 'outlier', 'x': random.random() * im.size[0], 'y': random.random() * im.size[1]})
+            while len(qs) <= 2:
+                qs.append({'name': 'outlier', 'x': random.random() * im.size[0], 'y': random.random() * im.size[1]})
+            if shuffle:
+                random.shuffle(qs)
+            new_dict['keypoints'] = qs
+            anno_pair.append(new_dict)
+        if len(anno_pair) > 2:
+            anno_pair.pop(0)
+        # anno_pair.reverse()
+        perm_mat = np.zeros([len(_['keypoints']) for _ in anno_pair], dtype=np.float32)
+        row_list = []
+        col_list = []
+        for i, keypoint in enumerate(anno_pair[0]['keypoints']):
+            for j, _keypoint in enumerate(anno_pair[1]['keypoints']):
+                if keypoint['name'] == _keypoint['name'] and keypoint['name'] != 'outlier':
+                    perm_mat[i, j] = 1
+                    row_list.append(i)
+                    col_list.append(j)
+                    break
+        row_list.sort()
+        col_list.sort()
+        if not src_outlier:
+            perm_mat = perm_mat[row_list, :]
+            anno_pair[0]['keypoints'] = [anno_pair[0]['keypoints'][i] for i in row_list]
+        if not tgt_outlier:
+            perm_mat = perm_mat[:, col_list]
+            anno_pair[1]['keypoints'] = [anno_pair[1]['keypoints'][j] for j in col_list]
+
+        return anno_pair, perm_mat
+
     def get_pair(self, cls=None, shuffle=True, tgt_outlier=False, src_outlier=False):
         """
         Randomly get a pair of objects from VOC-Berkeley keypoints dataset
@@ -168,6 +250,8 @@ class PascalVOC:
         :param tgt_outlier: allow outlier in the target graph (second graph)
         :return: (pair of data, groundtruth permutation matrix)
         """
+        if self.sets == "train" and cfg.PROBLEM.SSL:
+            return self.get_ssl_pair(cls, shuffle, tgt_outlier, src_outlier)
         if cls is None:
             cls = random.randrange(0, len(self.classes))
         elif type(cls) == str:

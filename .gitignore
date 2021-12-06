@@ -116,3 +116,4 @@ dmypy.json
 .pyre/
 
 /docs/api/_autosummary/
+/output/

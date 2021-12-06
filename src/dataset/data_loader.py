@@ -16,9 +16,9 @@ from itertools import combinations, product
 
 
 class GMDataset(Dataset):
-    def __init__(self, name, length, cls=None, problem='2GM', **args):
+    def __init__(self, name, length, rate_1, rate_2, cls=None, problem='2GM', **args):
         self.name = name
-        self.ds = eval(self.name)(**args)
+        self.ds = eval(self.name)(**args, rate_1=rate_1, rate_2=rate_2)
         self.length = length  # NOTE images pairs are sampled randomly, so there is no exact definition of dataset size
                               # length here represents the iterations between two checkpoints
         self.obj_size = self.ds.obj_resize

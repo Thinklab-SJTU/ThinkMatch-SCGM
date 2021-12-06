@@ -71,9 +71,14 @@ def eval_model(model, dataloader, verbose=False, xls_sheet=None):
                 assert 'perm_mat' in outputs
                 assert 'gt_perm_mat' in outputs
 
-                recall = matching_recall(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
+                if cfg.PROBLEM.SSL and not cfg.SSL.MIX_DETACH:
+                    gt_mat = outputs['gt_perm_mat_old']
+                else:
+                    gt_mat = outputs['gt_perm_mat']
+
+                recall = matching_recall(outputs['perm_mat'], gt_mat,  outputs['ns'][0])
                 recall_list.append(recall)
-                precision = matching_precision(outputs['perm_mat'], outputs['gt_perm_mat'], outputs['ns'][0])
+                precision = matching_precision(outputs['perm_mat'], gt_mat, outputs['ns'][0])
                 precision_list.append(precision)
                 f1 = 2 * (precision * recall) / (precision + recall)
                 f1[torch.isnan(f1)] = 0
@@ -239,9 +244,12 @@ if __name__ == '__main__':
     Net = mod.Net
 
     torch.manual_seed(cfg.RANDOM_SEED)
-
+    rate_1 = 1.0
+    rate_2 = 1.0
     image_dataset = GMDataset(cfg.DATASET_FULL_NAME,
                               sets='test',
+                              rate_1=rate_1,
+                              rate_2=rate_2,
                               problem=cfg.PROBLEM.TYPE,
                               length=cfg.EVAL.SAMPLES,
                               cls=cfg.EVAL.CLASS,
