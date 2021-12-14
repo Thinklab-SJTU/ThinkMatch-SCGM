@@ -11,6 +11,7 @@ def parse_args(description):
                         help='batch size', default=None, type=int)
     parser.add_argument('--epoch', dest='epoch',
                         help='epoch number', default=None, type=int)
+    parser.add_argument('--rate', default=1.0, type=float)
     args = parser.parse_args()
 
     # load cfg from file
