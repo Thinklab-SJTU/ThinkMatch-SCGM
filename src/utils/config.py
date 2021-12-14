@@ -47,6 +47,31 @@ __C.PROBLEM.SRC_OUTLIER = False
 # Allow outlier in target graph. Useful for 2GM
 __C.PROBLEM.TGT_OUTLIER = False
 
+# Whether to enable self-supervised training
+__C.PROBLEM.SSL = False
+
+# Parameter for self-supervised training, see src/ssl/augmentation.py for detailed meaning
+__C.SSL = edict()
+__C.SSL.DOUBLE = True
+__C.SSL.PADDING_RATE = 0.5
+__C.SSL.CROP_RATE_LB = 0.5
+__C.SSL.CROP_RATE_UB = 1.0
+__C.SSL.SCALE_RATIO_LB = 3. / 4.
+__C.SSL.SCALE_RATIO_UB = 4. / 3.
+__C.SSL.VERTICAL_FLIP_RATE = 0.05
+__C.SSL.HORIZONTAL_FLIP_RATE = 0.25
+__C.SSL.COLOR_JITTER = (0.4, 0.4, 0.4, 0.1)
+__C.SSL.COLOR_JITTER_RATE = 0.8
+__C.SSL.GRAY_SCALE = 0.2
+__C.SSL.GAUSSIAN_BLUR_RATE = 3
+__C.SSL.GAUSSIAN_BLUR_SIGMA = (0.1, 2.0)
+__C.SSL.MIX_RATE = 0.0
+__C.SSL.MIX_DETACH = False
+__C.SSL.C_LOSS = False
+__C.SSL.C_LOSS_RATE = 1.0
+__C.SSL.USE_GLOBAL = True
+
+
 # Number of graphs in a MGM/MGMC problem. Useful for MGM & MGMC
 # No effect if TEST_ALL_GRAPHS/TRAIN_ALL_GRAPHS=True
 __C.PROBLEM.NUM_GRAPHS = 3
@@ -64,6 +89,22 @@ __C.PROBLEM.TRAIN_ALL_GRAPHS = False
 #__C.PROBLEM.CANDIDATE_SHAPE = (16, 16)
 #__C.PROBLEM.CANDIDATE_LENGTH = np.cumprod(__C.PAIR.CANDIDATE_SHAPE)[-1]
 
+__C.SYNTHETIC = edict()
+
+__C.SYNTHETIC.MIXED_DATA_NUM = 10
+__C.SYNTHETIC.DIM = 2  # synthetic feature dimension
+__C.SYNTHETIC.TRAIN_NUM = 200  # number of training samples
+__C.SYNTHETIC.TEST_NUM = 100  # number of testing samples
+__C.SYNTHETIC.KPT_NUM = 10  # keypoint num
+__C.SYNTHETIC.OUT_NUM = 0
+__C.SYNTHETIC.FEAT_GT_UNIFORM = 1.  # feature vector ~ uniform(-X, X)
+__C.SYNTHETIC.FEAT_NOISE_STD = 1.5  # feature noise ~ N(0, X^2)
+__C.SYNTHETIC.POS_GT_UNIFORM = 1.  # keypoint position ~ uniform(0, X)
+__C.SYNTHETIC.POS_AFFINE_DXY = 0.  # 50.  # t_x, t_y ~ uniform(-X, X)
+__C.SYNTHETIC.POS_AFFINE_S_LOW = .8  # 0.8  # s ~ uniform(S_LOW, S_HIGH)
+__C.SYNTHETIC.POS_AFFINE_S_HIGH = 1.2  # 1.2
+__C.SYNTHETIC.POS_AFFINE_DTHETA = 0.  # 60.  # theta ~ uniform(-X, X)
+__C.SYNTHETIC.POS_NOISE_STD = 0.00  # position noise ~ N(0, X^2)
 #
 # Graph construction settings.
 #
@@ -152,6 +193,8 @@ __C.EVAL.CLASS = 'all'
 
 # name of backbone net
 __C.BACKBONE = 'VGG16_bn'
+
+__C.BACKBONE_IGNORE = False
 
 # Parallel GPU indices ([0] for single GPU)
 __C.GPUS = [0]
